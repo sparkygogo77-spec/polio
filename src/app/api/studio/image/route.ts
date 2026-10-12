@@ -435,7 +435,7 @@ interface Prediction {
  * remembered for the life of the server so the lookup happens once.
  */
 const versions = new Map<string, string>();
-async function start(replicate: Replicate, slug: `${string}/${string}`, input: Record<string, unknown>) {
+async function create(replicate: Replicate, slug: `${string}/${string}`, input: Record<string, unknown>) {
   const known = versions.get(slug);
   if (known) return replicate.predictions.create({ version: known, input });
   try {
@@ -450,6 +450,51 @@ async function start(replicate: Replicate, slug: `${string}/${string}`, input: R
   }
 }
 
+/*
+ * J (2026-10-12): "Generate in 3D" came back flat, because Replicate said
+ * "429 Too Many Requests ... reduced to 6 requests per minute with a burst of
+ * 1 requests while you have less than $5.0 in credit ... retry_after: 10".
+ * The picture had just been made, so the 3D model was the second request in
+ * the same breath, and the client's own retries do not wait at all.
+ *
+ * So, for every model: predictions are started one at a time per key (a
+ * burst of one is then never two), and a 429 is waited out for as long as
+ * Replicate says, then tried again, while the clock allows it.
+ */
+const lanes = new Map<string, Promise<unknown>>();
+const RATE_TRIES = 4;
+/** Seconds Replicate asked to wait, from the header or from its JSON. */
+function retryAfter(error: unknown): number | null {
+  const res = (error as { response?: { status?: number; headers?: { get?: (k: string) => string | null } } }).response;
+  if (res?.status !== 429) return null;
+  const header = Number(res.headers?.get?.("retry-after"));
+  if (Number.isFinite(header) && header > 0) return header;
+  const said = /"retry_after"\s*:\s*(\d+(?:\.\d+)?)/.exec(error instanceof Error ? error.message : "");
+  return said ? Number(said[1]) : 10;
+}
+async function start(replicate: Replicate, slug: `${string}/${string}`, input: Record<string, unknown>, until: number, signal?: AbortSignal) {
+  const lane = String((replicate as unknown as { auth?: string }).auth ?? "");
+  const before = lanes.get(lane) ?? Promise.resolve();
+  const mine = before.catch(() => undefined).then(async () => {
+    for (let tries = 1; ; tries++) {
+      try {
+        return await create(replicate, slug, input);
+      } catch (error) {
+        const wait = retryAfter(error);
+        // Out of tries, or not enough clock left to wait and still draw.
+        if (wait === null || tries >= RATE_TRIES || signal?.aborted || Date.now() + wait * 1000 + 15_000 > until) throw error;
+        await new Promise((ok) => setTimeout(ok, wait * 1000 + 250));
+      }
+    }
+  });
+  lanes.set(lane, mine);
+  try {
+    return await mine;
+  } finally {
+    if (lanes.get(lane) === mine) lanes.delete(lane);
+  }
+}
+
 /**
  * One prediction, run and waited on.
  *
@@ -458,7 +503,7 @@ async function start(replicate: Replicate, slug: `${string}/${string}`, input: R
  * model itself took — is on the prediction.
  */
 async function predict(replicate: Replicate, slug: `${string}/${string}`, input: Record<string, unknown>, until: number, signal?: AbortSignal): Promise<Prediction> {
-  const started = await start(replicate, slug, input);
+  const started = await start(replicate, slug, input, until, signal);
   // The wait, raced against the budget and the asker leaving. Whichever
   // ends it first also stops the polling, and a cut cancels the prediction
   // so Replicate does not draw (and bill) a picture nobody will collect.
@@ -587,7 +632,8 @@ async function refine(body: Body, token: string, until: number, signal: AbortSig
     const status = (error as { response?: { status?: number } }).response?.status;
     const message = error instanceof Error ? safe(error.message, token) : "the model failed";
     const reason = status === 401 || status === 403 ? "auth" : status === 429 ? "rate-limit" : "refine";
-    return NextResponse.json({ ok: false, stage: 2, reason, model: pick.slug, name: pick.name, making, message: noModelSays("failed", making, `${pick.name} said: ${message}.`) });
+    const busy = `Replicate is still limiting your key after waiting it out: under $5 of credit it allows about 6 runs a minute, one at a time. Try again in a minute, or add credit on Replicate`;
+    return NextResponse.json({ ok: false, stage: 2, reason, model: pick.slug, name: pick.name, making, message: noModelSays("failed", making, status === 429 ? busy : `${pick.name} said: ${message}.`) });
   }
   if (done.status !== "succeeded") {
     const said = typeof done.error === "string" ? safe(done.error, token) : String(done.status ?? "no answer");
@@ -819,7 +865,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, reason: "auth", message: "The renderer token was rejected." });
     }
     if (status === 429) {
-      return NextResponse.json({ ok: false, reason: "rate-limit", message: "The renderer is rate limited, try again in a moment." });
+      return NextResponse.json({ ok: false, reason: "rate-limit", message: "Replicate is still limiting your key after waiting it out: under $5 of credit it allows about 6 runs a minute, one at a time. Try again in a minute, or add credit on Replicate." });
     }
     return NextResponse.json({ ok: false, reason: "render", message: `The renderer could not draw it (${message}).` });
   }
