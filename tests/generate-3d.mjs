@@ -135,6 +135,18 @@ check("the picture goes to the solid model", !!solidCall && solidCall.model === 
 ns = await nodes();
 const solid = ns.find((n) => n.featureId === "mesh-3d");
 check("and lands as a Solid with the mesh on it", solid?.mesh?.glb === GLB, solid ? "mesh-3d" : ns.map((n) => n.featureId).join(", "));
+/* 4. J (2026-10-12): "make 3d seems to just put it on a sphere lol i want an actual ring".
+   With no shape picked, 3D on a picture makes a real 3D model, never a Sphere. */
+await pickThreeD("Flat");
+const before0 = sent.length;
+const had = new Set((await nodes()).map((n) => n.id));
+await panel.locator("[data-render-3d-from]").first().click({ force: true });
+await page.waitForTimeout(3200);
+const plain3d = sent.slice(before0).find((b) => Number(b.stage) === 2);
+check("3D on a picture, no shape picked, asks the solid model", plain3d?.model === "tencent/hunyuan3d-2mv", plain3d ? plain3d.model : "no call");
+const ns0 = (await nodes()).filter((n) => !had.has(n.id));
+check("…and lands a Solid, not a Sphere", ns0.some((n) => n.featureId === "mesh-3d") && !ns0.some((n) => n.featureId === "shape-sphere"), ns0.map((n) => n.featureId).join(", "));
+
 check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
 
 await page.evaluate(() => localStorage.removeItem("builder.studio"));
