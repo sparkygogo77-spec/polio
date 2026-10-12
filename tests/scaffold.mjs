@@ -15,7 +15,7 @@
  *
  * Covers: src/features/studio/scaffold.ts, src/features/studio/scaffolding/scaffold.ts, src/features/studio/scaffolding/jsx.ts, src/features/studio/scaffolding/pages.ts, src/features/studio/homePage.ts
  */
-import { componentName, htmlToJsx, scaffold, styleToObject } from "../src/features/studio/scaffold.ts";
+import { componentName, componentNames, htmlToJsx, scaffold, styleToObject } from "../src/features/studio/scaffold.ts";
 import { homeFor } from "../src/features/studio/homePage.ts";
 
 const results = [];
@@ -183,6 +183,40 @@ check("and does not claim the looks are Claude's job", !/Claude.*colou?r/i.test(
   const index = scaffold({ ...input, pages: [{ id: "h", name: "Home", path: "/index" }, { id: "o", name: "Other", path: "/other" }], parts: [] })
     .map((f) => f.path);
   check("a home on \"/index\" is the root page too", index.includes("app/page.tsx") && !index.includes("app/index/page.tsx"), index.filter((p) => p.endsWith("page.tsx")).join(" "));
+}
+
+/* 2d. Every part's component has a name no other part has.
+   A name was the label and the last four letters of the id, and a site
+   brought in has its nav on every page with one label and the same last
+   letters: on PonsStars 44 parts shared 10 names, so one file at each path
+   was written over and a page drew another page's nav, and a page placing
+   two of them imported one name twice and did not build. */
+{
+  const pages = [{ id: "pa", name: "Home", path: "/" }, { id: "pb", name: "Library", path: "/library" }];
+  const box = (id, pageId, label, y, words) => ({ id, pageId, featureId: "box", label, prompt: "", x: 0, y, w: 1440, h: 60, html: `<nav>${words}</nav>` });
+  const parts = [
+    box("web-index-html-body-nav-ion2", "pa", "nav", 0, "HOME NAV"),
+    box("web-index-html-body-aside-ion2", "pa", "nav", 80, "HOME ASIDE"),
+    box("web-library-html-body-nav-ion2", "pb", "nav", 0, "LIBRARY NAV"),
+    box("n_lone", "pa", "Hero headline", 160, "ALONE"),
+    box("--", "pb", "Frame", 80, "A PART CALLED FRAME"),
+  ];
+  const out = scaffold({ ...input, pages, parts });
+  const partFiles = out.map((f) => f.path).filter((p) => p.startsWith("components/parts/"));
+  check("no part file is written twice", new Set(partFiles).size === partFiles.length && partFiles.length === parts.length, partFiles.join(" "));
+  const names = componentNames(parts);
+  const fileOf = (id) => out.find((f) => f.path === `components/parts/${names.get(id)}.tsx`)?.content ?? "";
+  check("each part's file is its own markup", parts.every((p) => fileOf(p.id).includes(p.html.replace(/<\/?nav>/g, ""))), [...names.values()].join(" "));
+  const pageOf = (id) => out.find((f) => f.path === (id === "pa" ? "app/page.tsx" : "app/library/page.tsx"))?.content ?? "";
+  check("each page imports and places its own parts by those names", parts.every((p) => pageOf(p.pageId).includes(`import { ${names.get(p.id)} } from "@/components/parts/${names.get(p.id)}";`) && pageOf(p.pageId).includes(`<${names.get(p.id)} />`)));
+  check("a part is never named for what a page already names", names.get("--") !== "Frame" && /^Frame[0-9A-Z]{6}$/.test(names.get("--")), names.get("--"));
+  /* A name that moved when a part was added beside it would move its file, and a code chat's change to the old one with it. */
+  const alone = componentNames([parts[0], parts[3]]);
+  check("a part's name is its own, whatever other parts the site has", alone.get(parts[0].id) === names.get(parts[0].id) && alone.get("n_lone") === names.get("n_lone") && names.get("n_lone") === componentName(parts[3]), `${alone.get(parts[0].id)} ${names.get(parts[0].id)}`);
+  /* Two ids whose marks match (found by searching: a mark is six letters and digits, so some do). They still get two names. */
+  const pair = [box("n_r96j28", "pa", "nav", 0, "x"), box("n_rh0nwx", "pb", "nav", 0, "y")];
+  const both = componentNames(pair);
+  check("two parts whose marks match still get two names", componentName(pair[0]) === componentName(pair[1]) && new Set(both.values()).size === 2, [...both.values()].join(" "));
 }
 
 /* 3. Determinism: the same document, the same bytes. */

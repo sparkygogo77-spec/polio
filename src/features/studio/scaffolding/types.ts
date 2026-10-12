@@ -85,6 +85,8 @@ export interface ScaffoldPart {
   link?: { kind: "page" | "node" | "url"; target: string } | null;
   /** The solid, when it is one: written as a component that turns, the still as its fallback. */
   mesh?: { glb: string; still?: string; turn?: { x: number; y: number }; from?: string } | null;
+  /** Its component's name, unique across the site: `scaffold()` sets it (`componentNames`), and `componentName` reads it. */
+  component?: string;
 }
 
 export interface ScaffoldInput {

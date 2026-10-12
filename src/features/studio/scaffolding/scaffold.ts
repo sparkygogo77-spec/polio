@@ -25,7 +25,7 @@
  */
 import { standInFiles, standInHas } from "../standIn.ts";
 import type { ScaffoldFile, ScaffoldPart, ScaffoldInput } from "./types.ts";
-import { componentName, jsxAttr } from "./jsx.ts";
+import { componentName, componentNames, jsxAttr } from "./jsx.ts";
 import { homeFor, routeOf } from "../homePage.ts";
 import { tokensCss, layoutTsx, partTsx, pageTsx } from "./pages.ts";
 import { FRAME_TSX } from "./frameMesh.ts";
@@ -33,7 +33,10 @@ import { SHELL_TSX, buildMd } from "./shell.ts";
 import { appFiles } from "./app.ts";
 
 /** Every file the document itself decides. */
-export function scaffold(input: ScaffoldInput): ScaffoldFile[] {
+export function scaffold(given: ScaffoldInput): ScaffoldFile[] {
+  /* Each part's name, unique across the site, set on it so its file, its page's import and BUILD.md all say the same one (`componentNames`). */
+  const names = componentNames(given.parts);
+  const input: ScaffoldInput = { ...given, parts: given.parts.map((p) => ({ ...p, component: names.get(p.id) })) };
   const files: ScaffoldFile[] = [];
   /* What runs it: the packages, TypeScript, the Next config and the word to Vercel (`app.ts`). */
   files.push(...appFiles(input));
