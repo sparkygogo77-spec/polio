@@ -43,13 +43,15 @@ const predict = /async function predict\([\s\S]*?\n\}/.exec(image)?.[0] ?? "";
 check("image: keeps the one budget rule inside its maxDuration", /import \{ answerBudget \} from "\.\.\/budget"/.test(image) && /answerBudget\(process\.env, maxDuration\)/.test(image));
 check("image: the budget runs from when the request arrived", /const until = Date\.now\(\) \+ ANSWER_BUDGET_MS/.test(image));
 check("image: every prediction is waited on against the budget and the asker leaving",
-  /until: number, signal\?: AbortSignal/.test(predict) && /Promise\.race\(\[replicate\.wait\(/.test(predict) && /setTimeout\(quit, Math\.max\(0, until - Date\.now\(\)\)\)/.test(predict) && /addEventListener\("abort", quit/.test(predict),
+  /until: number, signal\?: AbortSignal/.test(predict) && /Promise\.race\(\[replicate\.wait\(/.test(predict) && /setTimeout\((job\?\.keep \? later : )?quit, Math\.max\(0, until - Date\.now\(\)\)\)/.test(predict) && /addEventListener\("abort", quit/.test(predict),
 );
-const calls = (image.match(/await predict\(/g) ?? []).length;
+/* Every prediction started or waited on: `start` too, since it carries the clock into the 429 waits. */
+const calls = (image.match(/\b(predict|start)\(replicate,/g) ?? []).length;
 const handed = (image.match(/(?<!token), until, (request\.)?signal\);/g) ?? []).length;
 check("image: …and every call site hands both in", calls >= 4 && handed === calls, `${handed} of ${calls} calls`);
 check("image: the polling stops when the wait is cut", /replicate\.wait\(started, \{ interval: 700 \}, async \(\) => cut\)/.test(predict));
-check("image: a cut cancels the prediction at Replicate, so it is not charged past it", /if \(cut\) await replicate\.predictions\.cancel\(started\.id/.test(predict));
+/* …unless the browser said `keep` (2026-10-12, tests/pictures-many.mjs): then it is left running and picked back up. */
+check("image: a cut cancels the prediction at Replicate, so it is not charged past it", /if \(cut( && !stillGoing\(error\))?\) await replicate\.predictions\.cancel\(started\.id/.test(predict));
 check("image: the timer is cleared however it ends", /finally \{\s*clearTimeout\(ran\);/.test(predict));
 check("image: both passes answer a cut with `timeout` and the seconds it took",
   (image.match(/if \(cutShort\(error\)\) \{\s*const seconds = Math\.round\(\(Date\.now\(\) - began\) \/ 1000\);\s*return NextResponse\.json\(\{ ok: false,( stage: 2,)? reason: "timeout"[^}]*seconds \}\);/g) ?? []).length === 2);

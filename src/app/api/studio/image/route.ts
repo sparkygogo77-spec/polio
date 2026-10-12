@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import Replicate from "replicate";
 import { NextResponse } from "next/server";
 import { meterFirst } from "@/features/studio/renderMeter";
@@ -109,6 +110,21 @@ const ANSWER_BUDGET_MS = answerBudget(process.env, maxDuration);
 /** What `predict` throws when the budget ran out, or the asker went away, first. */
 const PREDICT_TIMEOUT = "PredictTimeout";
 const cutShort = (error: unknown) => error instanceof Error && error.name === PREDICT_TIMEOUT;
+/*
+ * J (2026-10-12): GPT Image 1.5 and the 3D model were stopped at 55 s, the
+ * platform's minute less a margin, though Replicate would have finished. So a
+ * caller that says `keep` is never cut by the clock: when the budget runs out
+ * the predictions are left running and the answer is `pending` with their ids.
+ * The browser asks again with `resume` set to those ids, the same request
+ * picks the same predictions back up in the same order, and only the
+ * browser's own cap (a few minutes) or `cancel` stops them.
+ */
+interface Held { keep: boolean; resume: string[]; started: string[]; next: number }
+const held = new AsyncLocalStorage<Held>();
+const PREDICT_PENDING = "PredictPending";
+const stillGoing = (error: unknown) => error instanceof Error && error.name === PREDICT_PENDING;
+const PREDICTION_ID = /^[a-z0-9]{6,64}$/i;
+const ids = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && (x === "" || PREDICTION_ID.test(x))).slice(0, 16) : []);
 const slowSays = (seconds: number) =>
   `The picture model had not finished after ${seconds}s, so it was stopped and is not charged past that point. Try again, or pick a faster model.`;
 
@@ -148,6 +164,12 @@ interface Body {
   format?: string;
   /** How many pictures one press asks for. One unless he said. */
   count?: number;
+  /** Not cut by the clock: answer `pending` with the predictions' ids instead. */
+  keep?: boolean;
+  /** The ids a `pending` answer gave, to pick the same predictions back up. */
+  resume?: string[];
+  /** Ids of predictions the browser stopped waiting for, to cancel. */
+  cancel?: string[];
   /** The drawing, for the kinds that trace rather than imagine: PNG, base64, no data-URL head. */
   picture?: string;
   prompt?: string;
@@ -482,7 +504,9 @@ async function start(replicate: Replicate, slug: `${string}/${string}`, input: R
       } catch (error) {
         const wait = retryAfter(error);
         // Out of tries, or not enough clock left to wait and still draw.
-        if (wait === null || tries >= RATE_TRIES || signal?.aborted || Date.now() + wait * 1000 + 15_000 > until) throw error;
+        // Kept going (`keep`), the clock is only this answer's, so the wait may use all of it.
+        const margin = held.getStore()?.keep ? 0 : 15_000;
+        if (wait === null || tries >= RATE_TRIES || signal?.aborted || Date.now() + wait * 1000 + margin > until) throw error;
         await new Promise((ok) => setTimeout(ok, wait * 1000 + 250));
       }
     }
@@ -503,7 +527,13 @@ async function start(replicate: Replicate, slug: `${string}/${string}`, input: R
  * model itself took — is on the prediction.
  */
 async function predict(replicate: Replicate, slug: `${string}/${string}`, input: Record<string, unknown>, until: number, signal?: AbortSignal): Promise<Prediction> {
-  const started = await start(replicate, slug, input, until, signal);
+  // The slot is taken before anything is awaited, so predictions started side
+  // by side are numbered in the order they were asked for, every time.
+  const job = held.getStore();
+  const slot = job ? job.next++ : -1;
+  const again = job?.resume[slot];
+  const started = again ? await replicate.predictions.get(again) : await start(replicate, slug, input, until, signal);
+  if (job) job.started[slot] = started.id;
   // The wait, raced against the budget and the asker leaving. Whichever
   // ends it first also stops the polling, and a cut cancels the prediction
   // so Replicate does not draw (and bill) a picture nobody will collect.
@@ -512,14 +542,16 @@ async function predict(replicate: Replicate, slug: `${string}/${string}`, input:
   const stop = () => { cut = true; };
   const late = new Promise<never>((_, reject) => {
     const quit = () => { stop(); reject(Object.assign(new Error("the picture model took too long"), { name: PREDICT_TIMEOUT })); };
-    ran = setTimeout(quit, Math.max(0, until - Date.now()));
+    // Kept going: the clock running out is not the end, only this answer's.
+    const later = () => { stop(); reject(Object.assign(new Error("still drawing"), { name: PREDICT_PENDING })); };
+    ran = setTimeout(job?.keep ? later : quit, Math.max(0, until - Date.now()));
     if (signal?.aborted) quit();
     else signal?.addEventListener("abort", quit, { once: true });
   });
   try {
     return await Promise.race([replicate.wait(started, { interval: 700 }, async () => cut), late]);
   } catch (error) {
-    if (cut) await replicate.predictions.cancel(started.id, { signal: AbortSignal.timeout(3_000) }).catch(() => undefined);
+    if (cut && !stillGoing(error)) await replicate.predictions.cancel(started.id, { signal: AbortSignal.timeout(3_000) }).catch(() => undefined);
     throw error;
   } finally {
     clearTimeout(ran);
@@ -625,6 +657,7 @@ async function refine(body: Body, token: string, until: number, signal: AbortSig
   try {
     done = await predict(replicate, pick.slug, input, until, signal);
   } catch (error) {
+    if (stillGoing(error)) throw error;
     if (cutShort(error)) {
       const seconds = Math.round((Date.now() - began) / 1000);
       return NextResponse.json({ ok: false, stage: 2, reason: "timeout", model: pick.slug, name: pick.name, making, message: noModelSays("failed", making, slowSays(seconds)), seconds });
@@ -699,7 +732,8 @@ async function refine(body: Body, token: string, until: number, signal: AbortSig
           mime = mimeOf(got.bytes, got.type);
           cut = { model: cutter.slug, name: cutter.name, ms: meterCut.ms, cost: meterCut.dollars };
         }
-      } catch {
+      } catch (error) {
+        if (stillGoing(error)) throw error;
         // A ground that would not come out is a ground. The picture stands.
       }
     }
@@ -750,11 +784,31 @@ async function refine(body: Body, token: string, until: number, signal: AbortSig
 }
 
 export async function POST(request: Request) {
+  // Read once here and handed on: the body can only be read once.
+  let raw: Body | null = null;
+  try { raw = (await request.json()) as Body; } catch { raw = null; }
+  const token = tokenFor(request);
+  /* Stopping what the browser gave up waiting for. */
+  if (raw && Array.isArray(raw.cancel)) {
+    if (!token) return NextResponse.json({ ok: false, reason: "unavailable" });
+    const replicate = replicateFor(token);
+    await Promise.all(ids(raw.cancel).filter(Boolean).map((id) => replicate.predictions.cancel(id, { signal: AbortSignal.timeout(3_000) }).catch(() => undefined)));
+    return NextResponse.json({ ok: true, cancelled: true });
+  }
+  const job: Held = { keep: raw?.keep === true, resume: ids(raw?.resume), started: [], next: 0 };
+  try {
+    return await held.run(job, () => answer(request, raw, token));
+  } catch (error) {
+    if (!stillGoing(error)) throw error;
+    return NextResponse.json({ ok: false, reason: "pending", stage: Number(raw?.stage) === 2 ? 2 : undefined, pending: Array.from(job.started, (id) => id ?? ""), message: "Still drawing." });
+  }
+}
+
+async function answer(request: Request, parsed: Body | null, token: string | null) {
   // The budget runs from the moment the request arrived, for every pass in it.
   const until = Date.now() + ANSWER_BUDGET_MS;
-  // Looked for first, so a request that could not be drawn whatever it said
-  // gets the one answer worth giving — in the words of the stage that asked.
-  const token = tokenFor(request);
+  // Looked for first (in POST), so a request that could not be drawn whatever
+  // it said gets the one answer worth giving — in the words of the stage that asked.
 
   /*
    * The body is read for the sentence, not for the decision.
@@ -765,12 +819,7 @@ export async function POST(request: Request) {
    * parse simply leaves that unknown, and the first pass's words are the
    * right default: it is the one with nothing to fall back to.
    */
-  let body: Body | null = null;
-  try {
-    body = (await request.json()) as Body;
-  } catch {
-    body = null;
-  }
+  const body: Body | null = parsed;
   const second = Number(body?.stage) === 2;
   if (!token) {
     return NextResponse.json(second
@@ -852,9 +901,12 @@ export async function POST(request: Request) {
   let dones: Prediction[];
   try {
     const settled = await Promise.allSettled(Array.from({ length: runs }, once));
+    const going = settled.find((r) => r.status === "rejected" && stillGoing(r.reason));
+    if (going) throw (going as PromiseRejectedResult).reason;
     dones = settled.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
     if (!dones.length) throw (settled[0] as PromiseRejectedResult).reason;
   } catch (error) {
+    if (stillGoing(error)) throw error;
     if (cutShort(error)) {
       const seconds = Math.round((Date.now() - began) / 1000);
       return NextResponse.json({ ok: false, reason: "timeout", message: slowSays(seconds), seconds });

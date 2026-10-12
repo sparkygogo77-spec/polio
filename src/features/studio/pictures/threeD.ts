@@ -21,6 +21,7 @@ import { SOLID_WORDS_PICTURE, solidModel } from "../solidRoute";
 import { noRendererKeyMessage, rendererHeader, rendererReady } from "../loop/run";
 import { useStudio } from "../board/store";
 import { put as putPicture } from "./pictures";
+import { askImage } from "./askImage";
 
 export type ThreeD = "" | "sphere" | "cube" | "pyramid" | "solid";
 
@@ -117,24 +118,29 @@ type Solid = { ok: boolean; message: string; id?: string; cost?: number | null }
  * the last is back, rather than all at once and all but one refused.
  */
 let solidLine: Promise<unknown> = Promise.resolve();
-export function asSolid(src: string, alt: string): Promise<Solid> {
-  const mine = solidLine.catch(() => undefined).then(() => solidNow(src, alt));
+export function asSolid(src: string, alt: string, also: readonly string[] = []): Promise<Solid> {
+  const mine = solidLine.catch(() => undefined).then(() => solidNow(src, alt, also));
   solidLine = mine;
   return mine;
 }
-async function solidNow(src: string, alt: string): Promise<Solid> {
+/**
+ * `also` is more pictures of the same thing, sent as the model's other
+ * views (back, left, right) when it takes them: up to three.
+ */
+async function solidNow(src: string, alt: string, also: readonly string[]): Promise<Solid> {
   if (!(await rendererReady())) return { ok: false, message: noRendererKeyMessage("Until then, put it on a sphere, cube or pyramid instead.") };
   const front = await pngOf(src);
   if (!front) return { ok: false, message: "The picture could not be read in this browser." };
+  const views = (await Promise.all(also.slice(0, 3).map((v) => pngOf(v)))).filter((v): v is string => !!v);
   const model = solidModel();
   const ask = `${alt.slice(0, 80)}: ${SOLID_WORDS_PICTURE}`;
   const threadId = useStudio.getState().landThread({ mode: "drawing", state: "running", model: model?.slug, ask, answer: "" });
   let answer: { ok?: boolean; mesh?: { glb?: string; bytes?: number; from?: string }; message?: string; model?: string; name?: string; cost?: number | null; ms?: number };
   try {
-    const res = await fetch("/api/studio/image", {
+    const res = await askImage({
       method: "POST",
       headers: { "content-type": "application/json", ...rendererHeader() },
-      body: JSON.stringify({ stage: 2, first: front, views: [], said: SOLID_WORDS_PICTURE, label: alt.slice(0, 80), kind: "raster", role: null, w: 420, h: 420, ...(model ? { model: model.slug } : {}) }),
+      body: JSON.stringify({ stage: 2, first: front, views, said: SOLID_WORDS_PICTURE, label: alt.slice(0, 80), kind: "raster", role: null, w: 420, h: 420, ...(model ? { model: model.slug } : {}) }),
     });
     answer = await res.json();
   } catch (err) {
@@ -143,7 +149,8 @@ async function solidNow(src: string, alt: string): Promise<Solid> {
   }
   if (!answer.ok || !answer.mesh?.glb) {
     useStudio.getState().markThread(threadId, "cut");
-    return { ok: false, message: answer.message ?? "Nothing came back from the modeller." };
+    const why = answer.message ?? "Nothing came back from the modeller.";
+    return { ok: false, message: /3D model was not made/.test(why) ? why : `The 3D model was not made: ${why}` };
   }
   const id = placeInView("mesh-3d");
   if (!id) { useStudio.getState().markThread(threadId, "cut"); return { ok: false, message: "The board was not there to put the solid on." }; }

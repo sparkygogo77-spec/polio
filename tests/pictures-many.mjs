@@ -20,7 +20,7 @@
  * Nothing leaves the machine: Replicate is a stand-in on REPLICATE_API.
  *
  *   npm run build
- *   REPLICATE_API=http://127.0.0.1:4336/v1 npx next start -p 3013
+ *   STUDIO_ANSWER_BUDGET_MS=10000 REPLICATE_API=http://127.0.0.1:4336/v1 npx next start -p 3013
  *   REPLICATE_PORT=4336 node tests/pictures-many.mjs http://127.0.0.1:3013
  *
  * Covers: src/app/api/studio/image/route.ts, src/features/studio/RenderPanel.tsx, src/features/studio/pictures/estimate.ts
@@ -46,6 +46,10 @@ const VERSION = "0123456789abcdef".repeat(4);
 const calls = [];
 /* Until when 3D starts are refused with Replicate's own 429, as its rate limit does. */
 let throttle = 0;
+/* How long a 3D model takes, as Hunyuan3D does: longer than one answer may wait. */
+let slow = 0;
+const preds = new Map();
+let cancelled = 0;
 const out = (n) => Array.from({ length: n }, (_, i) => `http://127.0.0.1:${PORT}/out${i}.png`);
 const standin = http.createServer((req, res) => {
   const chunks = [];
@@ -75,7 +79,18 @@ const standin = http.createServer((req, res) => {
         calls.at(-1).refused = true;
         return send(429, { detail: "Request was throttled. Your rate limit for creating predictions is reduced to 6 requests per minute with a burst of 1 requests while you have less than $5.0 in credit. Your rate limit resets in ~1s.", status: 429, retry_after: 1 });
       }
-      return send(201, done("tencent/hunyuan3d-2mv", b.input ?? {}));
+      const made = done("tencent/hunyuan3d-2mv", b.input ?? {});
+      if (!slow) return send(201, made);
+      preds.set(made.id, { made, at: Date.now() + slow });
+      return send(201, { id: made.id, status: "starting", urls: { get: `http://127.0.0.1:${PORT}/v1/predictions/${made.id}` } });
+    }
+    const p = req.url.match(/^\/v1\/predictions\/([^/]+)(\/cancel)?$/);
+    if (p) {
+      const kept = preds.get(p[1]);
+      if (p[2]) { cancelled++; return send(200, { id: p[1], status: "canceled" }); }
+      calls.push({ by: "poll", id: p[1] });
+      if (kept && Date.now() < kept.at) return send(200, { id: p[1], status: "processing" });
+      return send(200, kept ? kept.made : { id: p[1], status: "succeeded", output: `http://127.0.0.1:${PORT}/out0.png`, metrics: { predict_time: 1 } });
     }
     send(404, { detail: "not found" });
   });
@@ -169,6 +184,28 @@ const said3 = (await side.locator("[data-render-price]").innerText()).trim();
 check("3D still limited: it says plainly no 3D model was made", /3D model was not made/.test(said3) && !/first pass is what is on the board/.test(said3), said3);
 check("…and says what to do", /Try again in a minute|add credit/.test(said3), said3);
 throttle = 0;
+/* J (2026-10-12): stopped at 55s. A model slower than one answer's budget is waited for from the browser. */
+slow = 12_000;
+const t0 = Date.now();
+const slowRun = await press((n) => calls.slice(n).some((c) => c.by === "poll") && Date.now() - t0 > slow + 1000);
+for (let i = 0; i < 40 && !/3D model/.test(await side.locator("[data-render-price]").innerText()); i++) await page.waitForTimeout(500);
+const said4 = (await side.locator("[data-render-price]").innerText()).trim();
+const made = slowRun.mine.filter((c) => c.by === "version").length;
+check("slow 3D: started once, then picked back up rather than started again", made === 1, `${made} starts`);
+check("slow 3D: the 3D model is made after the answer's budget ran out", /Made a real 3D model/.test(said4), said4);
+check("slow 3D: nothing was cancelled", cancelled === 0, `${cancelled} cancelled`);
+slow = 0;
+
+/* Straight to 3D from the input picture, no picture drawn first. */
+await pick("[data-render-3d] button, [data-render-3d] [role=combobox]", "Flat");
+const before5 = calls.length;
+await side.locator("[data-render-input-3d]").click({ force: true });
+for (let i = 0; i < 40 && !calls.slice(before5).some((c) => c.by === "version" && !c.refused); i++) await page.waitForTimeout(250);
+await page.waitForTimeout(1500);
+const mine5 = calls.slice(before5).filter((c) => c.by !== "poll");
+check("input picture straight to 3D: only the 3D model is asked, no picture drawn", mine5.length >= 1 && mine5.every((c) => c.slug === "tencent/hunyuan3d-2mv"), mine5.map((c) => c.slug).join(", "));
+check("…with the first input picture as the front and the second as the back", /^data:image\//.test(String(mine5.at(-1)?.input.front_image)) && /^data:image\//.test(String(mine5.at(-1)?.input.back_image)), Object.keys(mine5.at(-1)?.input ?? {}).join(", "));
+
 check("no page error", errors.length === 0, errors.join(" | "));
 
 await browser.close();

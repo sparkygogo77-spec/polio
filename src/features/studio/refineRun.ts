@@ -35,6 +35,7 @@ import { rendererHeader } from "./loop/run";
 import { sayPass, type Metered } from "./spend";
 import { cleanSnippet, RENDER_LIMIT, type PartCode } from "./snippet";
 import { judge, type Compare } from "./bodyRun";
+import { askImage } from "./pictures/askImage";
 
 export interface RefineInput {
   /** The part that stage one put on the board. */
@@ -180,7 +181,7 @@ export async function refinePart(input: RefineInput, deps: { onStep?: (s: string
   const from = Date.now();
   let answer: Answer;
   try {
-    const res = await fetch("/api/studio/image", {
+    const res = await askImage({
       method: "POST",
       headers: { "content-type": "application/json", ...rendererHeader() },
       body: JSON.stringify({

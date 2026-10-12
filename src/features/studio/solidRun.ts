@@ -36,6 +36,7 @@ import { cubeDims } from "./shelf";
 import { CUBE_SIDES, REST, type CubeFace } from "./shelf";
 import { SOLID_WORDS, solidModel, VIEWS, type View } from "./solidRoute";
 import { useStudio, type StudioNode } from "./board/store";
+import { askImage } from "./pictures/askImage";
 
 export { SOLID_WORDS, solidModel, VIEWS };
 export type { View };
@@ -252,7 +253,7 @@ export async function makeSolid(nodeId: string, palette: Record<string, string>,
   const from = Date.now();
   let answer: Answer;
   try {
-    const res = await fetch("/api/studio/image", {
+    const res = await askImage({
       method: "POST",
       headers: { "content-type": "application/json", ...rendererHeader() },
       body: JSON.stringify({
