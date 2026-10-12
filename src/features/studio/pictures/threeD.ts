@@ -110,7 +110,19 @@ async function pngOf(src: string, px = 1024): Promise<string | null> {
  * Solid on the board. Its own key (Replicate, the same one the pictures use);
  * with none, it says so and nothing is called.
  */
-export async function asSolid(src: string, alt: string): Promise<{ ok: boolean; message: string; id?: string; cost?: number | null }> {
+type Solid = { ok: boolean; message: string; id?: string; cost?: number | null };
+/*
+ * One at a time. Under $5 of credit Replicate takes a burst of one, so
+ * several 3D models asked for together go out in turn, each starting when
+ * the last is back, rather than all at once and all but one refused.
+ */
+let solidLine: Promise<unknown> = Promise.resolve();
+export function asSolid(src: string, alt: string): Promise<Solid> {
+  const mine = solidLine.catch(() => undefined).then(() => solidNow(src, alt));
+  solidLine = mine;
+  return mine;
+}
+async function solidNow(src: string, alt: string): Promise<Solid> {
   if (!(await rendererReady())) return { ok: false, message: noRendererKeyMessage("Until then, put it on a sphere, cube or pyramid instead.") };
   const front = await pngOf(src);
   if (!front) return { ok: false, message: "The picture could not be read in this browser." };

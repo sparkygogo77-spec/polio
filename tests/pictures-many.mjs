@@ -44,6 +44,8 @@ const PNG2 = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQV
 const COMMUNITY = new Set(["tencent/hunyuan3d-2mv"]);
 const VERSION = "0123456789abcdef".repeat(4);
 const calls = [];
+/* Until when 3D starts are refused with Replicate's own 429, as its rate limit does. */
+let throttle = 0;
 const out = (n) => Array.from({ length: n }, (_, i) => `http://127.0.0.1:${PORT}/out${i}.png`);
 const standin = http.createServer((req, res) => {
   const chunks = [];
@@ -68,7 +70,11 @@ const standin = http.createServer((req, res) => {
     if (req.method === "GET" && g) return send(200, { owner: g[1].split("/")[0], name: g[1].split("/")[1], latest_version: { id: VERSION } });
     if (req.method === "POST" && req.url === "/v1/predictions") {
       const b = body();
-      calls.push({ slug: b.version === VERSION ? "tencent/hunyuan3d-2mv" : "?", by: "version", version: b.version, input: b.input ?? {} });
+      calls.push({ slug: b.version === VERSION ? "tencent/hunyuan3d-2mv" : "?", by: "version", version: b.version, input: b.input ?? {}, at: Date.now() });
+      if (Date.now() < throttle) {
+        calls.at(-1).refused = true;
+        return send(429, { detail: "Request was throttled. Your rate limit for creating predictions is reduced to 6 requests per minute with a burst of 1 requests while you have less than $5.0 in credit. Your rate limit resets in ~1s.", status: 429, retry_after: 1 });
+      }
       return send(201, done("tencent/hunyuan3d-2mv", b.input ?? {}));
     }
     send(404, { detail: "not found" });
@@ -142,9 +148,27 @@ await pick("[data-render-3d] button, [data-render-3d] [role=combobox]", "A real 
 const { mine } = await press((n) => calls.slice(n).some((c) => c.by === "version"));
 await page.waitForTimeout(1500);
 const said = (await side.locator("[data-render-price]").innerText()).trim();
-check("3D: the model's own address answered 404 once", mine.filter((c) => c.slug === "tencent/hunyuan3d-2mv" && c.by === "model").length === 1, mine.map((c) => `${c.slug}/${c.by}`).join(", "));
+/* At most once: a server that already ran it remembers the version. */
+check("3D: the model's own address answered 404 once", mine.filter((c) => c.slug === "tencent/hunyuan3d-2mv" && c.by === "model").length <= 1, mine.map((c) => `${c.slug}/${c.by}`).join(", "));
 check("3D: …and it ran by its latest version", mine.some((c) => c.by === "version" && c.version === VERSION && /^data:image\//.test(String(c.input.front_image))));
 check("3D: no 404 reaches the panel", !/404|could not be found/.test(said), said);
+
+/* J (2026-10-12): a 429 "retry_after" made the 3D model fail and the flat picture stood in for it. */
+throttle = Date.now() + 1500;
+const waited = await press((n) => calls.slice(n).some((c) => c.by === "version" && !c.refused));
+await page.waitForTimeout(2000);
+const tries = waited.mine.filter((c) => c.by === "version");
+const said2 = (await side.locator("[data-render-price]").innerText()).trim();
+check("3D 429: it waits out retry_after and tries again", tries.length >= 2 && tries[0].refused && !tries.at(-1).refused && tries.at(-1).at - tries[0].at >= 1000, tries.map((c) => `${c.refused ? "429" : "ok"}`).join(" → "));
+check("3D 429: …and the 3D model is made", /Made a real 3D model/.test(said2), said2);
+
+throttle = Date.now() + 120_000;
+await press((n) => calls.slice(n).filter((c) => c.by === "version").length >= 8);
+await page.waitForTimeout(3000);
+const said3 = (await side.locator("[data-render-price]").innerText()).trim();
+check("3D still limited: it says plainly no 3D model was made", /3D model was not made/.test(said3) && !/first pass is what is on the board/.test(said3), said3);
+check("…and says what to do", /Try again in a minute|add credit/.test(said3), said3);
+throttle = 0;
 check("no page error", errors.length === 0, errors.join(" | "));
 
 await browser.close();

@@ -1146,7 +1146,9 @@ export function noModelSays(why: NoModel | "no-key" | "failed", making: Making, 
             ? `The better pass did not run: a ${making} needs a transparent ground and nothing offered for it can make one.`
             : why === "cannot-take-an-image"
               ? `The better pass did not run: the models for a ${making} take words only, and this step starts from a picture.`
-              : "The better pass failed, so the first pass is what is on the board.";
+              : making === "object"
+                ? "The 3D model was not made: nothing new is on the board, only the flat picture it would have started from."
+                : "The better pass failed, so the first pass is what is on the board.";
   // One full stop at the end, whatever the model's own message ended with.
   const said = detail.trim().replace(/[\s.]+$/, "");
   return said ? `${head} ${said}.` : head;
