@@ -17,7 +17,10 @@
  *      two folded scenes of one state are two chips;
  *   4. a one-state part that only a folded scene shows is listed as a panel;
  *   5. the kit says so: rule 31 in BUILDER-RULES.md and builder.json, and
- *      kit:check refuses a "part" that is not one.
+ *      kit:check refuses a "part" that is not one;
+ *   6. rule 31's exception (J, 2026-10-12): a scene that only hides one part
+ *      stays a page state, so the page without it can still be stepped to,
+ *      and the rule's text says so.
  *
  *   node tests/page-states-fold.mjs
  *
@@ -87,6 +90,12 @@ const rules = readFileSync(join(here, "..", "kit", "BUILDER-RULES.md"), "utf8");
 const kb = JSON.parse(readFileSync(join(here, "..", "kit", "builder.json"), "utf8"));
 const kc = readFileSync(join(here, "..", "kit", "tools", "kit-check.mjs"), "utf8");
 check("5. the kit carries rule 31 and kit:check reads \"part\"", /## 31\. A page state changes more than one part/.test(rules) && kb.rules.list.some((r) => r.id === "page-states-change-several-parts") && /sc\.part/.test(kc));
+
+/* 6. The note shown, then the page without it: only the note changed, and it went off. */
+const hid = R.sceneScreens(nodes, files, R.readScenes(J({ scenes: [scene("with-note", { tv: "idle", note: "on" }), scene("plain", { tv: "idle" })] }), "web/"), []);
+check("6a. a scene that only hides one part stays a page state, so the page without it can be stepped to", hid.length === 2 && hid.every(R.isPageState), J(hid.map((s) => [s.name, s.part ?? s.sameAs ?? "page"])));
+const r31 = kb.rules.list.find((r) => r.id === "page-states-change-several-parts")?.rule ?? "";
+check("6b. and rule 31 says so, in BUILDER-RULES.md and builder.json", /only hides one part[\s\S]{0,80}stays a page state/.test(rules) && /only hides one part[^.;]*stays a page state/.test(r31), r31);
 
 const failed = results.filter((x) => !x).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);

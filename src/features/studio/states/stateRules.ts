@@ -229,7 +229,9 @@ export function partsChanged(d: Declared, parents: Map<string, string | null>, a
  * Rule 31 (J, 2026-10-06): a page state changes more than one part at once.
  * A scene that changes one part, against a page state before it on its page,
  * is that part's state: its capture is that state's look, and it leaves the
- * page states. A scene that changes nothing is the same page state twice. A
+ * page states. Except one that only hides that part (J, 2026-10-12): it stays
+ * a page state, so the page without the part can still be stepped to in Show
+ * and with the arrow keys. A scene that changes nothing is the same page state twice. A
  * scene that names its `part` folds into it when everything it changes, against
  * any scene before it, is inside that part (the six Chart TV scenes of
  * PonsStars are the TV's states). Gives each folded scene its part, or the
@@ -251,6 +253,7 @@ export function foldScenes(nodes: readonly RuleNode[], files: readonly { file: s
     let best: { by: DeclaredScene; parts: string[] } | null = null;
     for (const k of pages) { const parts = partsChanged(d, parents, sc, k); if (!best || parts.length < best.parts.length) best = { by: k, parts }; }
     if (best && best.parts.length === 0) out.set(sc.name, { sameAs: best.by.name });
+    /* One part changed is that part's state, unless the scene only hides it: that one stays a page state (rule 31's exception). */
     else if (best && best.parts.length === 1 && stateIn(d.panels.get(best.parts[0]!)!, sc) !== "off") out.set(sc.name, { part: best.parts[0]! });
     else kept.set(pageId, [...pages, sc]);
   }
