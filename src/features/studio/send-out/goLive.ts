@@ -17,11 +17,14 @@ import { create } from "zustand";
 import type { ToastInput } from "@/core/types";
 import { activeProject, allSources, repoLabel, sharedTargetSays, useBuilds } from "@/features/builds/store";
 import { flushEdits, lastEdit } from "@/features/builds/edits";
-import { deploy, productionAddress, publish, siteFiles, watchDeploy, type DeployState, type GeneratedFile } from "../loop/run";
+import { deploy, isAppBranch, productionAddress, publish, siteFiles, watchDeploy, type DeployState, type GeneratedFile } from "../loop/run";
 import { compileSpec, specToJson, specToMarkdown } from "../spec";
 import { exportSite, publishedAt } from "./exportSite";
 import { kitAfterPush, type KitSent } from "./kitPublish";
 import { pagesRecord } from "./pagesRecord";
+import { buildRecordFile, intoPublic } from "./buildRecord";
+import { gitBlobSha } from "./designBranch";
+import { buildScaffold } from "../scaffoldRun";
 import { sitePictures } from "../staticSite";
 import { sentBoard, useStudio } from "../board/store";
 import { contractFiles } from "../shelf";
@@ -196,7 +199,8 @@ export function documentFiles(): GeneratedFile[] {
  * model, nothing asked of anybody: pressing publish is now enough to have
  * a website.
  */
-export async function collectFiles(described: GeneratedFile[], say: (note: string) => void, address?: string | null, /** Where a warning about files the pages point at and nothing provides goes; `say` when none. */ warn?: (says: string) => void): Promise<GeneratedFile[]> {
+export async function collectFiles(described: GeneratedFile[], say: (note: string) => void, address?: string | null, /** Where a warning about files the pages point at and nothing provides goes; `say` when none. */ warn?: (says: string) => void,
+  /** This push carries the app (`carriesApp`): Build's files written again from the board, these files Claude wrote over or beside them, and the site's own in public/. */ app?: { explicit: GeneratedFile[] } | null): Promise<GeneratedFile[]> {
   let pages: GeneratedFile[] = [];
   try {
     pages = (await exportSite(undefined, { pictures: false, address })) as GeneratedFile[];
@@ -222,6 +226,9 @@ export async function collectFiles(described: GeneratedFile[], say: (note: strin
   } catch (err) {
     say(`The pictures could not be read out of this browser (${err instanceof Error ? err.message : "unknown"}), so the pages went up without them.`);
   }
+  /* And the app, when this push carries it: Build's own files, then what Claude wrote over or beside them (`appOf`). */
+  const made = app ? await appOf(app.explicit, say) : null;
+  if (app) described = [...described, ...(made?.files ?? app.explicit)];
   /*
    * And what the code chat working in the repository reads: TASKS.md, the
    * feature contract in AGENTS.md and CLAUDE.md (merged into the owner's own
@@ -265,7 +272,60 @@ export async function collectFiles(described: GeneratedFile[], say: (note: strin
   /* A lost picture no page points at is still said, and goes up without it. */
   else if (lostCount) say(`${lostCount} picture${lostCount === 1 ? " is" : "s are"} no longer in this browser and no page uses ${lostCount === 1 ? "it" : "them"}, so ${lostCount === 1 ? "it was" : "they were"} left out.`);
   if (added.length) say(`${added.length} file${added.length === 1 ? "" : "s"} the pages use from the Builder itself went up with the site: ${added.map((f) => f.path).join(", ")}.`);
-  return [...all, ...(added as GeneratedFile[])];
+  if (!app) return [...all, ...(added as GeneratedFile[])];
+  /*
+   * THE SITE'S OWN FILES GO INSIDE THE APP. Vercel builds an app and serves
+   * what it makes, and public/ beside it as it is: the pages, their sheets
+   * and scripts, the pictures and what came from the Builder go there, at
+   * the same addresses, so the app's parts and the pages find the same
+   * pictures. The record of the pages names them where they now are, so the
+   * copies the site had at its root before it was an app come off it.
+   */
+  const site = intoPublic([...pages, ...shots, ...(added as GeneratedFile[])]);
+  const inPublic = pagesRecord(site);
+  const rest = [...contract, ...(described.some((d) => d.path === POLIO_MD) ? [] : [polio]), ...described, ...(made ? [made.record] : [])];
+  const taken = new Set(rest.map((f) => f.path));
+  return [...site.filter((f) => !taken.has(f.path)), ...(inPublic ? [inPublic] : []), ...rest];
+}
+
+/*
+ * THE APP, WRITTEN AGAIN FROM THE BOARD (J, 2026-10-12: "Run it").
+ *
+ * Build's code runs on the live site, so a push of a site Build made carries
+ * Build's files as the board is now, whichever button pressed it, the way
+ * it carries the pages as they are now. The files Claude wrote in the book go
+ * over Build's or beside them, as written. And the record of what Build
+ * wrote, by the git sha of each file (`buildRecord.ts`): with it, the route
+ * keeps a file a code chat changed in the repository rather than write it
+ * over, and takes off one Build no longer writes. Null when the scaffold
+ * could not be written: then the push carries only what Claude wrote, and
+ * the app's files on the branch stay as they are.
+ */
+async function appOf(explicit: GeneratedFile[], say: (note: string) => void): Promise<{ files: GeneratedFile[]; record: GeneratedFile } | null> {
+  let built: { path: string; content: string }[];
+  try {
+    built = buildScaffold().files;
+  } catch (err) {
+    say(`Build's code could not be written from the board this time (${err instanceof Error ? err.message : "unknown"}), so the app's own files on the site stay as they were.`);
+    return null;
+  }
+  const files: GeneratedFile[] = built.map((f) => ({ path: f.path, content: f.content }));
+  for (const f of explicit) {
+    const at = files.findIndex((x) => x.path === f.path);
+    if (at >= 0) files[at] = f;
+    else files.push(f);
+  }
+  const shas = await Promise.all(built.map(async (f) => [f.path, await gitBlobSha(f)] as const));
+  return { files, record: buildRecordFile(Object.fromEntries(shas)) as GeneratedFile };
+}
+
+/**
+ * Whether a push carries the app: Build ran for it in the book, or the
+ * site's branch already is one, holding Build's record (`isAppBranch`). A
+ * site nobody pressed Build on goes up as its pages, as it always did.
+ */
+export async function carriesApp(built: boolean, repo: string | undefined, branch: string | undefined): Promise<boolean> {
+  return built || (await isAppBranch(repo, branch));
 }
 
 /**
@@ -277,7 +337,8 @@ export async function collectFiles(described: GeneratedFile[], say: (note: strin
  * server's, so each site goes where the Builds page says it goes, and the
  * address is written back to the project when it is live.
  */
-export async function goLive(o: { extra?: GeneratedFile[]; message: string; siteName: string; say: (t: ToastInput) => void; /** The owner said yes to a still copy of a site from code (`stillCopy.ts`). */ still?: boolean }): Promise<void> {
+export async function goLive(o: { extra?: GeneratedFile[]; message: string; siteName: string; say: (t: ToastInput) => void; /** The owner said yes to a still copy of a site from code (`stillCopy.ts`). */ still?: boolean;
+  /** Build ran for this push in the book: it carries the app, and `extra` is what Claude wrote over or beside Build's files (`carriesApp`). */ built?: boolean }): Promise<void> {
   if (useGoLive.getState().busy) return;
   /* A site from a code repository goes up only as a still copy, without its scripts: asked every press, here, so no button can skip it. */
   const fromCode = codeSourceOf(useStudio.getState().look);
@@ -322,11 +383,13 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
     /* The board's last change as the pages are written: an edit after this is not in the push (`builds/publishState.ts`). */
     flushEdits();
     const carried = lastEdit() ?? Date.now();
+    /* A site Build made goes up as the app, written again from the board, whichever button pressed it (`carriesApp`). */
+    const app = await carriesApp(!!o.built, repo, branch);
     /* Files the pages point at that nothing provides: a warning beside the status, never a stop (`siteRefs.ts`). */
-    const going = await collectFiles([...documentFiles(), ...(o.extra ?? [])], setNote, address, (says) => {
+    const going = await collectFiles(app ? documentFiles() : [...documentFiles(), ...(o.extra ?? [])], setNote, address, (says) => {
       set({ warned: { says, siteId: here?.id ?? null } });
       say({ key: "studio:publish-missing", title: "Some files will be missing", body: says, level: "warn", source: "studio", toast: { durationMs: 12000 } });
-    });
+    }, app ? { explicit: o.extra ?? [] } : null);
     setBusy(`Pushing ${going.length} files to GitHub…`);
     const pushed = await publish({ files: going, message: o.message, deploy: false, repo, branch, create, boundTo, sources });
     remember(project, pushed.created, pushed.ok ? pushed.branch : branch);
@@ -344,7 +407,9 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
     const saved = { repo: pushed.repo, branch: pushed.branch };
     /* How much of it went up: only what changed is sent (`tests/publish-changed.mjs`). */
     const gone = pushed.removed?.length ?? 0;
-    if (typeof pushed.changed === "number" && typeof pushed.total === "number") say({ key: "studio:publish", title: `${pushed.changed} of ${pushed.total} files changed`, body: `Pushed to ${pushed.repo} on ${pushed.branch}${gone ? `, and took off ${gone} page${gone === 1 ? "" : "s"} no longer on the board` : ""}; building next.`, level: "info", source: "studio", toast: true, href: pushed.commitUrl });
+    /* Build's files a code chat changed, left as they are (`buildRecord.ts`): said, so a part that did not take the board's change is never a mystery. */
+    const kept = pushed.kept?.length ?? 0;
+    if (typeof pushed.changed === "number" && typeof pushed.total === "number") say({ key: "studio:publish", title: `${pushed.changed} of ${pushed.total} files changed`, body: `Pushed to ${pushed.repo} on ${pushed.branch}${gone ? `, and took off ${gone} file${gone === 1 ? "" : "s"} no longer on the board` : ""}${kept ? `. Kept ${kept} of Build's file${kept === 1 ? "" : "s"} as the repository has ${kept === 1 ? "it" : "them"}, changed there since Build wrote ${kept === 1 ? "it" : "them"}: ${pushed.kept!.slice(0, 4).join(", ")}${kept > 4 ? "…" : ""}` : ""}; building next.`, level: "info", source: "studio", toast: true, href: pushed.commitUrl });
     useStudio.getState().noteThread([`${pushed.files} files pushed to ${pushed.repo} on ${pushed.branch}`]);
 
     setBusy("Asking Vercel to build it…");

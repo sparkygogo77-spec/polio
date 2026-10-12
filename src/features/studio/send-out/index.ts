@@ -8,3 +8,5 @@ export { siteZip, zipFiles } from "./zipWrite.ts";
 export { DESIGN_DIR, changesJson, changesMarkdown, deletedOnBoard, designBranch, designFiles, gitBlobSha, githubWhy, hookChanges, hooksOnBoard, readHookMap, removedLine, sendDesign, withRefs } from "./designBranch.ts";
 export type { ChangeNode, HookChanges, HookMap, HookRef, RemovedHook } from "./designBranch.ts";
 export { PAGES_RECORD, pagesGone, pagesRecord } from "./pagesRecord.ts";
+export { BUILD_RECORD, buildKeeps, buildRecordFile, builtIn, intoPublic } from "./buildRecord.ts";
+export type { Built } from "./buildRecord.ts";

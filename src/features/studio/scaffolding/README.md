@@ -7,6 +7,7 @@ Writing a Next.js site from the board, split by topic. `../scaffold.ts` re-expor
 | `types.ts` | `ScaffoldFile`, `ScaffoldPage`, `ExportLayout`, `ExportBehaviours`, `ScaffoldPart`, `ScaffoldInput`, `EXPORT_KEYFRAMES` |
 | `jsx.ts` | HTML to JSX: `hrefOf`, `styleToObject`, `htmlToJsx`, `componentName` and their helpers |
 | `scaffold.ts` | `scaffold` (the entry point) and the 3D cube part |
+| `app.ts` | What makes the files a Next.js app Vercel runs: `package.json`, `tsconfig.json`, `next.config.mjs`, `vercel.json`, `.gitignore` (`APP_PACKAGES`, `appFiles`) |
 | `pages.ts` | Tokens CSS, root layout, one part, one page |
 | `frameMesh.ts` | The responsive `Frame`/`Place` file and the 3D mesh part |
 | `shell.ts` | The behaviours shell (`SHELL_CSS`, `SHELL_TSX`) and the README writer |

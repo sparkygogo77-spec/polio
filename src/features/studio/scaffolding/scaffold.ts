@@ -25,15 +25,18 @@
  */
 import { standInFiles, standInHas } from "../standIn.ts";
 import type { ScaffoldFile, ScaffoldPart, ScaffoldInput } from "./types.ts";
-import { componentName } from "./jsx.ts";
+import { componentName, jsxAttr } from "./jsx.ts";
 import { homeFor, routeOf } from "../homePage.ts";
 import { tokensCss, layoutTsx, partTsx, pageTsx } from "./pages.ts";
 import { FRAME_TSX } from "./frameMesh.ts";
 import { SHELL_TSX, buildMd } from "./shell.ts";
+import { appFiles } from "./app.ts";
 
 /** Every file the document itself decides. */
 export function scaffold(input: ScaffoldInput): ScaffoldFile[] {
   const files: ScaffoldFile[] = [];
+  /* What runs it: the packages, TypeScript, the Next config and the word to Vercel (`app.ts`). */
+  files.push(...appFiles(input));
   files.push({ path: "app/globals.css", content: tokensCss(input) });
   files.push({ path: "app/layout.tsx", content: layoutTsx(input) });
   files.push({ path: "components/Frame.tsx", content: FRAME_TSX });
@@ -70,7 +73,9 @@ export function cubeTsx(part: ScaffoldPart, name: string): string {
   // The words only: a face's prompt is for whoever builds the site, not for the face.
   const faces = JSON.stringify(part.cube!.faces.map((f) => ({ heading: f.heading, body: f.body, colour: f.colour })), null, 2).split("\n").join("\n");
   const turn = part.cube!.turn ?? { x: -18, y: -32 };
-  return `import * as React from "react";
+  /* A client component: it holds state, and a page that is a server component imports it (Next refuses state there). */
+  return `"use client";
+import * as React from "react";
 
 const SIDES = ["front", "right", "back", "left", "top", "bottom"] as const;
 const PLACE: Record<string, { rx: number; ry: number }> = {
@@ -134,7 +139,7 @@ export function ${name}() {
       data-cube=""
       role="img"
       tabIndex={0}
-      aria-label=${JSON.stringify(`${part.label}, a cube. Drag to turn it, or use the arrow keys.`)}
+      aria-label=${jsxAttr(`${part.label}, a cube. Drag to turn it, or use the arrow keys.`)}
       onPointerDown={(e) => { held.current = true; touched.current = true; goal.current = null; last.current = { x: e.clientX, y: e.clientY }; spin.current = { x: 0, y: 0 }; e.currentTarget.setPointerCapture(e.pointerId); }}
       onPointerMove={(e) => {
         if (!held.current || !last.current) return;

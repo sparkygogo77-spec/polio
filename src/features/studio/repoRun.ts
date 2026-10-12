@@ -331,19 +331,21 @@ export async function copyFrom(repo: Repo, ref: string, files: FileSource, say: 
   const lost: string[] = [];
   let weight = 0;
   let i = 0;
+  /* Where a picture is in the repository: at its own path, or in public/ when Build made the site an app (`buildRecord.ts`, `intoPublic`). */
+  const found = (path: string) => [pathIn(repo.dir, path), pathIn(repo.dir, `public/${path}`)].find((at) => sizeOf.has(at)) ?? null;
   /* What will be fetched, in the order it will be, so a source that reads neighbours together can. */
   let planned = 0;
   const plan: string[] = [];
   for (const p of wanted.values()) {
-    const at = pathIn(repo.dir, p.path);
-    if (!sizeOf.has(at) || plan.length >= MOST_PICTURES || planned + (sizeOf.get(at) ?? 0) > MAX_PICTURE_BYTES) continue;
+    const at = found(p.path);
+    if (!at || plan.length >= MOST_PICTURES || planned + (sizeOf.get(at) ?? 0) > MAX_PICTURE_BYTES) continue;
     planned += sizeOf.get(at) ?? 0;
     plan.push(at);
   }
   if (files.prefetch && plan.length) { say(`Fetching its pictures… 0 of ${wanted.size}`); await files.prefetch(plan); }
   for (const p of wanted.values()) {
-    const at = pathIn(repo.dir, p.path);
-    if (!sizeOf.has(at)) { lost.push(p.path); continue; }
+    const at = found(p.path);
+    if (!at) { lost.push(p.path); continue; }
     const size = sizeOf.get(at) ?? 0;
     if (pictures.length >= MOST_PICTURES || weight + size > MAX_PICTURE_BYTES) { lost.push(p.path); continue; }
     say(`Fetching its pictures… ${++i} of ${wanted.size}`);

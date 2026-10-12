@@ -37,7 +37,7 @@ import { auditCounts, auditSite, type PageAudit } from "./staticSite";
 import { useStudio, useSteady } from "./board/store";
 import { askClaude, claudeReady, deployStatus, filesFromMarkdown, MODES, noKeyMessage, publish, publishStatus, screenshotPages, screenshotsAvailable, siteFiles, type AskMode, type DeployStatus, type Device, type GeneratedFile, type Picture, type PublishStatus } from "./loop/run";
 import { useKeys } from "@/features/keys/store";
-import { collectFiles, following, followDeployment, goLive as goLiveNow, PENDING_FOR, pushTo, refusedTarget, remember, useGoLive } from "./send-out/run";
+import { carriesApp, collectFiles, following, followDeployment, goLive as goLiveNow, PENDING_FOR, pushTo, refusedTarget, remember, useGoLive } from "./send-out/run";
 import { useBuilds } from "@/features/builds/store";
 import { siteZip } from "./send-out";
 import { cn } from "@/core/lib/cn";
@@ -321,6 +321,8 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
   const busy = ownBusy ?? liveBusy;
   const [result, setResult] = React.useState<{ text: string; mode: AskMode; model?: string; pictures: number; dropped: number; droppedWhy: string; truncated: boolean } | null>(null);
   const [files, setFiles] = React.useState<GeneratedFile[]>([]);
+  /* Build ran here: what it wrote from the document, by path (empty when the scaffold could not be written). Null when no Build ran. */
+  const [ownFiles, setOwnFiles] = React.useState<Map<string, string> | null>(null);
   const [openFile, setOpenFile] = React.useState<string | null>(null);
   const [note, setNote] = React.useState<string | null>(null);
   const [canShoot, setCanShoot] = React.useState<boolean | null>(null);
@@ -461,9 +463,11 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
       let built: ScaffoldResult | null = null;
       if (mode === "build") {
         setBusy("Writing the site from the document…");
+        setOwnFiles(new Map());
         try {
           built = buildScaffold();
           setFiles(built.files.map((f) => ({ path: f.path, content: f.content })));
+          setOwnFiles(new Map(built.files.map((f) => [f.path, f.content])));
           setView("files");
           said.run = `${built.files.length} files written from the document in ${built.stats.ms < 1000 ? `${built.stats.ms}ms` : `${(built.stats.ms / 1000).toFixed(1)}s`}, ${built.stats.parts} parts, ${built.stats.clipped} cut to a drawn line, ${built.stats.bodies} with a written body. Claude is being asked only for what is left.`;
           say();
@@ -608,9 +612,15 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
   }, [runWanted]);
 
   const publishFiles = React.useMemo(() => [...siteFiles(markdown, json), ...files], [markdown, json, files]);
+  /* What Claude wrote over Build's files or beside them. Build's own are written again from the board as the push goes (`goLive.ts`, `appOf`). */
+  const claudeFiles = React.useMemo(() => (ownFiles ? files.filter((f) => ownFiles.get(f.path) !== f.content) : files), [files, ownFiles]);
 
-  /* What goes up: the pages written now, the pictures, and the description (`goLive.ts`). */
-  const everything = () => collectFiles(publishFiles, setNote);
+  /* What goes up: the pages written now, the pictures, the description, and the app when the push carries it (`goLive.ts`, `carriesApp`). */
+  const everything = async () => {
+    const { repo, branch } = pushTo(siteName);
+    const app = await carriesApp(!!ownFiles, repo, branch);
+    return collectFiles(app ? siteFiles(markdown, json) : publishFiles, setNote, undefined, undefined, app ? { explicit: claudeFiles } : null);
+  };
 
   const doPublish = async () => {
     if (busy) return;
@@ -664,7 +674,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
     if (busy) return;
     setNote(null);
     setPubResult(null);
-    await goLiveNow({ extra: files, message: pubMessage.trim() || "Builder: publish the site", siteName, say: ctx.publish });
+    await goLiveNow({ extra: claudeFiles, built: !!ownFiles, message: pubMessage.trim() || "Builder: publish the site", siteName, say: ctx.publish });
   };
 
   /* Every file in one zip, each at its own path and pictures as pictures:
@@ -850,7 +860,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
           ) : null}
         </span>
       }
-      note={`${publishFiles.length} files: the site's document with its prompts and capture taken out, ${files.length ? `and ${files.length} generated` : "no generated code yet"}, and the pages when it goes up. The blueprint stays here. What this does is written on the live thread's card.`}
+      note={`${publishFiles.length} files: the site's document with its prompts and capture taken out, ${files.length ? `and ${files.length} generated` : "no generated code yet"}, and the pages when it goes up${ownFiles ? ": Build's code goes up as a Next.js app Vercel runs, with the pages and pictures in its public/ folder" : ""}. The blueprint stays here. What this does is written on the live thread's card.`}
     >
       <div data-brief-publish="" className="flex flex-col gap-1.5">
         <LeftBehind />

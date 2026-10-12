@@ -1,6 +1,9 @@
 /**
  * What the build ask says the codebase is: the scaffold's own layout, file
- * by file, and the rules for what Claude adds to it.
+ * by file, and the rules for what Claude adds to it. Since J chose "Run it"
+ * (2026-10-12) the layout is an app Vercel builds and runs as the live
+ * site, its setup written by Build (`app.ts`), and the site's own pages and
+ * pictures sit in its public/ folder.
  *
  * The ask used to describe this template instead (feature modules under
  * src/features/ registered with defineFeature, primitives from "@/core/ui",
@@ -17,6 +20,11 @@
 
 /** Every file the scaffold can write and what it holds; `<Name>` and `<route>` stand for the parts that vary. */
 export const SCAFFOLD_LAYOUT: readonly { path: string; holds: string }[] = [
+  { path: "package.json", holds: "the packages the site runs on (next, react and react-dom, and three as well for a site with a solid) and the scripts dev, build, start and typecheck" },
+  { path: "tsconfig.json", holds: "TypeScript for the app, with \"@/\" pointing at the repository root" },
+  { path: "next.config.mjs", holds: "the Next config: the build goes on past a type error, which npm run typecheck still lists" },
+  { path: "vercel.json", holds: "tells Vercel the repository is a Next.js app" },
+  { path: ".gitignore", holds: "what installing and building make, never committed" },
   { path: "app/globals.css", holds: "the design tokens as CSS custom properties, one per palette role and format value (var(--accent), var(--text), var(--radius) and the rest), the page's own ground, and the keyframes the parts play" },
   { path: "app/layout.tsx", holds: "the root layout: the site's title and description, and the stylesheet" },
   { path: "app/page.tsx", holds: "the home page, at /" },
@@ -45,6 +53,7 @@ export function buildContract(scaffolded: boolean): string {
     `- A page places each of its parts in a <Place> inside its <Frame>, and imports only the parts it places, so a component nothing imports is never seen. A component that needs state or handlers starts with "use client".`,
     `- To give a part a body or a behaviour, replace its components/parts/<Name>.tsx and keep the function's name, since its page imports it by that name; anything bigger goes in a new file under components/ that the part imports. Data a part reads goes in a plain TypeScript file beside it.`,
     `- Styling is inline style objects reading the custom properties in app/globals.css. No Tailwind, CSS framework or UI kit is installed, so use none of their classes.`,
-    `- Imports come from "react" and "next" only, and "three" only in a solid, which loads it itself. Add no dependency and no build setup (package.json, tsconfig.json, next.config): these files go up beside the site's published HTML pages, which are served as they are, and a package.json at the root would change how the repository deploys.`,
+    `- Imports come from "react" and "next" only, and "three" only in a solid, which package.json names when the site has one. Add no dependency and change no build setup: package.json, tsconfig.json, next.config.mjs and vercel.json are Build's, and Vercel builds and runs this app as the live site.`,
+    `- The site's published HTML pages, their stylesheets and its pictures go up in public/, served at their own addresses (a picture at /assets/pictures/<file>, as the parts already point at it). Write nothing in public/ but what a part needs served as a plain file.`,
   ].join("\n");
 }

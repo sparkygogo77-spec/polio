@@ -154,7 +154,11 @@ async function pushDeployment(tok: string, team: string | null, projectId: strin
 const COMMIT = /^commit:([\w-]+):([0-9a-f]{0,40}):([^:]*):(\d+)$/i;
 const commitHandle = (projectId: string, sha: string | null, branch: string, since: number) => `commit:${projectId}:${sha ?? ""}:${encodeURIComponent(branch)}:${since}`;
 
-/** What Publish sends is static HTML: nothing to detect, build or install, served from the root. */
+/**
+ * What Publish sends is static HTML: nothing to detect, build or install, served from the root.
+ * A site Build made is a Next.js app instead (J, 2026-10-12: "Run it"), and says so in its own
+ * vercel.json (`scaffolding/app.ts`), which wins over these for every build of it.
+ */
 const STATIC_SITE = { framework: null, buildCommand: null, installCommand: null, outputDirectory: null };
 
 /**

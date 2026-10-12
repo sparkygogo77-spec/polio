@@ -184,6 +184,10 @@ body written for it. Nothing about the look was inferred.
 
 ## What is deterministic
 
+- \`package.json\`, \`tsconfig.json\`, \`next.config.mjs\` and \`vercel.json\`,
+  what makes it an app Vercel runs: the packages at the versions the
+  Builder renders the parts with, and the word to Vercel that this is
+  Next.js.
 - \`app/globals.css\`, the design tokens, taken from the palette and the
   format. ${Object.keys(input.palette).length} colour roles, ${Object.keys(input.tokens).length} other tokens.
 - \`components/parts/*.tsx\`, one component per part, ${input.parts.length} of them,
@@ -193,8 +197,8 @@ body written for it. Nothing about the look was inferred.
 - \`components/Frame.tsx\`, the fixed-width canvas and how it meets a
   narrower screen.${input.parts.some((p) => p.mesh?.glb) ? `
 - ${input.parts.filter((p) => p.mesh?.glb).length} solid${input.parts.filter((p) => p.mesh?.glb).length === 1 ? "" : "s"} you can turn, written as components that load three.js in the
-  browser: the one dependency this build needs, \`npm install three\`. Without it
-  each shows its still and says so.` : ""}${standInHas(input.standIn) ? `
+  browser: the one library this build adds, named in \`package.json\`. Without
+  a 3D context each shows its still and says so.` : ""}${standInHas(input.standIn) ? `
 - \`public/stand-in.js\`, the stand-in server: the ${input.standIn.reads.length} read${input.standIn.reads.length === 1 ? "" : "s"}${input.standIn.streams?.length ? ` and ${input.standIn.streams.length} live feed${input.standIn.streams.length === 1 ? "" : "s"} (replayed at their recorded pace, in a loop)` : ""} the capture
   recorded (${[...new Set([...input.standIn.reads, ...(input.standIn.streams ?? [])].map((r) => r.host))].join(", ")}) answered with their samples, so lists and
   buttons behave before a real backend exists. Writes and anything unrecorded
@@ -202,6 +206,20 @@ body written for it. Nothing about the look was inferred.
 
 Re-running Build regenerates exactly these files, byte for byte, from the
 same document.
+
+## How it runs
+
+Go live pushes this as a Next.js app: \`vercel.json\` says so, and Vercel
+builds it with \`next build\` and serves \`app/\` at the site's addresses. The
+site's published HTML pages and its pictures go up beside it in \`public/\`,
+served as they are, at \`/assets/pictures/...\` where the parts point.
+\`npm install\`, then \`npm run dev\`, runs it on your own machine.
+
+Every Go live writes these files again from the board. One changed in the
+repository since Build wrote it is kept as it is, not written over
+(\`site/build.json\` records what Build wrote): delete it and the next Go
+live writes it from the board again. One Build no longer writes, for a part
+or a page taken off the board, comes off the site unless it was changed.
 
 ## What is left for Claude, and why
 
