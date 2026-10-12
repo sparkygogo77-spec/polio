@@ -229,6 +229,12 @@ export interface ImageModel {
     faces?: number;
     /** Ask it to cut the ground out of the drawing before it reads it. */
     cutGround?: Field;
+    /** `imageField` takes every view as one list, up to this many, rather than one each. */
+    list?: number;
+    /** Inputs always sent as they are. */
+    fixed?: Readonly<Record<string, unknown>>;
+    /** When the answer is an object of files, the key the GLB is under. */
+    output?: string;
   } | null;
   /**
    * How a remover is asked, when it serves the `alpha` step.
@@ -391,6 +397,52 @@ export const MODELS: readonly ImageModel[] = [
     mesh: null,
     cut: null,
     also: "Three ratios and no more, so it is the alpha model of second resort rather than the first. input_fidelity high makes an edit hold closer to what it was given.",
+  },
+  {
+    slug: "firtoz/trellis",
+    name: "TRELLIS",
+    returns: "mesh",
+    /*
+     * J (2026-10-12): his clean ring on white came back from Hunyuan3D 2 as
+     * grey shards, on Replicate's own preview too. That model makes a shape
+     * only, no colour, and from one front view it guessed badly. TRELLIS
+     * makes the shape and paints it, from one picture or several of the same
+     * thing, and cuts the ground off itself; so it is the solid model now.
+     * Its GLB comes only with generate_model on, under `model_file`; the
+     * texture is held at 1024 and the mesh simplified as far as it goes, so
+     * the file stays one a document can carry.
+     */
+    serves: { first: ["object"] },
+    references: 4,
+    refField: null,
+    examplePair: false,
+    keepFrame: null,
+    ratios: [],
+    alpha: false,
+    pixels: null,
+    size: null,
+    format: { field: "generate_model", value: "true" },
+    grounding: null,
+    fields: [
+      { name: "images", label: "Images", kind: "images", default: null, maxItems: 4, managed: "images" },
+      { name: "generate_model", label: "Make a GLB", kind: "boolean", default: false, managed: "format" },
+      { name: "texture_size", label: "Texture size", kind: "integer", min: 512, max: 2048, default: 1024 },
+      { name: "mesh_simplify", label: "Mesh simplify", kind: "number", default: 0.95, note: "0.9 to 0.98" },
+      { name: "generate_color", label: "Colour video", kind: "boolean", default: true },
+      { name: "ss_sampling_steps", label: "Shape steps", kind: "integer", min: 1, max: 50, default: 12 },
+      { name: "slat_sampling_steps", label: "Detail steps", kind: "integer", min: 1, max: 50, default: 12 },
+      { name: "seed", label: "Seed", kind: "integer", default: 0 },
+      { name: "randomize_seed", label: "Random seed", kind: "boolean", default: true },
+    ],
+    mesh: {
+      imageField: "images",
+      list: 4,
+      format: { field: "generate_model", value: "true" },
+      fixed: { texture_size: 1024, mesh_simplify: 0.98, generate_color: false, ss_sampling_steps: 25, slat_sampling_steps: 25 },
+      output: "model_file",
+    },
+    cut: null,
+    also: "Shape and colour together. Outputs model_file (GLB, only with generate_model), color_video, gaussian_ply. Takes several pictures of the same thing as one list.",
   },
   {
     slug: "tencent/hunyuan3d-2mv",
@@ -896,13 +948,15 @@ export function inputFor(
     return out;
   }
   if (m.returns === "mesh" && m.mesh) {
-    const views = (ask.images ?? []).slice(0, 1 + (m.mesh.alsoViews?.length ?? 0));
-    const out: Record<string, unknown> = {};
-    if (views[0]) out[m.mesh.imageField] = views[0];
+    const views = (ask.images ?? []).slice(0, m.mesh.list ?? 1 + (m.mesh.alsoViews?.length ?? 0));
+    const out: Record<string, unknown> = { ...(m.mesh.fixed ?? {}) };
+    if (m.mesh.list) { if (views.length) out[m.mesh.imageField] = views; }
+    else if (views[0]) out[m.mesh.imageField] = views[0];
     (m.mesh.alsoViews ?? []).forEach((field, i) => {
       if (views[i + 1]) out[field] = views[i + 1];
     });
-    out[m.mesh.format.field] = m.mesh.format.value;
+    const f = m.mesh.format;
+    out[f.field] = f.value === "true" ? true : f.value === "false" ? false : f.value;
     if (m.mesh.facesField && m.mesh.faces) out[m.mesh.facesField] = m.mesh.faces;
     if (m.mesh.cutGround) out[m.mesh.cutGround.field] = m.mesh.cutGround.value === "true";
     return out;

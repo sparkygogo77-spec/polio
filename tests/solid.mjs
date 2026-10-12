@@ -296,7 +296,12 @@ await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
 await page.waitForTimeout(500);
 await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
 await page.mouse.down();
+const grabbed = await page.screenshot({ clip: box });
 for (let i = 1; i <= 20; i++) { await page.mouse.move(box.x + box.width / 2 + i * 6, box.y + box.height / 2 - i * 2); await page.waitForTimeout(12); }
+await page.waitForTimeout(150);
+const midway = await page.screenshot({ clip: box });
+/* J (2026-10-12): "it only updates once i let go of drag". */
+check("it turns while the hand is still down, not only on letting go", !grabbed.equals(midway));
 await page.mouse.up();
 await page.waitForTimeout(2600);
 const left = await page.evaluate((id) => {

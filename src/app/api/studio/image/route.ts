@@ -675,8 +675,11 @@ async function refine(body: Body, token: string, until: number, signal: AbortSig
 
   const meter = fromMetrics(done.metrics, Date.now() - began);
   let file: { bytes: Uint8Array; type: string } | null;
+  // A model that answers with an object of files names the one that is the GLB.
+  const key = pick.mesh?.output;
+  const output = key && done.output && typeof done.output === "object" && !Array.isArray(done.output) ? (done.output as Record<string, unknown>)[key] : done.output;
   try {
-    file = await bytesOf(done.output);
+    file = await bytesOf(output);
   } catch (error) {
     return NextResponse.json({ ok: false, stage: 2, reason: "fetch", model: pick.slug, name: pick.name, making, message: noModelSays("failed", making, `The refined picture could not be collected (${error instanceof Error ? safe(error.message, token) : "unknown"}).`), ms: meter.ms, cost: meter.dollars });
   }

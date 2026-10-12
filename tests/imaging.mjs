@@ -71,6 +71,17 @@ const SCHEMA = {
 const MESH_SCHEMA = {
   "tencent/hunyuan3d-2mv": { format: "glb", faces: 10000, views: 4, cutsGround: true },
 };
+/* TRELLIS (2026-10-12): every view in one list, the GLB under model_file, a texture held small. */
+{
+  const t = model("firtoz/trellis");
+  const said = t ? inputFor(t, { prompt: "", images: ["data:image/png;base64,AAAA", "data:image/png;base64,BBBB"] }) : {};
+  check("firtoz/trellis: in the table, and hands back a solid", t?.returns === "mesh");
+  check("firtoz/trellis: is the model a solid is routed to", route({ making: "object", step: "first", fromImage: true }).model?.slug === "firtoz/trellis");
+  check("firtoz/trellis: asks for the GLB, which only comes with generate_model on", said.generate_model === true, JSON.stringify(said.generate_model));
+  check("firtoz/trellis: every picture goes as one list", Array.isArray(said.images) && said.images.length === 2);
+  check("firtoz/trellis: the GLB is read from model_file", t?.mesh?.output === "model_file");
+  check("firtoz/trellis: the texture is kept a size a document can carry", said.texture_size <= 1024 && said.mesh_simplify >= 0.95, `${said.texture_size}, ${said.mesh_simplify}`);
+}
 
 for (const [slug, said] of Object.entries(SCHEMA)) {
   const m = model(slug);
@@ -434,12 +445,17 @@ check("something with type in it is told the words are the subject",
 check("a solid is handed the drawing and no words at all, which is the drawing path's own rule",
   wordsFor({ step: "first", making: "object", said: "a chunk of rock" }) === "");
 check("the box built for a solid carries the drawing, a GLB and a face count, and nothing flat", (() => {
-  const m = MODELS.find((x) => x.returns === "mesh");
+  const m = model("tencent/hunyuan3d-2mv");
   const got = inputFor(m, { prompt: "ignored", images: ["data:image/png;base64,AA"], w: 400, h: 300 });
   return got.front_image === "data:image/png;base64,AA" && got.file_type === "glb"
     && got.target_face_num === 10000 && got.remove_background === true
     && got.aspect_ratio === undefined && got.prompt === undefined && got.output_format === undefined;
-})(), JSON.stringify(inputFor(MODELS.find((x) => x.returns === "mesh"), { prompt: "x", images: ["a"], w: 4, h: 3 })));
+})(), JSON.stringify(inputFor(model("tencent/hunyuan3d-2mv"), { prompt: "x", images: ["a"], w: 4, h: 3 })));
+check("…and TRELLIS's carries the drawing in its list, asks for the GLB, and nothing flat", (() => {
+  const got = inputFor(model("firtoz/trellis"), { prompt: "ignored", images: ["data:image/png;base64,AA"], w: 400, h: 300 });
+  return got.images?.[0] === "data:image/png;base64,AA" && got.generate_model === true
+    && got.aspect_ratio === undefined && got.prompt === undefined && got.output_format === undefined;
+})());
 check("nothing anywhere asks for a border, a caption or a watermark",
   /no border, no frame, no caption, no watermark/.test(wordsFor({ step: "first", making: "picture" })));
 for (const why of ["no-key", "not-a-model-job", "nothing-serves", "cannot-do-alpha", "cannot-take-an-image", "failed"]) {

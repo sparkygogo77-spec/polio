@@ -131,7 +131,7 @@ const solidRow = (await panel.locator("[data-render-job]").first().innerText().c
 check("making the 3D model shows its own row, against its usual time", /Making the 3D model with .+ of about 104s/.test(solidRow), solidRow);
 await page.waitForTimeout(2500);
 const solidCall = sent.slice(before).find((b) => Number(b.stage) === 2);
-check("the picture goes to the solid model", !!solidCall && solidCall.model === "tencent/hunyuan3d-2mv" && /3d/i.test(solidCall.said ?? "") && typeof solidCall.first === "string" && solidCall.first.length > 20, solidCall ? `${solidCall.model}, said ${JSON.stringify(solidCall.said)}` : "no call");
+check("the picture goes to the solid model", !!solidCall && solidCall.model === "firtoz/trellis" && /3d/i.test(solidCall.said ?? "") && typeof solidCall.first === "string" && solidCall.first.length > 20, solidCall ? `${solidCall.model}, said ${JSON.stringify(solidCall.said)}` : "no call");
 ns = await nodes();
 const solid = ns.find((n) => n.featureId === "mesh-3d");
 check("and lands as a Solid with the mesh on it", solid?.mesh?.glb === GLB, solid ? "mesh-3d" : ns.map((n) => n.featureId).join(", "));
@@ -143,7 +143,7 @@ const had = new Set((await nodes()).map((n) => n.id));
 await panel.locator("[data-render-3d-from]").first().click({ force: true });
 await page.waitForTimeout(3200);
 const plain3d = sent.slice(before0).find((b) => Number(b.stage) === 2);
-check("3D on a picture, no shape picked, asks the solid model", plain3d?.model === "tencent/hunyuan3d-2mv", plain3d ? plain3d.model : "no call");
+check("3D on a picture, no shape picked, asks the solid model", plain3d?.model === "firtoz/trellis", plain3d ? plain3d.model : "no call");
 const ns0 = (await nodes()).filter((n) => !had.has(n.id));
 check("…and lands a Solid, not a Sphere", ns0.some((n) => n.featureId === "mesh-3d") && !ns0.some((n) => n.featureId === "shape-sphere"), ns0.map((n) => n.featureId).join(", "));
 

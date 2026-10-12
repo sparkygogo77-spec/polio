@@ -118,7 +118,8 @@ check("a quarter turn of yaw brings the left face round, then the back, then the
 check("looking down on the top is the top, looking up is the bottom", facing({ x: REST_PITCHES[0], y: REST.y }) === 4 && facing({ x: REST_PITCHES[2], y: REST.y }) === 5);
 check("asking for the back from the front goes the short way, half a turn", Math.abs(restFor("back", REST).y - REST.y) === 180);
 check("the words that route to a solid route to the object cell", makingOf({ said: SOLID_WORDS }) === "object");
-check("and the table's one solid model is the multi-view Hunyuan", solidModel()?.slug === "tencent/hunyuan3d-2mv" && route({ making: "object", step: "first", fromImage: true }).model?.slug === "tencent/hunyuan3d-2mv", solidModel()?.slug ?? "none");
+/* TRELLIS since 2026-10-12 (tests/pictures-many.mjs): Hunyuan3D 2 gave grey shards, no colour. */
+check("and the table's solid model is TRELLIS, shape and colour", solidModel()?.slug === "firtoz/trellis" && route({ making: "object", step: "first", fromImage: true }).model?.slug === "firtoz/trellis", solidModel()?.slug ?? "none");
 check("a plain box is never routed to a model by its words alone", makingOf({ said: "a box" }) !== "object");
 /* ------------------------------------------------------------------ */
 /* The walk                                                            */
@@ -469,7 +470,7 @@ let side = null;
   await card.waitFor({ timeout: 5000 });
   for (let i = 0; i < 20 && (await card.getAttribute("data-solid-ready")) === "asking"; i++) await page.waitForTimeout(150);
   check("with no token, the card is not lit and says what would light it", (await card.getAttribute("data-solid-ready")) === "no" && (await card.locator("[data-solid-needs]").count()) === 1, (await card.locator("[data-solid-needs]").innerText().catch(() => "-")).slice(0, 60));
-  check("it names the routed model, read off the same table", (await card.getAttribute("data-solid-model")) === "tencent/hunyuan3d-2mv", await card.getAttribute("data-solid-model"));
+  check("it names the routed model, read off the same table", (await card.getAttribute("data-solid-model")) === "firtoz/trellis", await card.getAttribute("data-solid-model"));
   // The "Where it goes" card reads the part, not its words: a cube is a solid, in one step, to the same model.
   // It sits under the closed "Make a picture"; opened to be read.
   { const more = page.locator('[data-part-section="more"]:not([data-open]) > [data-section-head]'); if (await more.count()) { await more.first().click(); await new Promise((r) => setTimeout(r, 300)); } } /* Name, prompt, saving and Make a picture sit under More. */
@@ -502,7 +503,7 @@ let side = null;
   const call = solidCalls[0];
   check("one call went up the image route at stage two", !!call && solidCalls.length === 1);
   check("carrying the front and three more views, drawn off the cube's own faces", call && call.first > 1000 && call.views.length === 3 && call.views.every((v) => v > 1000), call ? `front ${call.first} b64 chars, views ${call.views.join(", ")}` : "-");
-  check("with words that route to the object cell", call && makingOf({ said: call.said }) === "object" && call.model === "tencent/hunyuan3d-2mv", call?.said);
+  check("with words that route to the object cell", call && makingOf({ said: call.said }) === "object" && call.model === "firtoz/trellis", call?.said);
   check("no key in any field: the token rides as a header from the keys panel or sits on the server", call && !call.key && !JSON.stringify(call).includes("REPLICATE"), call?.key ?? "no header (server token)");
   for (let i = 0; i < 40 && (await read())?.featureId !== "mesh-3d"; i++) await page.waitForTimeout(150);
   const solid = await read();
