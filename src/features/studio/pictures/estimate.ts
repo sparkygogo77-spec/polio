@@ -58,7 +58,8 @@ export function estimateLine(model: string, quality: string, threeD: string, pas
   const picSaid = (pic.from === "yours" ? `About ${about(pic.dollars)} a picture (your last ${pic.count === 1 ? "one" : pic.count} from this model)` : `About ${about(pic.dollars)} a picture`)
     + (many > 1 ? `, ${many} pictures` : "");
   const pics = pic.dollars * many;
-  if (threeD === "solid") return `${picSaid}, plus about ${about(SOLID_GUIDE)} for the 3D model: about ${about(pics + SOLID_GUIDE)} in all, on your own Replicate key.`;
+  // A solid is built from the front and three more views drawn first (RenderPanel `drawViews`).
+  if (threeD === "solid") return `${picSaid}, plus about ${about(pic.dollars * 3)} for the back and sides and ${about(SOLID_GUIDE)} for the 3D model: about ${about(pics + pic.dollars * 3 + SOLID_GUIDE)} in all, on your own Replicate key.`;
   return many > 1 ? `${picSaid}: about ${about(pics)} in all, on your own Replicate key.` : `${picSaid}, on your own Replicate key.`;
 }
 

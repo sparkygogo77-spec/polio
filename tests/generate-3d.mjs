@@ -126,11 +126,18 @@ const priceLine = (await panel.locator("[data-render-price]").innerText()).trim(
 check("the price before the press adds the 3D model", /for the 3D model/.test(priceLine) && /in all/.test(priceLine), priceLine);
 const before = sent.length;
 await panel.locator("[data-render-3d-from]").first().click({ force: true });
-await page.waitForTimeout(1200);
-const solidRow = (await panel.locator("[data-render-job]").first().innerText().catch(() => "")).replace(/\s+/g, " ");
+await page.waitForTimeout(600);
+/* First the back and sides are drawn (J, 2026-10-12), then the solid is made from all four. */
+const viewsRow = (await panel.locator("[data-render-job]").first().innerText().catch(() => "")).replace(/\s+/g, " ");
+check("it draws the back and sides first, in a row of its own", /Drawing the back and sides/.test(viewsRow), viewsRow);
+let solidRow = "";
+for (let i = 0; i < 40 && !/Making the 3D model/.test(solidRow); i++) { await page.waitForTimeout(150); solidRow = (await panel.locator("[data-render-job]").first().innerText().catch(() => "")).replace(/\s+/g, " "); }
 check("making the 3D model shows its own row, against its usual time", /Making the 3D model with .+ of about 104s/.test(solidRow), solidRow);
-await page.waitForTimeout(2500);
+await page.waitForTimeout(2800);
 const solidCall = sent.slice(before).find((b) => Number(b.stage) === 2);
+const viewCalls = sent.slice(before).filter((b) => Number(b.stage) !== 2);
+check("three views are asked of the picture model, each from the picture", viewCalls.length === 3 && viewCalls.every((b) => (b.references ?? []).length === 1 && /data:image\//.test(b.references[0])) && ["behind", "left", "right"].every((w) => viewCalls.some((b) => b.prompt.includes(w))), `${viewCalls.length} calls`);
+check("…and all of them go to the solid model with the front", (solidCall?.views ?? []).length === 3, `${(solidCall?.views ?? []).length} views`);
 check("the picture goes to the solid model", !!solidCall && solidCall.model === "firtoz/trellis" && /3d/i.test(solidCall.said ?? "") && typeof solidCall.first === "string" && solidCall.first.length > 20, solidCall ? `${solidCall.model}, said ${JSON.stringify(solidCall.said)}` : "no call");
 ns = await nodes();
 const solid = ns.find((n) => n.featureId === "mesh-3d");
@@ -141,7 +148,8 @@ await pickThreeD("Flat");
 const before0 = sent.length;
 const had = new Set((await nodes()).map((n) => n.id));
 await panel.locator("[data-render-3d-from]").first().click({ force: true });
-await page.waitForTimeout(3200);
+/* The views are drawn first, so the solid lands a turn later. */
+for (let i = 0; i < 40 && !(await nodes()).some((n) => !had.has(n.id) && n.featureId === "mesh-3d"); i++) await page.waitForTimeout(250);
 const plain3d = sent.slice(before0).find((b) => Number(b.stage) === 2);
 check("3D on a picture, no shape picked, asks the solid model", plain3d?.model === "firtoz/trellis", plain3d ? plain3d.model : "no call");
 const ns0 = (await nodes()).filter((n) => !had.has(n.id));

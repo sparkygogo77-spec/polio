@@ -40,6 +40,25 @@ import { estimateLine, pictureSeconds, progressOf, SOLID_SECONDS } from "./pictu
 import { asSolid, onShape, THREE_D, THREE_D_ASK, THREE_D_EVENT, THREE_D_RATIO, type ThreeD } from "./pictures/threeD";
 import { askImage } from "./pictures/askImage";
 
+/** What draws the views when the chosen model cannot work from a picture. */
+const VIEW_MODEL = "openai/gpt-image-2";
+const SAME = "The exact same object as in the picture, same design, colours, materials, proportions and style, the whole object in frame and centred, on a plain white background, nothing else in the picture.";
+const VIEWS_ASKED: readonly (readonly [string, string])[] = [
+  ["back", `${SAME} Seen from directly behind: the back of it.`],
+  ["left", `${SAME} Seen from its left side, turned a quarter.`],
+  ["right", `${SAME} Seen from its right side, turned a quarter.`],
+];
+/** A picture as a data URL, whatever it was kept as: a model can only be sent one. */
+async function asDataUrl(src: string): Promise<string | null> {
+  if (src.startsWith("data:image/")) return src;
+  try {
+    const blob = await (await fetch(src)).blob();
+    return await new Promise<string>((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = no; r.readAsDataURL(blob); });
+  } catch {
+    return null;
+  }
+}
+
 /**
  * The models that DRAW a picture, which is what this panel is for.
  *
@@ -138,10 +157,53 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
     };
   };
   const solidName = React.useMemo(() => modelTable().models.find((m) => m.returns === "mesh")?.name ?? "the 3D modeller", []);
+  /*
+   * The back and the sides, drawn before the solid is made.
+   *
+   * J (2026-10-12): from one front picture the 3D model "couldnt infer the
+   * rest of it very well ... from the images itd have to generate what it
+   * thinks all angles look like". So the picture model he chose (one that
+   * takes a picture to work from; GPT Image 2 otherwise) draws the same
+   * object from behind, left and right, each lands in the list below like
+   * any picture so he sees what the solid was built from, and all of them go
+   * to the 3D model together.
+   */
+  const drawViews = async (src: string, alt: string): Promise<string[]> => {
+    const using = card && card.references > 0 ? slug : VIEW_MODEL;
+    const front = await asDataUrl(src);
+    if (!front) return [];
+    const got = await Promise.all(VIEWS_ASKED.map(async ([name, side]) => {
+      try {
+        const began = Date.now();
+        const res = await askImage({
+          method: "POST",
+          headers: { "content-type": "application/json", ...rendererHeader() },
+          body: JSON.stringify({ kind: "raster", model: using, references: [front], w: 1024, h: 1024, prompt: `${side}${alt ? ` It is: ${alt.slice(0, 300)}` : ""}` }),
+        });
+        const r = (await res.json()) as { ok?: boolean; image?: string; cost?: number | null; ms?: number };
+        if (!r.ok || !r.image) return null;
+        const kept = await putPicture(await (await fetch(r.image)).blob(), { alt: `${alt.slice(0, 100)} (${name})`, from: "drawn" }).catch(() => null);
+        addDraw({ prompt: `${alt} (${name})`, model: using, reference: front, ...(kept ? { picture: kept } : { image: r.image }), cost: r.cost ?? null, ms: typeof r.ms === "number" ? r.ms : Date.now() - began });
+        return r.image;
+      } catch {
+        return null;
+      }
+    }));
+    return got.filter((v): v is string => !!v);
+  };
   const makeThreeD = async (src: string, alt: string, how: ThreeD, id?: string, job?: ReturnType<typeof startJob>, also: readonly string[] = []): Promise<string> => {
     if (!how) return "";
     let own: ReturnType<typeof startJob> | null = null;
-    if (how === "solid") { if (job) job.phase(`Making the 3D model with ${solidName}`, SOLID_SECONDS); else own = startJob(`Making the 3D model with ${solidName}`, SOLID_SECONDS); }
+    if (how === "solid") {
+      // One picture is a guess at the rest; two or more he gave are views already.
+      if (!also.length) {
+        if (job) job.phase("Drawing the back and sides", pictureSeconds(slug, quality, draws)); else own = startJob("Drawing the back and sides", pictureSeconds(slug, quality, draws));
+        also = await drawViews(src, alt);
+      }
+      if (job) job.phase(`Making the 3D model with ${solidName}`, SOLID_SECONDS);
+      else if (own) own.phase(`Making the 3D model with ${solidName}`, SOLID_SECONDS);
+      else own = startJob(`Making the 3D model with ${solidName}`, SOLID_SECONDS);
+    }
     const r = how === "solid" ? await asSolid(src, alt, also).finally(() => own?.end()) : await onShape(src, how, alt).catch((err) => ({ ok: false, message: `It could not be put on the ${how}: ${err instanceof Error ? err.message : String(err)}` }));
     if (r.ok && id) setMadeThreeD(id);
     return r.message;
