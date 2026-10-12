@@ -162,11 +162,16 @@ for (const [name, field, many] of [["GPT Image 2", "input_images", true], ["Nano
 /* The 3D model: a community model's own address is a 404, so it runs by version. */
 await pick("[data-render-count] button, [data-render-count] [role=combobox]", "1");
 await pick("[data-render-3d] button, [data-render-3d] [role=combobox]", "A real 3D model");
-const { mine } = await press((n) => calls.slice(n).some((c) => c.by === "version"));
+const { mine, added: added3d } = await press((n) => calls.slice(n).some((c) => c.by === "version"));
 await page.waitForTimeout(1500);
 const said = (await side.locator("[data-render-price]").innerText()).trim();
 /* At most once: a server that already ran it remembers the version. */
 check("3D: the model's own address answered 404 once", mine.filter((c) => c.slug === SOLID && c.by === "model").length <= 1, mine.map((c) => `${c.slug}/${c.by}`).join(", "));
+/* J (2026-10-12): one picture is a guess at the rest, so the back and sides are drawn first. */
+const viewAsks = mine.filter((c) => c.by === "model" && /Seen from/.test(String(c.input.prompt)));
+check("3D: the back and sides are drawn first, each from the picture", viewAsks.length === 3 && viewAsks.every((c) => [].concat(c.input.input_images ?? c.input.image_input ?? []).length === 1), `${viewAsks.length} views`);
+check("3D: …and the solid is made from all four", (mine.filter((c) => c.by === "version").at(-1)?.input.images ?? []).length === 4, String((mine.filter((c) => c.by === "version").at(-1)?.input.images ?? []).length));
+check("3D: …and the views land in the list, so he sees them", added3d === 4, `${added3d} added`);
 check("3D: …and it ran by its latest version", mine.some((c) => c.by === "version" && c.version === VERSION && /^data:image\//.test(String(c.input.images?.[0])) && c.input.generate_model === true));
 check("3D: no 404 reaches the panel", !/404|could not be found/.test(said), said);
 

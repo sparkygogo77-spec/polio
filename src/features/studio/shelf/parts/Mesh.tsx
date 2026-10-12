@@ -175,6 +175,25 @@ export function Mesh({ id, label, w, h, theme: t, mode, mesh, options, emit }: P
       const rim = new THREE.DirectionalLight(0xffffff, 0.7);
       rim.position.set(-2, -1, -3);
       scene.add(rim);
+      /*
+       * Light from every side as well (J, 2026-10-12: the far side of a
+       * solid went almost black). A model's GLB is usually PBR, lit mostly
+       * by what it reflects, so it is given a room to reflect and a sky and
+       * ground light; the page's lamp above still decides the highlights.
+       */
+      scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8a8a, 0.9));
+      try {
+        const { RoomEnvironment } = await import("three/examples/jsm/environments/RoomEnvironment.js");
+        const pmrem = new THREE.PMREMGenerator(renderer);
+        const room = new RoomEnvironment();
+        scene.environment = pmrem.fromScene(room, 0.04).texture;
+        scene.environmentIntensity = 0.8;
+        room.dispose?.();
+        pmrem.dispose();
+      } catch {
+        // No room to reflect: the lights alone still reach every side.
+      }
+      if (stop) { renderer.dispose(); return; }
 
       const camera = new THREE.PerspectiveCamera(35, width / height, 0.05, 100);
       const pivot = new THREE.Group();
@@ -276,6 +295,7 @@ export function Mesh({ id, label, w, h, theme: t, mode, mesh, options, emit }: P
       cleanup = () => {
         cancelAnimationFrame(frame);
         cleanupControls();
+        scene.environment?.dispose();
         watch?.disconnect();
         renderer.domElement.remove();
         renderer.dispose();
