@@ -235,7 +235,7 @@
         "id": "page-states-change-several-parts",
         "title": "A page state changes more than one part",
         "checkedBy": "kit:check",
-        "rule": "A scene that changes only one part against a scene before it is that part's state (shown on the builder's Panels page from that scene's capture), not a page state; one that changes nothing is left out. A scene made to show one part says \"part\": \"<panel id>\" and stays a page state only if it changes another part too."
+        "rule": "A scene that changes only one part against a scene before it is that part's state (shown on the builder's Panels page from that scene's capture), not a page state, except a scene that only hides one part, which stays a page state so the page without it can still be stepped to; one that changes nothing is left out. A scene made to show one part says \"part\": \"<panel id>\" and stays a page state only if it changes another part too."
       },
       {
         "id": "layout-regions",
