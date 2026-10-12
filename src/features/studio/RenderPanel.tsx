@@ -88,6 +88,12 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
   const [said, setSaid] = React.useState<string | null>(null);
   const [format, setFormat] = React.useState("");
   /*
+   * HIS WORDS (2026-10-12): "it definitely also only puts out one at a time
+   * when i should be able to request multiple". How many one press asks for;
+   * every one that comes back lands below, each its own picture.
+   */
+  const [count, setCount] = React.useState(1);
+  /*
    * MAKE IT A CURSOR (J, 2026-10-09: "a dedicated generate cursor option in
    * the generate section"). The ask gains a line saying to draw a pointer
    * with its tip top left on a plain white ground, it is asked square, and
@@ -274,22 +280,30 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
           ...(forPart && !asCursor ? { label: forPart.label } : {}), model: slug,
           ratio: asCursor ? (ratios.includes("1:1") ? "1:1" : undefined) : ratio || (threeD && ratios.includes(THREE_D_RATIO[threeD]) ? THREE_D_RATIO[threeD] : undefined), quality: quality || undefined, effort: effort || undefined,
           format: format || undefined, references: references.length ? references : undefined,
+          ...(count > 1 ? { count } : {}),
         }),
       });
-      const r = (await res.json()) as { ok?: boolean; image?: string; cost?: number | null; message?: string };
-      if (r.ok && r.image) {
+      const r = (await res.json()) as { ok?: boolean; image?: string; images?: string[]; cost?: number | null; message?: string };
+      const got = r.images?.length ? r.images : r.image ? [r.image] : [];
+      if (r.ok && got.length) {
         /* Kept here first. The picture outlives its box on the timeline: he
-           can delete the iteration and the picture is still his. */
-        /* Kept as a file, the document holding only its path; where this
-           browser keeps no files, as the bytes, which is how it always was. */
-        const kept = await (async () => {
-          try { return await putPicture(await (await fetch(r.image!)).blob(), { alt: asked.slice(0, 120), from: "drawn" }); } catch { return null; }
-        })();
-        addDraw({ prompt: asked, model: slug, ratio: ratio || undefined, quality: quality || undefined, effort: effort || undefined, format: format || undefined, reference: references[0], ...(kept ? { picture: kept } : { image: r.image }), cost: r.cost ?? null, ms: typeof (r as { ms?: number }).ms === "number" ? (r as { ms?: number }).ms : Date.now() - began, threadId });
+           can delete the iteration and the picture is still his. Each one
+           of several is its own picture, carrying its share of the price. */
+        const share = typeof r.cost === "number" ? r.cost / got.length : null;
+        const ms = typeof (r as { ms?: number }).ms === "number" ? (r as { ms?: number }).ms : Date.now() - began;
+        /* Oldest first, so the first one back ends up on top. */
+        for (const image of [...got].reverse()) {
+          /* Kept as a file, the document holding only its path; where this
+             browser keeps no files, as the bytes, which is how it always was. */
+          const kept = await (async () => {
+            try { return await putPicture(await (await fetch(image)).blob(), { alt: asked.slice(0, 120), from: "drawn" }); } catch { return null; }
+          })();
+          addDraw({ prompt: asked, model: slug, ratio: ratio || undefined, quality: quality || undefined, effort: effort || undefined, format: format || undefined, reference: references[0], ...(kept ? { picture: kept } : { image }), cost: share, ms, threadId });
+        }
         markThread(threadId, "done");
-        const cost = typeof r.cost === "number" ? ` It cost ${money(r.cost)}.` : "";
-        if (asCursor) setSaid((await makeCursor(r.image)) ? `Drawn and made your cursor: point at the preview to see it.${cost}` : `Drawn, but it could not be made a cursor.${cost}`);
-        else if (threeD) { setSaid(`Drawn.${cost} Making it 3D…`); setSaid(`Drawn.${cost} ${await makeThreeD(r.image, asked, threeD, undefined, job)}`); }
+        const cost = (got.length > 1 ? ` ${got.length} pictures.` : "") + (typeof r.cost === "number" ? ` It cost ${money(r.cost)}.` : "");
+        if (asCursor) setSaid((await makeCursor(got[0]!)) ? `Drawn and made your cursor: point at the preview to see it.${cost}` : `Drawn, but it could not be made a cursor.${cost}`);
+        else if (threeD) { setSaid(`Drawn.${cost} Making it 3D…`); setSaid(`Drawn.${cost} ${await makeThreeD(got[0]!, asked, threeD, undefined, job)}`); }
         else setSaid(cost ? `Drawn.${cost}` : "Drawn. The renderer reported no price for it.");
       } else {
         markThread(threadId, "cut");
@@ -418,6 +432,11 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
         <Select value={format} onChange={(v) => setFormat(String(v))} options={[{ value: "", label: "Its own" }, { value: "webp", label: "WebP" }, { value: "png", label: "PNG" }, { value: "jpeg", label: "JPEG" }]} />
       </Row>
 
+      {/* HOW MANY */}
+      <Row label="How many" mark="count">
+        <Select value={String(count)} onChange={(v) => setCount(Number(v) || 1)} options={[1, 2, 3, 4].map((n) => ({ value: String(n), label: String(n) }))} />
+      </Row>
+
       {/* ASPECT RATIO */}
       {ratios.length ? (
         <Row label="Aspect ratio" mark="ratio">
@@ -466,7 +485,7 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
             money, so what it will cost is said before anything is spent, and
             what it actually cost replaces this when the picture comes back. */}
         <span data-render-price="" className="text-small text-fg-faint">
-          {said ?? estimateLine(slug, quality, asCursor ? "" : threeD, draws)}
+          {said ?? estimateLine(slug, quality, asCursor ? "" : threeD, draws, count)}
         </span>
       </div>
       {jobs.length ? (
@@ -593,8 +612,8 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
                   {madeThreeD === d.id ? "Made 3D" : "3D"}
                 </button>
                 <a data-render-download={d.id} href={src} download={`${d.prompt.slice(0, 40).replace(/[^a-z0-9]+/gi, "-") || "drawing"}.${d.format ?? "webp"}`} className="tactile rounded-sm border border-border px-1 py-0.5 text-small text-fg-muted hover:text-fg">Save</a>
-                <button type="button" data-render-tweak-from={d.id} onClick={() => { setTweak(d.prompt); setSlug(d.model); if (d.reference) setReferences([d.reference]); }} className="tactile rounded-sm border border-border px-1 py-0.5 text-small text-fg-muted hover:text-fg">Tweak</button>
-                <button type="button" data-render-again={d.id} onClick={() => { setTweak(d.prompt); setSlug(d.model); if (d.reference) setReferences([d.reference]); window.setTimeout(() => void run(), 0); }} className="tactile rounded-sm border border-border px-1 py-0.5 text-small text-fg-muted hover:text-fg">Again</button>
+                <button type="button" data-render-tweak-from={d.id} onClick={() => { setTweak(d.prompt); setSlug(d.model); if (d.reference) setReferences((was) => (was[0] === d.reference ? was : [d.reference!])); }} className="tactile rounded-sm border border-border px-1 py-0.5 text-small text-fg-muted hover:text-fg">Tweak</button>
+                <button type="button" data-render-again={d.id} onClick={() => { setTweak(d.prompt); setSlug(d.model); if (d.reference) setReferences((was) => (was[0] === d.reference ? was : [d.reference!])); window.setTimeout(() => void run(), 0); }} className="tactile rounded-sm border border-border px-1 py-0.5 text-small text-fg-muted hover:text-fg">Again</button>
               </figcaption>
             </figure>
             )}</DrawnSrc>
