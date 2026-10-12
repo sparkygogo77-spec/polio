@@ -39,6 +39,7 @@ import { setCursorPicture } from "./ShelfCards";
 import { estimateLine, pictureSeconds, progressOf, SOLID_SECONDS } from "./pictures/estimate";
 import { asSolid, onShape, THREE_D, THREE_D_ASK, THREE_D_EVENT, THREE_D_RATIO, type ThreeD } from "./pictures/threeD";
 import { askImage } from "./pictures/askImage";
+import { SHEET_ASK, sheetForSolid } from "./pictures/modelSheet";
 import { usePictureJobs, type Job } from "./pictures/jobs";
 import { copyPicture } from "./copyPicture";
 
@@ -126,8 +127,16 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
    */
   const [asCursor, setAsCursor] = React.useState(() => takeCursorAsk());
   const [cursorFor, setCursorFor] = React.useState<string | null>(null);
+  /*
+   * MODEL SHEET, ALL SIDES (J, 2026-10-12, with a ring drawn from ten sides).
+   * The ask gains `SHEET_ASK`: one object in a fixed 3 by 3 grid of named
+   * views, asked square. With "A real 3D model" too, the sheet is cut back
+   * into its views and its own back and sides go to the 3D step, so nothing
+   * has to be drawn a second time (`pictures/modelSheet.ts`).
+   */
+  const [asSheet, setAsSheet] = React.useState(false);
   React.useEffect(() => {
-    const on = () => { takeCursorAsk(); setAsCursor(true); };
+    const on = () => { takeCursorAsk(); setAsCursor(true); setAsSheet(false); };
     window.addEventListener("studio:cursor-draw", on);
     return () => window.removeEventListener("studio:cursor-draw", on);
   }, []);
@@ -141,7 +150,7 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
   const madeThreeD = usePictureJobs((st) => st.madeThreeD);
   const setMadeThreeD = usePictureJobs((st) => st.setMadeThreeD);
   React.useEffect(() => {
-    const on = (e: Event) => { const v = (e as CustomEvent<ThreeD>).detail; if (THREE_D.some((c) => c.value === v)) { setThreeD(v); setAsCursor(false); } };
+    const on = (e: Event) => { const v = (e as CustomEvent<ThreeD>).detail; if (THREE_D.some((c) => c.value === v)) { setThreeD(v); setAsCursor(false); if (v !== "solid") setAsSheet(false); } };
     window.addEventListener(THREE_D_EVENT, on);
     return () => window.removeEventListener(THREE_D_EVENT, on);
   }, []);
@@ -214,6 +223,12 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
     const r = how === "solid" ? await asSolid(src, alt, also).finally(() => own?.end()) : await onShape(src, how, alt).catch((err) => ({ ok: false, message: `It could not be put on the ${how}: ${err instanceof Error ? err.message : String(err)}` }));
     if (r.ok && id) setMadeThreeD(id);
     return r.message;
+  };
+  /** A model sheet made 3D from its own views; one it cannot read is made 3D the usual way. */
+  const threeDFromSheet = async (src: string, alt: string, job?: ReturnType<typeof startJob>): Promise<string> => {
+    const views = await sheetForSolid(src);
+    if (!views) return `The sheet could not be cut into views, so the sides were drawn instead. ${await makeThreeD(src, alt, "solid", undefined, job)}`;
+    return makeThreeD(views.front, alt, "solid", undefined, job, views.also);
   };
   const makeCursor = async (src: string, id?: string) => {
     try { setCursorPicture(await cursorFrom(src)); if (id) setCursorFor(id); return true; } catch { return false; }
@@ -321,7 +336,7 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
   /* A new choice is a new price: what the last press said gives way to the estimate for this one. */
   /* Not on the way in: what the last press said outlives the panel (`pictures/jobs.ts`). */
   const changed = React.useRef(false);
-  React.useEffect(() => { if (changed.current) setSaid(null); changed.current = true; }, [slug, quality, threeD, asCursor]); // eslint-disable-line react-hooks/exhaustive-deps
+  React.useEffect(() => { if (changed.current) setSaid(null); changed.current = true; }, [slug, quality, threeD, asCursor, asSheet]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const run = async () => {
     const forPart = forNode ? useStudio.getState().nodes.find((n) => n.id === forNode) ?? null : null;
@@ -347,10 +362,10 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
            the part's own panel always asked: a square for a wide banner is a
            picture cropped or stretched the moment it lands. */
         body: JSON.stringify({
-          kind: "raster", prompt: asCursor ? `${tweak.trim()}\n\n${CURSOR_ASK}` : threeD ? `${tweak.trim()}\n\n${THREE_D_ASK[threeD]}` : tweak.trim(),
-          w: forPart && !asCursor ? Math.round(forPart.w) : 1024, h: forPart && !asCursor ? Math.round(forPart.h) : 1024,
-          ...(forPart && !asCursor ? { label: forPart.label } : {}), model: slug,
-          ratio: asCursor ? (ratios.includes("1:1") ? "1:1" : undefined) : ratio || (threeD && ratios.includes(THREE_D_RATIO[threeD]) ? THREE_D_RATIO[threeD] : undefined), quality: quality || undefined, effort: effort || undefined,
+          kind: "raster", prompt: asCursor ? `${tweak.trim()}\n\n${CURSOR_ASK}` : asSheet ? `${tweak.trim()}\n\n${SHEET_ASK}` : threeD ? `${tweak.trim()}\n\n${THREE_D_ASK[threeD]}` : tweak.trim(),
+          w: forPart && !asCursor && !asSheet ? Math.round(forPart.w) : 1024, h: forPart && !asCursor && !asSheet ? Math.round(forPart.h) : 1024,
+          ...(forPart && !asCursor && !asSheet ? { label: forPart.label } : {}), model: slug,
+          ratio: asCursor || asSheet ? (ratios.includes("1:1") ? "1:1" : undefined) : ratio || (threeD && ratios.includes(THREE_D_RATIO[threeD]) ? THREE_D_RATIO[threeD] : undefined), quality: quality || undefined, effort: effort || undefined,
           format: format || undefined, references: references.length ? references : undefined,
           ...(count > 1 ? { count } : {}),
         }),
@@ -375,6 +390,7 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
         markThread(threadId, "done");
         const cost = (got.length > 1 ? ` ${got.length} pictures.` : "") + (typeof r.cost === "number" ? ` It cost ${money(r.cost)}.` : "");
         if (asCursor) setSaid((await makeCursor(got[0]!)) ? `Drawn and made your cursor: point at the preview to see it.${cost}` : `Drawn, but it could not be made a cursor.${cost}`);
+        else if (asSheet && threeD === "solid") { setSaid(`Drawn.${cost} Making it 3D from the sheet…`); setSaid(`Drawn.${cost} ${await threeDFromSheet(got[0]!, asked, job)}`); }
         else if (threeD) { setSaid(`Drawn.${cost} Making it 3D…`); setSaid(`Drawn.${cost} ${await makeThreeD(got[0]!, asked, threeD, undefined, job)}`); }
         else setSaid(cost ? `Drawn.${cost}` : "Drawn. The renderer reported no price for it.");
       } else {
@@ -547,7 +563,15 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
           <span className="text-plain text-fg-muted">Make it a cursor</span>
           <span className="text-fine text-fg-faint">Tip top left, background see-through, used as the site&apos;s pointer.</span>
         </span>
-        <input data-render-cursor="" type="checkbox" checked={asCursor} onChange={(e) => { setAsCursor(e.target.checked); if (e.target.checked) setThreeD(""); }} className="size-4 accent-[var(--accent)]" />
+        <input data-render-cursor="" type="checkbox" checked={asCursor} onChange={(e) => { setAsCursor(e.target.checked); if (e.target.checked) { setThreeD(""); setAsSheet(false); } }} className="size-4 accent-[var(--accent)]" />
+      </label>
+
+      <label data-render-row="sheet" className="flex items-center justify-between gap-2 px-3 py-1.5">
+        <span className="flex flex-col">
+          <span className="text-plain text-fg-muted">Model sheet (all sides)</span>
+          <span className="text-fine text-fg-faint">One object from 9 named sides in a grid, for making a 3D model.</span>
+        </span>
+        <input data-render-sheet="" type="checkbox" checked={asSheet} onChange={(e) => { setAsSheet(e.target.checked); if (e.target.checked) { setAsCursor(false); if (threeD && threeD !== "solid") setThreeD(""); } }} className="size-4 accent-[var(--accent)]" />
       </label>
 
       <div data-render-row="3d" className="flex items-center justify-between gap-2 px-3 py-1.5">
@@ -556,14 +580,14 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
           <span className="text-fine text-fg-faint">Or drop a Sphere, Cube or Pyramid from Media here.</span>
         </span>
         <span data-render-3d={threeD} className="shrink-0">
-          <Select value={threeD} onChange={(v) => { setThreeD(String(v) as ThreeD); if (v) setAsCursor(false); }} options={THREE_D.map((c) => ({ value: c.value, label: c.label }))} />
+          <Select value={threeD} onChange={(v) => { setThreeD(String(v) as ThreeD); if (v) setAsCursor(false); if (v && v !== "solid") setAsSheet(false); }} options={THREE_D.map((c) => ({ value: c.value, label: c.label }))} />
         </span>
       </div>
 
       <div className="flex items-center gap-2 px-3 pb-3 pt-2">
         <Button data-render-go="" variant="primary" size="sm" disabled={!tweak.trim()} onClick={() => void run()}>
           {running ? <LoaderCircle className="animate-spin" /> : <Sparkles />}
-          {asCursor ? "Generate cursor" : threeD ? "Generate in 3D" : "Generate"}
+          {asCursor ? "Generate cursor" : asSheet ? "Generate sheet" : threeD ? "Generate in 3D" : "Generate"}
         </Button>
         {/* The price before the press, not after it. It is his key and his
             money, so what it will cost is said before anything is spent, and
