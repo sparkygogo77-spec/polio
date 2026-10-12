@@ -40,6 +40,7 @@ import { estimateLine, pictureSeconds, progressOf, SOLID_SECONDS } from "./pictu
 import { asSolid, onShape, THREE_D, THREE_D_ASK, THREE_D_EVENT, THREE_D_RATIO, type ThreeD } from "./pictures/threeD";
 import { askImage } from "./pictures/askImage";
 import { usePictureJobs, type Job } from "./pictures/jobs";
+import { copyPicture } from "./copyPicture";
 
 /** What draws the views when the chosen model cannot work from a picture. */
 const VIEW_MODEL = "openai/gpt-image-2";
@@ -633,31 +634,26 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
 
                   HIS WORDS: "make the output image generated pastable instead
                   of just a savable file." So the picture goes to the clipboard
-                  as a picture — a real blob of its own type, which is what
-                  another app pastes — and the address goes with it as text for
-                  anything that would rather have that. Saving stays, because
-                  he asked for it earlier and both are wanted.
+                  as a picture, PNG and nothing else beside it (an address
+                  riding along is what many apps paste instead). Saving stays,
+                  because he asked for it earlier and both are wanted.
                 */}
                 <button
                   type="button"
                   data-render-copy={d.id}
                   onClick={async () => {
-                    try {
-                      const blob = await (await fetch(src)).blob();
-                      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob, "text/plain": new Blob([src], { type: "text/plain" }) })]);
-                      setCopied(d.id);
-                      window.setTimeout(() => setCopied((was) => (was === d.id ? null : was)), 1400);
-                    } catch {
-                      /* Some browsers will not write a picture to the clipboard
-                         at all. Say so on the control rather than in silence. */
-                      setCopied(`${d.id}:no`);
-                      window.setTimeout(() => setCopied((was) => (was === `${d.id}:no` ? null : was)), 2200);
-                    }
+                    /* The picture alone, as PNG (copyPicture.ts): an address
+                       beside it is what most apps paste instead. */
+                    const how = await copyPicture(src);
+                    const mark = how === "picture" ? d.id : `${d.id}:${how === "link" ? "link" : "no"}`;
+                    setCopied(mark);
+                    window.setTimeout(() => setCopied((was) => (was === mark ? null : was)), how === "picture" ? 1400 : 3200);
                   }}
+                  title={copied === `${d.id}:link` ? "This browser cannot copy pictures, so the link was copied instead." : copied === `${d.id}:no` ? "This browser would not let the page use the clipboard." : "Copy the picture"}
                   className="tactile flex items-center gap-0.5 rounded-sm border border-border px-1 py-0.5 text-small text-fg-muted hover:text-fg"
                 >
                   <Copy className="size-2.5" />
-                  {copied === d.id ? "Copied" : copied === `${d.id}:no` ? "Cannot" : "Copy"}
+                  {copied === d.id ? "Copied" : copied === `${d.id}:link` ? "Link only: no picture copy here" : copied === `${d.id}:no` ? "Cannot" : "Copy"}
                 </button>
                 {forNode ? (
                   <button
