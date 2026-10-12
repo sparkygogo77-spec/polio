@@ -39,6 +39,7 @@ import { setCursorPicture } from "./ShelfCards";
 import { estimateLine, pictureSeconds, progressOf, SOLID_SECONDS } from "./pictures/estimate";
 import { asSolid, onShape, THREE_D, THREE_D_ASK, THREE_D_EVENT, THREE_D_RATIO, type ThreeD } from "./pictures/threeD";
 import { askImage } from "./pictures/askImage";
+import { usePictureJobs, type Job } from "./pictures/jobs";
 
 /** What draws the views when the chosen model cannot work from a picture. */
 const VIEW_MODEL = "openai/gpt-image-2";
@@ -104,8 +105,11 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
   const [effort, setEffort] = React.useState("");
   /* How many are out at once. Not a lock: he may queue as many as he likes,
      and this only says whether anything is still working. */
-  const [running, setRunning] = React.useState(0);
-  const [said, setSaid] = React.useState<string | null>(null);
+  /* Kept outside the panel, so leaving it abandons nothing (`pictures/jobs.ts`). */
+  const running = usePictureJobs((st) => st.running);
+  const setRunning = usePictureJobs((st) => st.setRunning);
+  const said = usePictureJobs((st) => st.said);
+  const setSaid = usePictureJobs((st) => st.setSaid);
   const [format, setFormat] = React.useState("");
   /*
    * HIS WORDS (2026-10-12): "it definitely also only puts out one at a time
@@ -133,7 +137,8 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
    * on this panel picks the same.
    */
   const [threeD, setThreeD] = React.useState<ThreeD>("");
-  const [madeThreeD, setMadeThreeD] = React.useState<string | null>(null);
+  const madeThreeD = usePictureJobs((st) => st.madeThreeD);
+  const setMadeThreeD = usePictureJobs((st) => st.setMadeThreeD);
   React.useEffect(() => {
     const on = (e: Event) => { const v = (e as CustomEvent<ThreeD>).detail; if (THREE_D.some((c) => c.value === v)) { setThreeD(v); setAsCursor(false); } };
     window.addEventListener(THREE_D_EVENT, on);
@@ -147,7 +152,8 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
    * first, `pictures/estimate.ts`). Replicate reports no percentage for
    * these models, so the bar is time, and it says so when a run goes long.
    */
-  const [jobs, setJobs] = React.useState<Job[]>([]);
+  const jobs = usePictureJobs((st) => st.jobs);
+  const setJobs = usePictureJobs((st) => st.setJobs);
   const startJob = (label: string, expect: number) => {
     const id = `job_${Math.random().toString(36).slice(2, 8)}`;
     setJobs((was) => [...was, { id, label, expect, at: Date.now() }]);
@@ -312,7 +318,9 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
   }, [slug]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* A new choice is a new price: what the last press said gives way to the estimate for this one. */
-  React.useEffect(() => { setSaid(null); }, [slug, quality, threeD, asCursor]);
+  /* Not on the way in: what the last press said outlives the panel (`pictures/jobs.ts`). */
+  const changed = React.useRef(false);
+  React.useEffect(() => { if (changed.current) setSaid(null); changed.current = true; }, [slug, quality, threeD, asCursor]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const run = async () => {
     const forPart = forNode ? useStudio.getState().nodes.find((n) => n.id === forNode) ?? null : null;
@@ -702,7 +710,6 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
   );
 }
 
-interface Job { id: string; label: string; expect: number; at: number; before?: number }
 
 /** One running job: what it is doing, seconds so far, and a bar against its usual time. Ticks on its own. */
 function JobRow({ job }: { job: Job }) {
