@@ -605,8 +605,11 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
                 <button
                   type="button"
                   data-render-3d-from={d.id}
-                  title={threeD ? `Make this one 3D: ${THREE_D.find((c) => c.value === threeD)?.label.toLowerCase()}` : "Put this one on a sphere (pick another shape in Make it 3D)"}
-                  onClick={async () => setSaid(await makeThreeD(src, d.prompt, threeD || "sphere", d.id))}
+                  /* J (2026-10-12): "make 3d seems to just put it on a sphere lol i
+                     want an actual ring". 3D on a picture is a real 3D model of
+                     what is in it, unless he picked a shape in Make it 3D. */
+                  title={threeD && threeD !== "solid" ? `Make this one 3D: ${THREE_D.find((c) => c.value === threeD)?.label.toLowerCase()}` : "Make a real 3D model of this one (or pick a shape in Make it 3D)"}
+                  onClick={async () => setSaid(await makeThreeD(src, d.prompt, threeD || "solid", d.id))}
                   className="tactile rounded-sm border border-border px-1 py-0.5 text-small text-fg-muted hover:text-fg"
                 >
                   {madeThreeD === d.id ? "Made 3D" : "3D"}
