@@ -155,6 +155,24 @@ check("3D on a picture, no shape picked, asks the solid model", plain3d?.model =
 const ns0 = (await nodes()).filter((n) => !had.has(n.id));
 check("…and lands a Solid, not a Sphere", ns0.some((n) => n.featureId === "mesh-3d") && !ns0.some((n) => n.featureId === "shape-sphere"), ns0.map((n) => n.featureId).join(", "));
 
+/* 5. J (2026-10-12): "my generated pictures progress disappears it should never abandon".
+   Leave the Pictures tab mid-run and come back: the job is still shown, and its picture lands. */
+await pickThreeD("Flat");
+const drawsBefore = await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio")).state.draws?.length ?? 0);
+await panel.locator("[data-render-tweak]").fill("a lantern");
+await panel.locator("[data-render-go]").click({ force: true });
+await page.waitForTimeout(400);
+await page.locator("[data-side-panel] [role=radio]").filter({ hasText: "Look" }).first().click({ force: true });
+await page.waitForTimeout(600);
+check("leaving the tab mid-run takes the panel away", (await page.locator("[data-pictures-panel] [data-render-panel]").count()) === 0);
+await page.locator("[data-side-panel] [role=radio]").filter({ hasText: "Pictures" }).first().click({ force: true });
+await page.waitForTimeout(400);
+const back = page.locator("[data-pictures-panel] [data-render-panel]").first();
+check("coming back, the job still running is shown", (await back.locator("[data-render-job]").count()) >= 1, (await back.locator("[data-render-job]").first().innerText().catch(() => "none")).replace(/\s+/g, " "));
+await page.waitForTimeout(2600);
+const drawsAfter = await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio")).state.draws?.length ?? 0);
+check("…and its picture lands, and what it said is still there", drawsAfter === drawsBefore + 1 && /Drawn/.test(await back.locator("[data-render-price]").innerText()), `${drawsAfter - drawsBefore} new, said ${await back.locator("[data-render-price]").innerText()}`);
+
 check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
 
 await page.evaluate(() => localStorage.removeItem("builder.studio"));
