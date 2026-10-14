@@ -3539,6 +3539,33 @@ and sends them. `tests/tweet-console.mjs`.
 
 ---
 
+## 2d. The model viewer (`src/features/models`)
+
+`/models` (⌘K "Model viewer", `g m`) shows the .glb, .gltf and .bbmodel files
+of a repository in 3D: by default the Lantern Ring mod's Blender branch
+(`sparkygogo77-spec/site-10` at `claude/lantern-redesign-pass2`: its Blender
+exports, its dated hand-offs, newest first, and the game's Blockbench models).
+The address carries everything, so a link is a review:
+`/models?ref=<branch>&dir=docs/handoff/<day>&model=<path>&view=front&bg=sky&sheet=1`.
+`sheet=1` (or *Nine views*) lays out the nine views of J's concept sheets.
+A file dropped on the canvas is read in the browser and sent nowhere.
+
+- `/api/models` lists with the GitHub token (Keys panel, then the server's
+  `GITHUB_TOKEN`) and hands out GitHub's short-lived `download_url`; the bytes
+  never pass through the function (a function answer stops at 4.5 MB and the
+  exports are 2 to 4).
+- `.bbmodel` is drawn as the mod draws it (`bbmodel.ts`, the same rules as
+  site-10's `tools/bbmodel_preview.py`): box UV as ModelPart lays it, X-Y-Z
+  Euler rotations about each origin, alpha cut-out, `glow`/`core`/`glass`
+  cubes full-bright. Front is the model's north (-Z) side, as in the game.
+- No one at the screen: `node scripts/model-shots.mjs --repo-dir ../site-10
+  --ref origin/claude/lantern-redesign-pass2 --out shots/ <paths or names>`
+  against a running dev server writes `<model>-sheet.png` per model (software
+  WebGL in headless Chromium), standing in for `/api/models` from a local
+  clone so it needs no token. `window.__modelViewer` is its handle.
+
+---
+
 ## 3. Toasts: never repeat yourself
 
 `ctx.publish(input)` is the only way to tell the user something happened. The
