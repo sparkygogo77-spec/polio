@@ -36,6 +36,10 @@ the same way: add it to `SITES` in `scripts/board.mjs`.
 Prompt recipes for turning this into a specific site live in `docs/PROMPTS.md`.
 Before changing anything a person sees in the Builder, read `docs/DESIGN.md`:
 the menu's design language, the rules it lives by, and how the owner works.
+Before changing a Builder file, search `docs/BUILDER-HISTORY.md` for that file
+and its test (`rg -n Canvas.tsx docs/BUILDER-HISTORY.md`): it is the long record
+of why each Builder behaviour is the way it is, moved out of AGENTS.md so that
+file stays a short working guide. Don't read it whole.
 
 Rule from the owner: never wait on J silently. Whenever a thread is blocked or
 waiting on J (a test, a key, a payment, an account setting, a decision), say so
