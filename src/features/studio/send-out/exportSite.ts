@@ -82,6 +82,7 @@ import { PARTS_JS, SITE_MOTION_JS, pageTransitionCss, partKeyframesFor, partsTag
 import { deriveBehaviours, isBehaviour as isBehaviourPart } from "../live/behaviours";
 import { CRATE_CSS, crateOn, setCrateHref } from "../crateLayer";
 import { cellFor, crateSheet, type CrateSheet } from "../crateDraw";
+import { onlyBranchDeploys } from "./deployBranch";
 
 export type ExportFile = SiteFile | SiteBinary;
 
@@ -1166,8 +1167,8 @@ ${CRATE_CSS}
 ` : ""}`;
   files.push({ path: "assets/site.css", content: css });
   for (const [key, sheet] of motionSheets) files.push({ path: sheetFile(key), content: `/* The motion of this page's parts and its panels', as captured: each part's animation, transitions and hover (keyframes in site.css). */\n${sheet}\n` });
-  /* Clean addresses on Vercel: tokens/index.html served at /tokens (see cleanHref). */
-  files.push({ path: "vercel.json", content: `${JSON.stringify({ cleanUrls: true, trailingSlash: false }, null, 2)}\n` });
+  /* Clean addresses on Vercel: tokens/index.html served at /tokens (see cleanHref). Only the published branch deploys (`deployBranch.ts`). */
+  files.push({ path: "vercel.json", content: `${JSON.stringify({ cleanUrls: true, trailingSlash: false, git: onlyBranchDeploys() }, null, 2)}\n` });
   /* The features the site uses: a tiny runtime and each one's script, static, no framework (`library/works.ts`). */
   files.push(...featureFiles(s.nodes));
   if (anyMotion) files.push({ path: "assets/site-motion.js", content: SITE_MOTION_JS });
