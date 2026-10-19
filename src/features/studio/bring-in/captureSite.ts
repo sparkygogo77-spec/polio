@@ -147,10 +147,13 @@ async function messageOf(r: Response): Promise<string> {
  * branch is also what a token that cannot see the repository gets, so the
  * repository is asked before a missing workflow is blamed.
  */
+/** A 401 from any step: the key in Keys is the cause, never the repository. */
+const UNKNOWN_TOKEN = "GitHub does not know this token: it is expired, revoked or pasted wrong. Put a fresh one in Keys.";
+
 async function refusal(d: Response, o: { f: typeof fetch; base: string; h: Record<string, string>; repo: CaptureRepo; ref: string; url: string; name: string }): Promise<string> {
   const full = `${o.repo.owner}/${o.repo.name}`;
   const said = await messageOf(d);
-  if (d.status === 401) return "GitHub does not know this token: it is expired, revoked or pasted wrong. Put a fresh one in Keys.";
+  if (d.status === 401) return UNKNOWN_TOKEN;
   if (d.status === 403 || d.status === 429) {
     if (d.headers.get("x-ratelimit-remaining") === "0" || /rate limit/i.test(said)) {
       const reset = Number(d.headers.get("x-ratelimit-reset"));
@@ -202,13 +205,13 @@ export async function startCapture(o: { repo: CaptureRepo; token: string; url: s
     let made = false;
     if (!ref || o.makeBranch) {
       const r = await f(base, { headers: h });
-      if (!r.ok) return { ok: false, says: r.status === 404 ? `${o.repo.owner}/${o.repo.name} is not a repository the token can see.` : `GitHub answered ${r.status} when asked about ${o.repo.owner}/${o.repo.name}.` };
+      if (!r.ok) return { ok: false, status: r.status, says: r.status === 401 ? UNKNOWN_TOKEN : r.status === 404 ? `${o.repo.owner}/${o.repo.name} is not a repository the token can see.` : `GitHub answered ${r.status} when asked about ${o.repo.owner}/${o.repo.name}.` };
       const main = ((await r.json()) as { default_branch?: string }).default_branch ?? "main";
       if (!ref) ref = main;
       else if (!isMainBranch(ref, main)) {
         /* The capture's own branch, cut from the default branch's tip. One that is already there (a second capture today) is used as it is. */
         const tip = await f(`${base}/git/ref/heads/${main.split("/").map(encodeURIComponent).join("/")}`, { headers: h });
-        if (!tip.ok) return { ok: false, status: tip.status, says: `GitHub would not say where ${main} is on ${o.repo.owner}/${o.repo.name} (${tip.status}), so no branch was made for the capture.` };
+        if (!tip.ok) return { ok: false, status: tip.status, says: tip.status === 401 ? UNKNOWN_TOKEN : `GitHub would not say where ${main} is on ${o.repo.owner}/${o.repo.name} (${tip.status}), so no branch was made for the capture.` };
         const sha = ((await tip.json()) as { object?: { sha?: string } }).object?.sha;
         const mk = await f(`${base}/git/refs`, { method: "POST", headers: { ...h, "content-type": "application/json" }, body: JSON.stringify({ ref: `refs/heads/${ref}`, sha }) });
         if (mk.ok) made = true;

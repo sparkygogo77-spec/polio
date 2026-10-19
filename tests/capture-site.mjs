@@ -99,6 +99,8 @@ const noTrigger = await say(refusing(answer(422, "Workflow does not have 'workfl
 check("a workflow without its dispatch trigger is said as that", /workflow_dispatch/.test(noTrigger), noTrigger);
 const expired = await say(refusing(answer(401, "Bad credentials")));
 check("a token GitHub does not know is said as expired or wrong", /expired|revoked|wrong|not a token/i.test(expired), expired);
+const lookedUp = await say(refusing(() => new Response(null, { status: 204 }), new Response(JSON.stringify({ message: "Bad credentials" }), { status: 401 })), "");
+check("a 401 when the repository is first asked about is said as the token, not as a bare number", /expired|revoked|wrong/i.test(lookedUp) && /Keys/.test(lookedUp) && !/answered 401/.test(lookedUp), lookedUp);
 
 const failed = results.filter((r) => !r).length;
 console.log(failed ? `\n${failed} failed` : "\nall green");
