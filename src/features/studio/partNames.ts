@@ -23,7 +23,7 @@
  *
  * Pure: no store, no DOM, no catalogue, so a test reads it on its own.
  */
-import { under } from "./owns";
+import { under } from "./owns.ts";
 
 export interface Named {
   id: string;
