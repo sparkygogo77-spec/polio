@@ -17,7 +17,7 @@
  * one, so the suite skips it when they are not given (exit 0, said).
  */
 import { createRequire } from "node:module";
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 const req = createRequire(import.meta.url);
@@ -137,7 +137,28 @@ const board = await page.evaluate(([dev, W, ids]) => {
   }
   return { out, height: Math.round(R.height / k), mode: root.querySelector(".sm-root") ? "small" : "?" };
 }, [DEVICE, W, sections.filter((s) => s.node).map((s) => s.node.id)]);
-await page.locator(`[data-small-frame="${DEVICE}"]`).screenshot({ path: opt("--shot", `.screenshots/responsive-${DEVICE}.png`) }).catch(() => {});
+/*
+ * A picture of each section on the board (`--shots dir`: <dir>/board-<section>.png),
+ * cut from the screen where the section is drawn: the frame is zoomed, so a
+ * picture of the frame element came out cut and offset.
+ */
+const SHOTS_DIR = opt("--shots", null);
+if (SHOTS_DIR) {
+  mkdirSync(SHOTS_DIR, { recursive: true });
+  /* The bar above the page sticks over the section's top; it is not the page. */
+  await page.addStyleTag({ content: "[data-small-bar]{visibility:hidden!important}" });
+  for (const s of sections.filter((x) => x.node)) {
+    const sel = `[data-small-frame="${DEVICE}"] [data-live-node="${s.node.id}"]`;
+    await page.locator(sel).first().evaluate((el) => el.scrollIntoView({ block: "start" })).catch(() => {});
+    await page.waitForTimeout(400);
+    const r = await page.locator(sel).first().boundingBox().catch(() => null);
+    if (!r) continue;
+    const vp = page.viewportSize();
+    if (r.height + 120 > vp.height) { await page.setViewportSize({ width: vp.width, height: Math.ceil(r.height) + 160 }); await page.locator(sel).first().evaluate((el) => el.scrollIntoView({ block: "start" })); await page.waitForTimeout(400); }
+    const q = await page.locator(sel).first().boundingBox();
+    await page.screenshot({ path: join(SHOTS_DIR, `board-${s.sel.replace(/[^a-z0-9]+/gi, "")}.png`), clip: { x: q.x, y: q.y, width: q.width, height: q.height } }).catch((e) => console.log(`  …  no picture of ${s.sel}: ${e.message.split("\n")[0]}`));
+  }
+}
 
 /* The published site at the same window width: the same parts, the layout as rules under media queries (docs/RESPONSIVE.md §4). */
 const exported = (await page.evaluate(async () => (window.__studioExport ? await window.__studioExport() : null)).catch(() => null)) ?? [];

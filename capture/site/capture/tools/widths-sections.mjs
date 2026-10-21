@@ -8,12 +8,17 @@
  * put in one table.
  *
  *   node capture/site/capture/tools/widths-sections.mjs <url> [--width 390] [--height 844]
- *        [--sections "#top,#lore,footer"] [--out file.json]
+ *        [--sections "#top,#lore,footer"] [--out file.json] [--shots dir]
+ *
+ * `--shots dir`: a picture of each section as the live site shows it,
+ * <dir>/live-<section>.png, to lay beside the board's.
  *
  * Observe only: nothing is pressed, a gate is hidden, never agreed to.
  */
 import { createRequire } from "node:module";
-import { writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { scrollThrough } from "../sweep.mjs";
 import { HIDE_GATE } from "../held.mjs";
 
 const req = createRequire(import.meta.url);
@@ -52,10 +57,16 @@ if (import.meta.url.endsWith(process.argv[1]?.replace(/\\/g, "/").split("/").pop
   await page.waitForLoadState("networkidle").catch(() => {});
   await page.waitForTimeout(1500);
   await page.evaluate(HIDE_GATE).catch(() => {});
-  /* Scrolled through as the capture is, so what reveals itself has. */
-  await page.evaluate(async () => { const h = document.documentElement.scrollHeight; for (let y = 0; y < h; y += Math.max(100, innerHeight / 6)) { scrollTo(0, y); await new Promise((r) => setTimeout(r, 40)); } scrollTo(0, 0); });
+  /* Scrolled through as the capture is (sweep.mjs), so what reveals itself has; then back at the top at once. */
+  await scrollThrough(page);
+  await page.evaluate(async () => { const root = document.documentElement; root.style.scrollBehavior = "auto"; for (let i = 0; i < 40 && (scrollY !== 0 || i === 0); i++) { scrollTo({ top: 0, behavior: "instant" }); await new Promise((r) => setTimeout(r, 50)); } root.style.scrollBehavior = ""; });
   await page.waitForTimeout(800);
   const read = await page.evaluate(READ_SECTIONS, SECTIONS);
+  const shots = opt("--shots", null);
+  if (shots) {
+    mkdirSync(shots, { recursive: true });
+    for (const sel of SECTIONS) await page.locator(sel).first().screenshot({ path: join(shots, `live-${sel.replace(/[^a-z0-9]+/gi, "")}.png`), timeout: 20000 }).catch((e) => console.error(`no picture of ${sel}: ${String(e.message).split("\n")[0]}`));
+  }
   await browser.close();
   const out = { url, width: W, height: H, ...read };
   const file = opt("--out", null);
