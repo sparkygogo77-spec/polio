@@ -2358,6 +2358,9 @@ for (const g of generics) note("(faces)", g, "nowhere", `a generic keyword: the 
     /* Its own size where the sentence's is not it (a <small>, a <sup>): in px, as the chip below keeps its. */
     if (k.font?.px && p.font?.px && k.font.px !== p.font.px) s.size = k.font.px;
     if (k.link) s.link = k.link;
+    /* Words with no ink of their own: outlined (-webkit-text-stroke) or a gradient clipped to them (background-clip: text). Their colour stays the transparent ink the page set. */
+    if (k.art?.textStroke) s.textStroke = k.art.textStroke;
+    if (k.art?.backgroundClip === "text" && k.art.background) s.fill = { image: k.art.background, clip: "text" };
     /* A chip in the sentence (parasiteonsol.fun's dark "HOST" tag) keeps its fill, padding and rounding: white words on nothing were gone (check-chips.mjs). */
     if (k.colour?.bg && k.colour.bg !== p.colour?.bg) {
       s.bg = k.colour.bg;
