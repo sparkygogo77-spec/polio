@@ -9,6 +9,7 @@
 import * as React from "react";
 import { Cloud, KeyRound, LogOut, Plus, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
 import { Button, CopyButton, Input } from "@/core/ui";
+import { useKeys } from "@/features/keys/store";
 import { useAccount } from "./store";
 
 const when = (iso: string) => {
@@ -30,6 +31,7 @@ export function AccountPage() {
   const [draft, setDraft] = React.useState("");
   const [name, setName] = React.useState("");
   const [busy, setBusy] = React.useState(false);
+  const hasGithub = useKeys((k) => k.unlocked && !!k.values.GITHUB_TOKEN);
 
   React.useEffect(() => { void s.refresh().then(() => { if (useAccount.getState().who?.role === "owner") void useAccount.getState().loadKeys(); }); // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -46,15 +48,18 @@ export function AccountPage() {
     try { await s.makeKey(name.trim()); setName(""); } finally { setBusy(false); }
   };
 
+  const opener = s.setup?.owner || s.setup?.github;
   const setupLine = !s.setup
     ? "Checking the server…"
-    : !s.setup.store && !s.setup.owner
+    : !s.setup.store && !opener
       ? "Accounts are not set up on this server yet: it needs a store and an owner key."
       : !s.setup.store
         ? "The owner key is set, but the server has no store for saved work yet."
-        : !s.setup.owner
+        : !opener
           ? "The store is ready. The owner key (POLIO_OWNER_KEY in Vercel) is not set yet, so no keys can be made."
-          : "Ready: the store and the owner key are both set.";
+          : s.setup.github
+            ? "Ready: your GitHub key in Keys opens the account."
+            : "Ready: the store and the owner key are both set.";
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 py-8" data-account="page">
@@ -68,6 +73,16 @@ export function AccountPage() {
 
       {!s.who ? (
         <Section title="Sign in" icon={<KeyRound className="size-4" />} hook="sign-in">
+          {s.setup?.github && (
+            <div className="mb-3 flex flex-col gap-2 border-b border-border pb-3" data-account="github">
+              <p className="text-small text-fg-muted">{hasGithub ? "Your GitHub key is in Keys. It is your account key: any browser with it in Keys has your sites and capture runs." : "Put your GitHub key in Keys and this browser signs in by itself, with your sites and capture runs."}</p>
+              {hasGithub && (
+                <Button variant="primary" className="self-start" disabled={busy} onClick={async () => { setBusy(true); try { await s.useGithub(); } finally { setBusy(false); } }} data-account="github-button">
+                  <KeyRound className="size-3.5" />Use my GitHub key
+                </Button>
+              )}
+            </div>
+          )}
           <form onSubmit={signIn} className="flex flex-col gap-2 sm:flex-row">
             <Input
               type="password"
@@ -80,12 +95,12 @@ export function AccountPage() {
               className="flex-1"
               data-account="key-input"
             />
-            <Button type="submit" variant="primary" disabled={busy || !draft.trim()} data-account="sign-in-button">Sign in</Button>
+            <Button type="submit" variant={s.setup?.github && hasGithub ? "outline" : "primary"} disabled={busy || !draft.trim()} data-account="sign-in-button">Sign in</Button>
           </form>
           <p className="mt-2 text-small text-fg-faint">Signing in the first time copies everything in this browser into the account. Nothing is erased, here or there.</p>
         </Section>
       ) : (
-        <Section title={s.who.role === "owner" ? "Signed in with the owner key" : `Signed in as ${s.who.name}`} icon={<Cloud className="size-4" />} hook="signed-in">
+        <Section title={s.via === "github" ? `Signed in with your GitHub key as ${s.who.name}` : s.who.role === "owner" ? "Signed in with the owner key" : `Signed in as ${s.who.name}`} icon={<Cloud className="size-4" />} hook="signed-in">
           <p className="text-small text-fg-muted" data-account="synced">
             {s.syncing ? "Saving to the account…" : s.syncedAt ? `Last saved ${new Date(s.syncedAt).toLocaleTimeString()}. Changes save by themselves every minute while this browser is open.` : "Not saved yet in this visit."}
           </p>

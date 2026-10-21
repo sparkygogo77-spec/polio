@@ -19,6 +19,15 @@
  * without its picture bytes) and `pictures/<id>`. There is no delete for
  * saved work: nothing here erases anything a browser sent.
  *
+ * **The owner's GitHub key** opens it too (J, 2026-10-21): the token already
+ * in Keys for capture and publish is the one key to carry between browsers.
+ * GitHub is asked whose token it is (`GET /user`), and the account opens
+ * as the owner only when that login is one of `POLIO_GITHUB_OWNERS`
+ * (comma list), else the owner of the repository this deployment is built
+ * from (`VERCEL_GIT_REPO_OWNER`, which Vercel sets itself). The token is
+ * never written to the store; only its hash is remembered, in memory, for
+ * five minutes, so a sync's many requests ask GitHub once.
+ *
  * Published sites never pass through here and never need a key.
  *
  * This file has no framework imports so a test can drive it with an
@@ -40,7 +49,7 @@ export interface Backend {
   remove(path: string): Promise<void>;
 }
 
-export type Who = { role: "owner"; name: string } | { role: "key"; id: string; name: string };
+export type Who = { role: "owner"; name: string; github?: string } | { role: "key"; id: string; name: string };
 
 export interface KeyRecord { id: string; name: string; createdAt: string; hash: string }
 export type KeyShown = Omit<KeyRecord, "hash">;
@@ -69,12 +78,59 @@ export function offered(header: string | null | undefined): string | null {
 
 const keyPath = (hash: string) => `keys/${hash}.json`;
 
-export async function identify(backend: Backend | null, env: Record<string, string | undefined>, header: string | null | undefined): Promise<Who | null> {
+/** A GitHub token's shape: classic (`ghp_`, `gho_`, …) or fine-grained (`github_pat_`). */
+export const GITHUB_RE = /^(gh[pousr]_[A-Za-z0-9]{20,251}|github_pat_[A-Za-z0-9_]{20,251})$/;
+
+/** The GitHub logins whose token opens the account as the owner. Empty: a GitHub token opens nothing. */
+export function githubOwners(env: Record<string, string | undefined>): string[] {
+  const list = (env.POLIO_GITHUB_OWNERS ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+  if (list.length) return list;
+  const repoOwner = env.VERCEL_GIT_REPO_OWNER?.trim().toLowerCase();
+  return repoOwner ? [repoOwner] : [];
+}
+
+/** GitHub did not answer: says nothing about the token, so it is neither counted nor refused. */
+export class GithubDown extends Error {}
+
+const GITHUB_KEEP_MS = 5 * 60_000;
+const githubSeen = new Map<string, { login: string | null; at: number }>();
+
+/** Whose token this is, by GitHub's own word: the login, or null when GitHub does not know it. */
+export async function githubLogin(token: string, o: { fetch?: typeof fetch; now?: number } = {}): Promise<string | null> {
+  const now = o.now ?? Date.now();
+  const h = hashKey(token);
+  const seen = githubSeen.get(h);
+  if (seen && now - seen.at < (seen.login ? GITHUB_KEEP_MS : 60_000)) return seen.login;
+  let res: Response;
+  try {
+    res = await (o.fetch ?? fetch)("https://api.github.com/user", { headers: { authorization: `Bearer ${token}`, accept: "application/vnd.github+json", "x-github-api-version": "2022-11-28", "user-agent": "polio-account" }, cache: "no-store" } as RequestInit);
+  } catch {
+    throw new GithubDown("GitHub could not be reached.");
+  }
+  let login: string | null = null;
+  if (res.ok) {
+    const b = (await res.json().catch(() => ({}))) as { login?: unknown };
+    login = typeof b.login === "string" && b.login ? b.login : null;
+  } else if (res.status !== 401 && res.status !== 403) {
+    throw new GithubDown(`GitHub answered ${res.status}.`);
+  }
+  if (githubSeen.size > 500) githubSeen.clear();
+  githubSeen.set(h, { login, at: now });
+  return login;
+}
+
+export async function identify(backend: Backend | null, env: Record<string, string | undefined>, header: string | null | undefined, o: { fetch?: typeof fetch; now?: number } = {}): Promise<Who | null> {
   const given = offered(header);
   if (!given) return null;
   const owner = ownerKey(env);
   /* Compared as equal-length digests, so the time taken says nothing about the owner key. */
   if (owner && timingSafeEqual(sha(given), sha(owner))) return { role: "owner", name: "Owner" };
+  if (GITHUB_RE.test(given)) {
+    const owners = githubOwners(env);
+    if (!owners.length) return null;
+    const login = await githubLogin(given, o);
+    return login && owners.includes(login.toLowerCase()) ? { role: "owner", name: login, github: login } : null;
+  }
   if (!backend || !KEY_RE.test(given)) return null;
   const hash = hashKey(given);
   const got = await backend.read(keyPath(hash));

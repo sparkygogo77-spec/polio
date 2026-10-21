@@ -4,8 +4,10 @@
  *
  * A sync is three steps, always in this order and never destructive:
  *
- * 1. **Shelf things** (`data/prefs.json`): saved textures and what the shelf
- *    learned. The account's are merged into this browser's (union, nothing
+ * 1. **Shelf things** (`data/prefs.json`): saved textures, what the shelf
+ *    learned, and the capture runs this browser remembers (with the capturer
+ *    it was set to), so a run started in one browser is listed in the
+ *    Capture dialog of every other. The account's are merged into this browser's (union, nothing
  *    dropped), then the merged set is saved back.
  * 2. **Sites from the account**: a site this browser does not have yet comes
  *    in as a new site beside the others. A site it has, changed elsewhere and
@@ -26,10 +28,12 @@ import { useBuilds, type Project } from "@/features/builds/store";
 import { loadBackup, makeBackup, readBackup, type BoardBackup, type BackupPicture } from "@/features/studio/backup";
 import { flushDocs, writeDocNow } from "@/features/studio/docStore";
 import { keepAll } from "@/features/studio/pictures";
+import { keepAllRuns, mergeRemembered, readRuns, type CaptureRun } from "@/features/studio/captureRuns";
 import { learnedNow, useLearned } from "@/features/studio/shelf/ui";
 
 export const LINKS_KEY = "builder.account.links";
 const TEXTURES_KEY = "builder.savedTextures";
+const CAPTURER_KEY = "builder.capturer.v2";
 const PUT_MAX = 4 * 1024 * 1024;
 export const SITE_KIND = "polio-account-site";
 
@@ -106,7 +110,7 @@ const base64Of = async (b: Blob): Promise<string> => {
 
 /* ── 1. shelf things ─────────────────────────────────────────────── */
 
-interface Prefs { kind: "polio-account-prefs"; version: 1; textures: { key: string }[]; learned?: unknown }
+interface Prefs { kind: "polio-account-prefs"; version: 1; textures: { key: string }[]; learned?: unknown; captureRuns?: CaptureRun[]; capturer?: string }
 
 async function syncPrefs(a: Api, man: Map<string, { etag: string }>): Promise<void> {
   let theirs: Prefs | null = null;
@@ -123,7 +127,16 @@ async function syncPrefs(a: Api, man: Map<string, { etag: string }>): Promise<vo
   if (theirs?.learned && typeof theirs.learned === "object") {
     try { useLearned.getState().take(theirs.learned as Parameters<ReturnType<typeof useLearned.getState>["take"]>[0]); } catch { /* the shelf keeps its own */ }
   }
-  const next: Prefs = { kind: "polio-account-prefs", version: 1, textures, learned: learnedNow() };
+  const mineRuns = readRuns();
+  const runs = mergeRemembered(mineRuns, theirs?.captureRuns);
+  if (JSON.stringify(runs) !== JSON.stringify(mineRuns)) keepAllRuns(runs);
+  let capturer = "";
+  try { capturer = localStorage.getItem(CAPTURER_KEY) ?? ""; } catch { /* none here */ }
+  if (!capturer && typeof theirs?.capturer === "string" && /^[\w.-]+\/[\w.-]+$/.test(theirs.capturer)) {
+    capturer = theirs.capturer;
+    try { localStorage.setItem(CAPTURER_KEY, capturer); } catch { /* kept in the account */ }
+  }
+  const next: Prefs = { kind: "polio-account-prefs", version: 1, textures, learned: learnedNow(), captureRuns: runs, ...(capturer ? { capturer } : {}) };
   const text = JSON.stringify(next);
   if (theirs && JSON.stringify(theirs) === text) return;
   await a.put("data/prefs.json", new Blob([text], { type: "application/json" }), "application/json");

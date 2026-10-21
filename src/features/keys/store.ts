@@ -103,7 +103,7 @@ export const SERVICES: ServiceDef[] = [
     id: "github",
     label: "GitHub",
     blurb:
-      "Publish: the site is pushed to a repository of its own. The first publish makes one, named after the site and private; every one after goes to the same place.",
+      "Your account key, as well as publish and capture: any browser with this key in it has your sites and capture runs (Account). Publish pushes the site to a repository of its own, made private on the first publish.",
     where: "https://github.com/settings/tokens?type=beta",
     fields: [{ id: "GITHUB_TOKEN", label: "Token", hint: "Contents write, and Administration write to make the repository", secret: true }],
   },
