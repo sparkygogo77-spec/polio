@@ -197,8 +197,13 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, w, h }: 
         sits right. The cap itself is kept, as Hero keeps it, so where a line
         wraps (and so how tall the words are) does not change.
         `tests/centred-text.mjs`.
+
+        A captured part's "\n" is the page's own `<br>`: a line, not a
+        paragraph. Its lines stand with no gap and in one ink; thesolface's
+        footer wordmark stood 472 tall for the page's 248 with the gap, its
+        second line grey (`tests/captured-breaks.mjs`).
       */}
-      <div ref={wordsRef} style={{ maxWidth: spill ? "none" : mid?.x ? "100%" : t.measurePx, width: spill ? "max-content" : mid?.x ? "fit-content" : undefined, flexShrink: spill ? 0 : undefined, marginLeft: !spill && (mid?.x || t.textAlign === "center" || t.textAlign === "right") ? "auto" : undefined, marginRight: !spill && (mid?.x || t.textAlign === "center") ? "auto" : slack ? -1 : undefined, textAlign: t.textAlign, whiteSpace: oneLine ? "nowrap" : undefined, display: "flex", flexDirection: "column", gap: t.fontPx * 0.7 }}>
+      <div ref={wordsRef} style={{ maxWidth: spill ? "none" : mid?.x ? "100%" : t.measurePx, width: spill ? "max-content" : mid?.x ? "fit-content" : undefined, flexShrink: spill ? 0 : undefined, marginLeft: !spill && (mid?.x || t.textAlign === "center" || t.textAlign === "right") ? "auto" : undefined, marginRight: !spill && (mid?.x || t.textAlign === "center") ? "auto" : slack ? -1 : undefined, textAlign: t.textAlign, whiteSpace: oneLine ? "nowrap" : undefined, display: "flex", flexDirection: "column", gap: t.captured ? 0 : t.fontPx * 0.7 }}>
         {scale ? (
           <>
             <div style={{ fontFamily: t.headingFamily, fontWeight: 800, fontSize: t.fontPx * 2.4, lineHeight: 1.1 }}>Heading one</div>
@@ -214,12 +219,12 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, w, h }: 
           carries runs, so nothing hand-typed goes down this path.
         */}
         {runParas ? runParas.map((line, i) => (
-          <p key={i} style={{ margin: 0, color: i === 0 ? t.text : t.muted, fontSize: t.fontPx, lineHeight: t.lineHeight, ...capsOnly(t, nudge) }}>
+          <p key={i} style={{ margin: 0, color: i === 0 || t.captured ? t.text : t.muted, fontSize: t.fontPx, lineHeight: t.lineHeight, ...capsOnly(t, nudge) }}>
             <Runs spans={line} t={t} mode={mode} onNavigate={onNavigate} />
           </p>
         )) : null}
         {runParas ? null : paras.map((p, i) => (
-          <p key={i} style={{ margin: 0, color: i === 0 ? t.text : t.muted, fontSize: t.fontPx, lineHeight: t.lineHeight, ...capsOnly(t, nudge) }}>
+          <p key={i} style={{ margin: 0, color: i === 0 || t.captured ? t.text : t.muted, fontSize: t.fontPx, lineHeight: t.lineHeight, ...capsOnly(t, nudge) }}>
             {dropCap && i === 0 ? (
               <>
                 <span style={{ float: "left", fontFamily: t.headingFamily, fontWeight: 800, fontSize: t.fontPx * 3.2, lineHeight: 0.82, paddingRight: 8, color: t.accent }}>{p.charAt(0)}</span>
