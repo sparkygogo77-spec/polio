@@ -108,7 +108,8 @@ export function ValueProp({ id, content, spans, options, h, theme: t, mode, onNa
        and the box's left edge, so the H of HOW TO BUY lost its left side and every cap its top (tests/heading-whole.mjs). */
     <Fill t={t} data-part={id} overflow={hasLetters(spans) || t.captured ? "visible" : "hidden"} style={{ display: "flex", alignItems: "center", justifyContent: t.textAlign === "center" ? "center" : "flex-start", padding: t.tight || t.captured ? 0 : t.fontPx * 0.5 }}>
       {/* The node's weight where it named one: a face with only a 400 (Luckiest Guy) set at 700 is drawn bolder by the browser, and its letters change shape. */}
-      <p dir="auto" style={{ margin: 0, fontFamily: t.headingFamily, fontWeight: t.fontWeight ?? 700, fontSize: t.fontPx * 1.6, lineHeight: lh, maxWidth: t.measurePx, whiteSpace: oneLine ? "nowrap" : undefined, textAlign: t.textAlign === "justify" ? "left" : t.textAlign }}>
+      {/* A captured heading's spacing set again on the words, so an em (a size set with the window, `applyFont`) resolves at the size they are drawn, not the box's: thesolface's titles came out -4.6px for the page's -7.4 and each grew a line (tests/fluid-spacing.mjs). */}
+      <p dir="auto" style={{ margin: 0, fontFamily: t.headingFamily, fontWeight: t.fontWeight ?? 700, fontSize: t.fontPx * 1.6, lineHeight: lh, maxWidth: t.measurePx, whiteSpace: oneLine ? "nowrap" : undefined, textAlign: t.textAlign === "justify" ? "left" : t.textAlign, ...(t.captured && t.letterSpacing ? { letterSpacing: t.letterSpacing } : {}) }}>
         {/* Runs of their own (a captured title's letters, a sentence in two inks) are drawn as they are; the turn is for a plain line. */}
         {spans?.length && turn === "none" ? <Runs spans={spans} t={t} mode={mode} onNavigate={onNavigate} /> : brokenLines && turn === "none" ? brokenLines.map((l, i) => <React.Fragment key={i}>{i ? <br /> : null}{l}</React.Fragment>) : (
           <>
