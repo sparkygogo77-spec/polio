@@ -105,6 +105,15 @@ export function AccountPage() {
             {s.via === "github" && <>Kept in a private repository on your GitHub, <b>{s.who.saves ?? `${s.who.name}/polio-saves`}</b>. </>}
             {s.syncing ? "Saving to the account…" : s.syncedAt ? `Last saved ${new Date(s.syncedAt).toLocaleTimeString()}. Changes save by themselves every minute while this browser is open.` : "Not saved yet in this visit."}
           </p>
+          {s.skipped.length > 0 && (
+            <div className="mt-3 rounded-lg border border-border bg-elevated px-3 py-2 text-small text-fg" data-account="skipped">
+              <p className="font-medium">Not saved to the account, and the rest was:</p>
+              <ul className="mt-1 list-disc pl-5 text-fg-muted">
+                {s.skipped.map((k) => <li key={k.id} data-account="skipped-row">The picture <b>{k.id}</b> in {k.site}: {k.says}</li>)}
+              </ul>
+              <p className="mt-1 text-fg-faint">It is tried again when the picture changes, or when you press Save and bring in now.</p>
+            </div>
+          )}
           <div className="mt-3 flex flex-wrap gap-2">
             <Button onClick={() => void s.sync()} disabled={s.syncing} data-account="sync-button"><RefreshCw className="size-3.5" />Save and bring in now</Button>
             <Button variant="ghost" onClick={s.signOut} data-account="sign-out-button"><LogOut className="size-3.5" />Sign out here</Button>

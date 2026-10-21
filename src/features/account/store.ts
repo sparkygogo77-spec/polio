@@ -19,7 +19,7 @@
 import { create } from "zustand";
 import { canWrap, isWrapped, unwrap, wrap } from "@/features/keys/keyring";
 import { heldKeys, keysReady } from "@/features/keys/store";
-import { AccountError, reasonOf, reportSays, syncAll } from "./sync";
+import { AccountError, readRefused, reasonOf, reportSays, syncAll } from "./sync";
 
 export const ACCOUNT_KEY = "builder.account";
 /** "off": the GitHub key in Keys is not offered to the account in this browser. */
@@ -38,6 +38,8 @@ interface Account {
   says: string | null;
   syncing: boolean;
   syncedAt: number | null;
+  /** Pictures the account refused and this browser skips: each with the site it is in and the server's reason. */
+  skipped: { id: string; site: string; says: string }[];
   keys: KeyShown[] | null;
   /** A key just made: shown once, then gone. */
   made: { name: string; key: string } | null;
@@ -52,6 +54,9 @@ interface Account {
   cancelKey: (id: string) => Promise<void>;
   clearMade: () => void;
 }
+
+/** The refusals remembered by this browser, or none where storage is not there (a server render). */
+function readRefusedSafe() { try { return readRefused(); } catch { return {}; } }
 
 const auth = (key: string) => ({ authorization: `Bearer ${key}` });
 
@@ -88,6 +93,7 @@ export const useAccount = create<Account>()((set, get) => ({
   says: null,
   syncing: false,
   syncedAt: null,
+  skipped: Object.entries(readRefusedSafe()).map(([id, r]) => ({ id, site: r.site, says: r.says })),
   keys: null,
   made: null,
 
@@ -162,8 +168,10 @@ export const useAccount = create<Account>()((set, get) => ({
     if (!get().setup?.store) { if (!quiet) set({ says: "The server has no store for saved work yet." }); return; }
     set({ syncing: true });
     try {
-      const r = await syncAll(key);
-      set({ syncedAt: Date.now(), ...(quiet && !r.up && !r.down && !r.updated && !r.both && !r.failed.length ? {} : { says: reportSays(r) }) });
+      /* The automatic minute leaves a refused picture alone; pressing the button tries it again. */
+      const r = await syncAll(key, { retryRefused: !quiet });
+      const skipped = Object.entries(readRefused()).map(([id, k]) => ({ id, site: k.site, says: k.says }));
+      set({ syncedAt: Date.now(), skipped, ...(quiet && !r.up && !r.down && !r.updated && !r.both && !r.failed.length && !r.skipped.length ? {} : { says: reportSays(r) }) });
     } catch (err) {
       /* A GitHub key that stopped working is put right in Keys, so it is not set aside here: the next one there is tried by itself. */
       if (err instanceof AccountError && err.code === "unknown-key") { if (get().via === "github") set({ key: null, via: null, who: null }); else get().signOut(); }

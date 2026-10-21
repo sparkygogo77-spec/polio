@@ -12,7 +12,7 @@
  *      characters appear nowhere in the store), and cannot pass as the owner;
  *   3. cancelling a key stops it at once; a listed key never shows its hash;
  *   4. saved work may go only under data/ (never keys/, never ..), and is
- *      served only as JSON, a picture or a video (never HTML or SVG);
+ *      served only as JSON, a picture or a video (never HTML; an SVG only once cleaned, see account-svg.mjs);
  *   5. too many wrong keys from one address are made to wait;
  *   6. the owner's GitHub key opens it as the owner (GitHub stood in), a
  *      GitHub key of anyone else does not, GitHub is asked once for many
@@ -64,7 +64,8 @@ for (const ok of ["data/prefs.json", "data/sites/abc_DEF-1.json", "data/pictures
 for (const bad of ["keys/x.json", `keys/${hashKey(second.key)}.json`, "data/../keys/x.json", "data/sites/../../keys.json", "data/pictures/.hidden", "data/sites/a/b.json", "/data/prefs.json", "data/other.json", "", null, 5]) check(`refuses to save at ${JSON.stringify(bad)}`, dataPath(bad) === null);
 check("JSON places are served as JSON whatever was claimed", typeFor("data/sites/a.json", "text/html") === "application/json");
 check("pictures may be PNG, JPEG, WebP, video", ["image/png", "image/jpeg", "image/webp", "video/mp4"].every((t) => typeFor("data/pictures/p", t) === t));
-check("HTML, SVG and unknown types are refused for pictures", ["text/html", "image/svg+xml", "application/javascript", "", null].every((t) => typeFor("data/pictures/p", t) === null));
+check("SVG is a picture the server cleans before keeping (account-svg.mjs)", typeFor("data/pictures/p", "image/svg+xml") === "image/svg+xml");
+check("HTML and unknown types are refused for pictures", ["text/html", "application/javascript", "", null].every((t) => typeFor("data/pictures/p", t) === null));
 check("names are cleaned and kept short", cleanName("  <b>Lap\u0000top</b>  ") === "bLaptop/b" && cleanName("x".repeat(99)).length === 60 && cleanName("   ") === null && cleanName(4) === null);
 
 // 5. throttle

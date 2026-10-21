@@ -199,11 +199,11 @@ export const historyPath = (path: string, at = new Date()): string | null => {
   return m ? `history/sites/${m[1]}/${at.toISOString().replace(/[:.]/g, "-")}.json` : null;
 };
 
-/** What a saved item is served as. Pictures are images or videos; everything else is JSON. Never HTML, never SVG. */
+/** What a saved item is served as. Pictures are images or videos; everything else is JSON. Never HTML. An SVG only after `svg.ts` cleaned it. */
 export function typeFor(path: string, given: string | null | undefined): string | null {
   if (path.endsWith(".json") && !path.startsWith("data/pictures/")) return "application/json";
   const t = (given ?? "").split(";")[0]?.trim().toLowerCase() ?? "";
-  if (/^(image\/(png|jpeg|gif|webp|avif)|video\/(mp4|webm))$/.test(t)) return t;
+  if (/^(image\/(png|jpeg|gif|webp|avif|svg\+xml)|video\/(mp4|webm))$/.test(t)) return t;
   return null;
 }
 
