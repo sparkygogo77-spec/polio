@@ -423,10 +423,16 @@ function panelBoxes<N extends SmallNode>(all: readonly N[], unboxed: readonly N[
   const out: SmallPlan<N>["boxes"] = [];
   const placed = new Set<string>();
   const place = (n: N, x: number, y: number, w: number, h: number) => { if (placed.has(n.id) || boxOf.has(n.id)) return; placed.add(n.id); out.push({ node: n, x: Math.round(x), y: Math.round(y), w: Math.max(1, Math.round(w)), h: Math.max(1, Math.round(h)) }); };
-  /* A block and everything it holds, scaled by k from its desktop place to (x, y). */
+  /*
+   * A block and everything it holds that a press shows, scaled by k from its
+   * desktop place to (x, y). A part at rest is the page's, never the panel's:
+   * one with no box here is hidden (thesolface's chart glow, a `::after`
+   * under the press's copy of its section, was laid 600 px tall at y 13 910
+   * and ran the tablet page to 14 510 px where the site is 9 350).
+   */
   const scaled = (n: N, x: number, y: number, k: number) => {
     place(n, x, y, n.w * k, n.h * k);
-    for (const m of under(n, kids)) if (!boxOf.has(m.id)) place(m, x + (m.x - n.x) * k, y + (m.y - n.y) * k, m.w * k, m.h * k);
+    for (const m of under(n, kids)) if (!boxOf.has(m.id) && m.state) place(m, x + (m.x - n.x) * k, y + (m.y - n.y) * k, m.w * k, m.h * k);
   };
   /* The panels: unboxed parts a press shows whose holder is not one too. */
   const isPanelPart = (n: N | undefined) => !!n && !!n.state;
@@ -447,7 +453,7 @@ function panelBoxes<N extends SmallNode>(all: readonly N[], unboxed: readonly N[
     /* Too narrow to keep its arrangement legible: what it holds goes down it, a block at a time. */
     const inner = pw - SMALL_GAP * 2;
     let y = y0 + SMALL_GAP;
-    for (const row of rowsOf(kids.get(R.id) ?? [])) {
+    for (const row of rowsOf((kids.get(R.id) ?? []).filter((c) => c.state))) {
       for (const c of row) {
         const kc = Math.min(1, inner / Math.max(1, c.w));
         scaled(c, x0 + SMALL_GAP, y, kc);
