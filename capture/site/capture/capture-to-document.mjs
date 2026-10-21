@@ -2694,12 +2694,14 @@ const behavioursSection = (() => {
     /* Motion sampled as drawn (motion-drive.mjs): spins, floats, hovers, the scroll's own, canvases repainted. */
     if (b.motion) {
       const m = (out.motion ??= { spin: [], float: [], hover: [], scrollSpeed: [], scrollGrow: [], canvases: [] });
+      /* Only a page with a fixed progress bar has the key, so every other document is as it was. */
       const on = (list, what, extra = () => ({})) => (list ?? []).map((x) => { const { el, ...r } = x; return { ...place(el, `motion.${what}`), ...r, ...extra(x) }; });
       m.spin.push(...on(b.motion.spin, "spin"));
       m.float.push(...on(b.motion.float, "float"));
       m.hover.push(...on(b.motion.hover, "hover", (h) => { const p = at(h.host); return { host: p.part ?? null }; }));
       m.scrollSpeed.push(...on(b.motion.scrollSpeed, "scrollSpeed"));
       m.scrollGrow.push(...on(b.motion.scrollGrow, "scrollGrow"));
+      if (b.motion.scrollProgress?.length) (m.scrollProgress ??= []).push(...on(b.motion.scrollProgress, "scrollProgress"));
       /* A canvas is no part: its box, and the parts painted either side of it, where polio puts a layer of its own. */
       for (const c of b.motion.canvases ?? []) {
         const { el, host, below, above, ...r } = c;
