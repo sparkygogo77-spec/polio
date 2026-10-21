@@ -31,7 +31,7 @@ import * as React from "react";
 import type { StudioNode } from "./board/store";
 import type { NodeLink, PartMode } from "./shelf";
 import { plain } from "./shelf";
-import { bandOffset, centreOf, fillOf, glossFrame, pathInk, pathWordsSize, wordsColour, wordsGuide, wornCss, wornPath, type Worn } from "./wornShape";
+import { bandOffset, centreOf, fillOf, glossFrame, pathInk, pathWordsSize, wordsColour, wordsGuide, wornCss, wornPath, type Worn } from "./wornModel";
 import type { KitBand, KitFill } from "./look";
 
 const safeId = (id: string) => id.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 80);

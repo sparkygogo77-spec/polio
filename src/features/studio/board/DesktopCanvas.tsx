@@ -33,7 +33,7 @@ import { put as putPicture } from "../pictures";
 import { isBoundary,spaceAtLine } from "../space";
 import { BASE_ZOOM,BACKGROUND_ID,FIT_MIN,holdSaves,useSteady } from "./store";
 import { useDrawKit } from "../DrawKits";
-import { insideOutline,lineFromStroke,nearlyClosed,PATH_WORDS,PATH_WORDS_SAMPLE,shapeFromLine,toBox,wornFor,type Worn } from "../wornShape";
+import { insideOutline,lineFromStroke,nearlyClosed,PATH_WORDS,PATH_WORDS_SAMPLE,shapeFromLine,toBox,wornFor,type Worn } from "../wornModel";
 import { SmallBoard } from "../SmallBoard";
 import { partName } from "../partNames";
 import { inAppAreaIds,isWrapper,liftToAppArea,parentOf,ridersOf,wordsIn } from "../owner";

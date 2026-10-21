@@ -5,7 +5,7 @@ import { moltenClass, moltenSeed } from "@/core/ui/molten";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { useStudio } from "../board/store";
-import { BAND_COLOUR, LANE_MODE, laneArm, laneRects, laneSpine, lanesOf, nextIn, shown, type Item, type Lane, type Lanes as LanesData, type Rect } from "./lanes";
+import { BAND_COLOUR, LANE_MODE, laneArm, laneRects, laneSpine, lanesOf, nextIn, shown, type Item, type Lane, type Lanes as LanesData, type Rect } from "./lanesModel";
 import { ITEMS } from "./lanesSample";
 import { BODY, EDGE } from "../boxGround";
 import { issueItem, toggleTick } from "../fixLoop";
