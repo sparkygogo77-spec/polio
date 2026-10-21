@@ -538,6 +538,7 @@ function fontOf(el, featureId, exact = false) {
    * on a 68px line, its words 7px low. One line of its own words (`tb`, one
    * line tall) gives the face's normal line as it was drawn.
    */
+  else if (el.nlh > 0 && el.fs > 0) f.leading = round2(el.nlh / el.fs);
   else if (el.fs > 0 && el.tb && el.tb[3] > 0 && el.tb[3] < el.fs * 1.9) f.leading = round2(el.tb[3] / el.fs);
   return f;
 }
