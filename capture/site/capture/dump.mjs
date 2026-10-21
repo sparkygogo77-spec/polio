@@ -925,7 +925,8 @@ export const DUMP = ({ sheets = [], paths = false } = {}) => {
         const px = el.getContext("2d", { willReadFrequently: true })?.getImageData(0, 0, el.width, el.height).data;
         let drawn = !px; /* a webgl canvas has no 2d context: taken as drawn */
         if (px) for (let i = 3; i < px.length; i += 4) if (px[i]) { drawn = true; break; }
-        if (drawn) { const url = el.toDataURL("image/png"); if (url.length > 30 && url.length < 3_000_000) e.drawn = url; }
+        /* A big scene (a 3D canvas over the whole hero) that is too much as a PNG is kept as a WebP, which keeps its see-through parts. */
+        if (drawn) { let url = el.toDataURL("image/png"); if (url.length >= 3_000_000) url = el.toDataURL("image/webp", 0.9); if (url.length > 30 && url.length < 3_000_000) e.drawn = url; }
       } catch { /* tainted by another origin's picture: it stays a box */ }
     }
     if (t === "a" && el.getAttribute("href") !== null) e.href = el.getAttribute("href");

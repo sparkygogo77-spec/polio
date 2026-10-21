@@ -199,6 +199,19 @@ if (behaviours) await context.addInitScript(readFileSync(new URL("./behaviours-r
 /* A canvas world's characters and what each opens (worlds.mjs): its frames can be held and its sprites are written down as drawn. Off with `--no-worlds` or `--frames 0`. */
 const worldsOn = !flag("--no-worlds") && Number(opt("--frames", 3)) > 0;
 if (worldsOn) await context.addInitScript(WORLD_RECORDER);
+/*
+ * A 3D CANVAS KEEPS ITS PICTURE. A webgl canvas clears what it drew once the
+ * frame is on screen, so the dump read mochi.trade's creatures (a three.js
+ * scene behind the hero) as a blank canvas and they were lost. Every webgl
+ * context the page asks for keeps its drawing (`preserveDrawingBuffer`), so
+ * the dump's read of it is the picture the screen showed.
+ */
+await context.addInitScript(() => {
+  const get = HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = function (kind, attrs) {
+    return get.call(this, kind, /^(webgl2?|experimental-webgl)$/.test(String(kind)) ? { ...(attrs ?? {}), preserveDrawingBuffer: true } : attrs);
+  };
+});
 /* A long or endless list keeps a little more than one window of its items, on every load (list-trim.js), unless `--keep-lists`. */
 if (!flag("--keep-lists")) await context.addInitScript(readFileSync(new URL("./list-trim.js", import.meta.url), "utf8"));
 /* What a press did besides changing the page: a navigation by script, a window, a copy (presses.mjs), for the states pass. */

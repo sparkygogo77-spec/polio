@@ -433,7 +433,7 @@ function pictureOfCanvas(el) {
   }
   const bytes = Buffer.from(String(el.drawn).split(",")[1] ?? "", "base64");
   const key = `canvas:${createHash("sha1").update(bytes).digest("hex")}`;
-  return pictures.get(key) ?? pictureOf(key, "canvas.png", bytes);
+  return pictures.get(key) ?? pictureOf(key, /^data:image\/webp/.test(String(el.drawn)) ? "canvas.webp" : "canvas.png", bytes);
 }
 /*
  * A CANVAS WORLD (worlds.mjs, check-worlds.mjs): the characters the page
