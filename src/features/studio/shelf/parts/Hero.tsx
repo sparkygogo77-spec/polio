@@ -94,8 +94,12 @@ export function ValueProp({ id, content, spans, options, h, theme: t, mode, onNa
   // box of 156) wrapped by a hair and doubled; `Text` holds prose the same way,
   // and like it counts a box within a pixel of two lines (a height the
   // capture rounded to whole pixels) as two.
+  // And a heading the page broke with `<br>`s, in a box shorter than one line
+  // more than its breaks make, had every line on one line: thesolface's
+  // "ROADMAP / TO THE TOP." is 550 wide in a 550 box, wrapped by a hair and
+  // grew a line (tests/broken-lines-held.mjs).
   const lh = t.captured ? t.lineHeight : 1.2;
-  const oneLine = !!t.captured && h > 0 && h < 2 * t.fontPx * 1.6 * lh - 1;
+  const oneLine = !!t.captured && h > 0 && h < (Math.max(1, typedLines.length) + 1) * t.fontPx * 1.6 * lh - 1;
   const turn = opt(options, "turn", "none");
   const parts = splitTurn(line, turn);
   const tone = turn === "last word muted" || turn === "second sentence muted" ? t.muted : t.accent;
@@ -108,7 +112,8 @@ export function ValueProp({ id, content, spans, options, h, theme: t, mode, onNa
        and the box's left edge, so the H of HOW TO BUY lost its left side and every cap its top (tests/heading-whole.mjs). */
     <Fill t={t} data-part={id} overflow={hasLetters(spans) || t.captured ? "visible" : "hidden"} style={{ display: "flex", alignItems: "center", justifyContent: t.textAlign === "center" ? "center" : "flex-start", padding: t.tight || t.captured ? 0 : t.fontPx * 0.5 }}>
       {/* The node's weight where it named one: a face with only a 400 (Luckiest Guy) set at 700 is drawn bolder by the browser, and its letters change shape. */}
-      <p dir="auto" style={{ margin: 0, fontFamily: t.headingFamily, fontWeight: t.fontWeight ?? 700, fontSize: t.fontPx * 1.6, lineHeight: lh, maxWidth: t.measurePx, whiteSpace: oneLine ? "nowrap" : undefined, textAlign: t.textAlign === "justify" ? "left" : t.textAlign }}>
+      {/* A captured heading's spacing set again on the words, so an em (a size set with the window, `applyFont`) resolves at the size they are drawn, not the box's: thesolface's titles came out -4.6px for the page's -7.4 and each grew a line (tests/fluid-spacing.mjs). */}
+      <p dir="auto" style={{ margin: 0, fontFamily: t.headingFamily, fontWeight: t.fontWeight ?? 700, fontSize: t.fontPx * 1.6, lineHeight: lh, maxWidth: t.measurePx, whiteSpace: oneLine ? "nowrap" : undefined, textAlign: t.textAlign === "justify" ? "left" : t.textAlign, ...(t.captured && t.letterSpacing ? { letterSpacing: t.letterSpacing } : {}) }}>
         {/* Runs of their own (a captured title's letters, a sentence in two inks) are drawn as they are; the turn is for a plain line. */}
         {spans?.length && turn === "none" ? <Runs spans={spans} t={t} mode={mode} onNavigate={onNavigate} /> : brokenLines && turn === "none" ? brokenLines.map((l, i) => <React.Fragment key={i}>{i ? <br /> : null}{l}</React.Fragment>) : (
           <>
