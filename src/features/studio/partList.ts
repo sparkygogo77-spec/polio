@@ -375,10 +375,12 @@ export interface ComponentRow extends ListRow {
 export function foldComponentRows(rows: readonly ListRow[], comps: readonly ListComponent[]): ComponentRow[] {
   const owner = new Map<string, ListComponent>();
   for (const c of comps) for (const id of c.parts) if (!owner.has(id)) owner.set(id, c);
+  /* A film laid on a component is not one of its layers: it keeps its own row, and the component's row does not pick it (tests/films-listed.mjs). */
+  const films = new Set(rows.filter((r) => r.kind === "Moving picture").flatMap((r) => r.ids));
   const made = new Map<string, ComponentRow>();
   const out: ComponentRow[] = [];
   for (const r of rows) {
-    const c = owner.get(r.id);
+    const c = films.has(r.id) ? undefined : owner.get(r.id);
     if (!c) { out.push(r); continue; }
     const had = made.get(c.id);
     if (had) {
@@ -388,7 +390,7 @@ export function foldComponentRows(rows: readonly ListRow[], comps: readonly List
     /* Its words as the list said them, else the ones the component was named by. */
     const said = r.name.includes(": ") ? r.name.slice(r.name.indexOf(": ") + 2) : "";
     const named = /“(.+)”/.exec(c.name)?.[1] ?? c.hookName ?? "";
-    const row: ComponentRow = { ...r, id: c.id, ids: [...new Set([c.id, ...c.parts, ...r.ids])], kind: c.kindWord, name: rowName(c.kindWord, said || named), component: c.id };
+    const row: ComponentRow = { ...r, id: c.id, ids: [...new Set([c.id, ...c.parts, ...r.ids])].filter((id) => !films.has(id)), kind: c.kindWord, name: rowName(c.kindWord, said || named), component: c.id };
     made.set(c.id, row);
     out.push(row);
   }

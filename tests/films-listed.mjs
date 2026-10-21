@@ -72,6 +72,13 @@ const at = (id) => rows.findIndex((r) => r.ids.includes(id));
 check("…straight under its button's row, one step in", at(buttonFilm.id) === at("vision") + 1 && rowOf(buttonFilm.id)?.depth === 1, `button row ${at("vision")}, film row ${at(buttonFilm.id)}, depth ${rowOf(buttonFilm.id)?.depth}`);
 check("control: the button keeps its own row and name", rowOf("vision")?.name === "Button: SOL VISION", rowOf("vision")?.name);
 
+/* Elements folds a component (a button and the layers stacked on it) into one row; the film laid on it is not one of its layers. */
+const { foldComponentRows } = await jiti.import(join(studio, "partList.ts"));
+const folded = foldComponentRows(rows, [{ id: "vision", kindWord: "Button", name: "button “SOL VISION”", parts: ["vision", buttonFilm.id] }]);
+const fRow = folded.find((r) => r.ids.includes(buttonFilm.id) && r.id === buttonFilm.id);
+check("folded into components as Elements lists them, the button's film keeps its own row", !!fRow && fRow.name === buttonFilm.label, JSON.stringify(folded.filter((r) => r.ids.includes(buttonFilm.id))));
+check("…and the button's row does not pick the film with it", !folded.find((r) => r.id === "vision")?.ids.includes(buttonFilm.id), JSON.stringify(folded.find((r) => r.id === "vision")?.ids));
+
 const tree = partTree(all);
 check("in the nesting, the hero's film is held by the hero", tree.parent.get(heroFilm.id) === "hero", tree.parent.get(heroFilm.id));
 check("…the bar's by the bar, the button's by the button", tree.parent.get(barFilm.id) === "bar" && tree.parent.get(buttonFilm.id) === "vision", `${tree.parent.get(barFilm.id)}, ${tree.parent.get(buttonFilm.id)}`);
