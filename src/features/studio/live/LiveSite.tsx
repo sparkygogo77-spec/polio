@@ -5,6 +5,7 @@
  * generated runtime takes.
  */
 import * as React from "react";
+import { holdersFirst } from "../paintOrder";
 import { Block } from "../blocks";
 import type { FormatValues } from "../format";
 import { isOverlay, themeFrom, type NodeLink, type PartEvent } from "../shelf/ui";
@@ -170,7 +171,8 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
   const light = look?.light;
   const wash = React.useMemo(() => washCss(light), [light]);
   /* A part set hidden (its eye in the Look panel's layers) is not on the page (tests/part-hidden.mjs). */
-  const pageNodes = React.useMemo(() => nodes.filter((n) => n.pageId === pageId && !n.hidden), [nodes, pageId]);
+  /* …and painted beneath what it holds, wherever the document lists it (`paintOrder.ts`, tests/holders-first.mjs). */
+  const pageNodes = React.useMemo(() => holdersFirst(nodes.filter((n) => n.pageId === pageId && !n.hidden)) as typeof nodes, [nodes, pageId]);
   const holders = holderIds(pageNodes);
   /* The page's own ground, where its body has one (`pageGround.ts`). */
   const ground = React.useMemo(() => pageGround(pageNodes, palette.bg), [pageNodes, palette.bg]);
