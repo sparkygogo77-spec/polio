@@ -960,7 +960,9 @@ export function publishedAt(): string | null {
  */
 export async function exportSite(only?: readonly string[], opts: { pictures?: boolean; /** The published address when it is known before the site has gone live (Go live asks Vercel for it before the push). */ address?: string | null; /** Keep every `data-hook` the pages carry (Export for code). */ hooks?: boolean } = {}): Promise<ExportFile[]> {
   /* The document, never a state worn on the board (`sentBoard`). */
-  const s = sentBoard(useStudio.getState());
+  /* The site as published: a part set hidden is not on it (tests/part-hidden.mjs). */
+  const sent = sentBoard(useStudio.getState());
+  const s = sent.nodes.some((n) => n.hidden) ? { ...sent, nodes: sent.nodes.filter((n) => !n.hidden) } : sent;
   const hooksKept = !!opts.hooks;
   const offsiteNow = offsiteRules(String(s.format?.["links.offsite"] ?? DEFAULT_OFFSITE));
   if (!s.pages.length) return [];

@@ -262,6 +262,12 @@ export interface StudioNode {
    */
   small?: Partial<Record<"tablet" | "phone", import("../../live/small").DeviceRule>> | null;
   widths?: Partial<Record<"tablet" | "phone", import("../../live/small").SizedBox>> | null;
+  /**
+   * ITS EYE IS SHUT (the Look panel's layers, J 2026-10-21): the board does
+   * not draw it, though it keeps its place and can be picked, and the
+   * published page and the blueprint leave it out.
+   */
+  hidden?: boolean;
   /** `position`: the capture placed it out of the flow (absolute or fixed), so it sizes nothing that holds it. */
   from?: { url: string; host: string; selector: string; at: number; position?: "absolute" | "fixed" | "sticky"; inset?: { top?: number; right?: number; bottom?: number; left?: number } | null } | null;
   /**

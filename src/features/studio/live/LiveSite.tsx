@@ -169,7 +169,8 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
   const light = look?.light;
   const wash = React.useMemo(() => washCss(light), [light]);
-  const pageNodes = React.useMemo(() => nodes.filter((n) => n.pageId === pageId), [nodes, pageId]);
+  /* A part set hidden (its eye in the Look panel's layers) is not on the page (tests/part-hidden.mjs). */
+  const pageNodes = React.useMemo(() => nodes.filter((n) => n.pageId === pageId && !n.hidden), [nodes, pageId]);
   const holders = holderIds(pageNodes);
   /* The page's own ground, where its body has one (`pageGround.ts`). */
   const ground = React.useMemo(() => pageGround(pageNodes, palette.bg), [pageNodes, palette.bg]);
