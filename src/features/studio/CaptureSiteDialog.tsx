@@ -19,9 +19,14 @@
  * ones are listed under "Recent captures" for GitHub's 30 days, each with
  * Bring into a new site, so a capture is never lost to a reload or to
  * another site being open.
+ *
+ * The list also holds the runs GitHub has, wherever they were started
+ * (`captureRunsOnGitHub.ts`): one from the Actions tab, another browser, or a
+ * page closed before its run showed up is picked from here, not downloaded
+ * by hand.
  */
 import * as React from "react";
-import { Camera, ExternalLink, Loader2, Plus } from "lucide-react";
+import { Camera, ExternalLink, Loader2, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/core/ui/button";
 import { Input } from "@/core/ui/input";
 import { Dialog } from "@/core/ui/dialog";
@@ -33,6 +38,7 @@ import { staleBuild, staleSays } from "@/core/shell/BuildGuard";
 import { bringRepoIn, type Bringing } from "./bringRepo";
 import { activeSource, useBuilds } from "@/features/builds/store";
 import { agoWords, daysLeft, keepRun, readRuns, type CaptureRun } from "./captureRuns";
+import { listCaptureRuns, mergeRuns } from "./captureRunsOnGitHub";
 import { DEFAULT_CAPTURER, oneAddress, captureBranch, captureName, capturePlace, captureWant, handsBack, isMainBranch, nameFrom, startCapture, watchCapture, type Ended, type Progress } from "./bring-in";
 
 /**
@@ -93,6 +99,36 @@ function useRuns(): CaptureRun[] {
   return runs;
 }
 
+type OnGitHub = { runs: CaptureRun[]; more: boolean; page: number; loading: boolean; says: string | null };
+
+/**
+ * The capture workflow's runs on GitHub, asked for when the dialog opens
+ * with a key in hand, and again on Refresh. A run GitHub has still going
+ * that this browser never saw start is written down and followed, so its
+ * end lands in the list like one started here.
+ */
+function useRunsOnGitHub(capturer: string, on: boolean): OnGitHub & { refresh: () => void; older: () => void } {
+  const [got, setGot] = React.useState<OnGitHub>({ runs: [], more: false, page: 0, loading: false, says: null });
+  const asked = React.useRef(0);
+  const ask = React.useCallback(async (page: number) => {
+    const token = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "";
+    const n = ++asked.current;
+    setGot((g) => ({ ...g, loading: true, says: null }));
+    const out = await listCaptureRuns({ capturer, token, page });
+    if (n !== asked.current) return;
+    if (!out.ok) { setGot((g) => ({ ...g, loading: false, says: out.says })); return; }
+    setGot((g) => ({ runs: page === 1 ? out.runs : mergeRuns(g.runs, out.runs), more: out.more, page, loading: false, says: null }));
+    const known = new Set(readRuns().map((r) => `${r.capturer.toLowerCase()}#${r.runId}`));
+    for (const run of out.runs.filter((r) => r.at === "running" && !known.has(`${r.capturer.toLowerCase()}#${r.runId}`))) {
+      keepRun(run);
+      void follow(run).then((end) => { if (end) void ask(1); });
+    }
+  }, [capturer]);
+  /* A moment after the capturer stops changing, so typing one under Advanced is not a call a key. */
+  React.useEffect(() => { if (!on || !repoOf(capturer)) return; const t = window.setTimeout(() => void ask(1), 300); return () => window.clearTimeout(t); }, [on, capturer, ask]);
+  return { ...got, refresh: () => void ask(1), older: () => void ask(got.page + 1) };
+}
+
 export function CaptureSiteDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const [url, setUrl] = React.useState("");
   const [name, setName] = React.useState("");
@@ -113,7 +149,9 @@ export function CaptureSiteDialog({ open, onOpenChange }: { open: boolean; onOpe
   const router = useRouter();
   const unlocked = useKeys((s) => s.unlocked && !!s.values.GITHUB_TOKEN);
   const alive = React.useRef(true);
-  const runs = useRuns();
+  const mine = useRuns();
+  const onGitHub = useRunsOnGitHub(capturer, open && unlocked);
+  const runs = React.useMemo(() => mergeRuns(mine, onGitHub.runs), [mine, onGitHub.runs]);
   const ids = React.useId();
   const urlField = React.useRef<HTMLInputElement>(null);
 
@@ -270,7 +308,7 @@ export function CaptureSiteDialog({ open, onOpenChange }: { open: boolean; onOpe
             </div>
           </details>
           {said ? <p className="text-xs text-warning" role="status">{said}</p> : null}
-          <RecentRuns runs={runs} bring={(run) => intoNewSite(run.name, run.ref, run.capturer)} />
+          <RecentRuns runs={runs} onGitHub={unlocked ? onGitHub : null} bring={(run) => intoNewSite(run.name, run.ref, run.capturer)} />
         </div>
       ) : stage.at === "running" ? (
         <div className="flex flex-col gap-2 text-sm" data-capture-running="">
@@ -294,28 +332,44 @@ export function CaptureSiteDialog({ open, onOpenChange }: { open: boolean; onOpe
   );
 }
 
-/** The runs this browser remembers: the finished ones to bring into a new site, the running ones to watch. */
-function RecentRuns({ runs, bring }: { runs: CaptureRun[]; bring: (run: CaptureRun) => void }) {
-  if (!runs.length) return null;
+/**
+ * The runs this browser remembers and the ones GitHub has: the finished ones
+ * to bring into a new site, the running ones to watch. Refresh asks GitHub
+ * again; Show older asks for the page before.
+ */
+function RecentRuns({ runs, onGitHub, bring }: { runs: CaptureRun[]; onGitHub: (OnGitHub & { refresh: () => void; older: () => void }) | null; bring: (run: CaptureRun) => void }) {
+  if (!runs.length && !onGitHub) return null;
   return (
     <section data-capture-recent="" className="flex flex-col gap-1.5 border-t border-border pt-2">
-      <p className="text-xs font-medium text-fg">Recent captures <span className="font-normal text-fg-subtle">— GitHub keeps each 30 days</span></p>
-      <ul className="flex flex-col gap-1">
+      <div className="flex items-center gap-2">
+        <p className="min-w-0 flex-1 text-xs font-medium text-fg">Recent captures <span className="font-normal text-fg-subtle">— every run of the last 30 days, wherever it was started</span></p>
+        {onGitHub ? (
+          <Tooltip content="Ask GitHub again for the capture runs">
+            <Button size="iconXs" variant="ghost" aria-label="Refresh the capture runs" onClick={onGitHub.refresh} disabled={onGitHub.loading} data-capture-runs-refresh="">
+              {onGitHub.loading ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+            </Button>
+          </Tooltip>
+        ) : null}
+      </div>
+      {onGitHub?.says ? <p className="text-fine text-warning" data-capture-runs-says="">{onGitHub.says}</p> : null}
+      {!runs.length && onGitHub && !onGitHub.loading && !onGitHub.says ? <p className="text-fine text-fg-muted">No capture runs in the last 30 days.</p> : null}
+      <ul className="flex max-h-72 flex-col gap-1 overflow-y-auto">
         {runs.map((run) => (
           <li key={`${run.capturer}#${run.runId}`} data-capture-run={run.runId} data-capture-run-at={run.at} className="flex items-center gap-2 rounded-md border border-border bg-elevated px-2 py-1.5">
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs text-fg">{run.name} <span className="text-fg-subtle">· {run.url}</span></p>
-              <p className="truncate text-fine text-fg-muted">
-                {run.at === "running" ? "Still running" : run.at === "failed" ? `Did not capture: ${run.says ?? "its log says why"}` : `Captured ${agoWords(run.endedAt ?? run.startedAt)}, ${daysLeft(run)} days left`}
+              <p className="truncate text-xs text-fg">{run.name} <span className="text-fg-subtle">· {run.url || "no address said"}</span></p>
+              <p className="truncate text-fine text-fg-muted" title={run.says}>
+                {run.at === "running" ? "Still running" : run.at === "failed" ? run.says ?? "Did not capture; its log says why" : `Captured ${agoWords(run.endedAt ?? run.startedAt)}, ${daysLeft(run)} days left${run.says ? `. ${run.says}` : ""}`}
               </p>
             </div>
-            <a href={run.htmlUrl} target="_blank" rel="noopener noreferrer" className="inline-flex shrink-0 items-center gap-1 text-fine text-fg-muted hover:text-fg">run <ExternalLink className="size-3" /></a>
+            {run.htmlUrl ? <a href={run.htmlUrl} target="_blank" rel="noopener noreferrer" className="inline-flex shrink-0 items-center gap-1 text-fine text-fg-muted hover:text-fg">run <ExternalLink className="size-3" /></a> : null}
             {run.at === "done" ? (
               <Button size="xs" variant="outline" onClick={() => bring(run)} data-capture-recent-bring="">Bring into a new site</Button>
             ) : run.at === "running" ? <Loader2 className="size-3 shrink-0 animate-spin text-fg-muted" /> : null}
           </li>
         ))}
       </ul>
+      {onGitHub?.more ? <Button size="xs" variant="ghost" className="self-start" onClick={onGitHub.older} loading={onGitHub.loading} data-capture-runs-older="">Show older runs</Button> : null}
     </section>
   );
 }

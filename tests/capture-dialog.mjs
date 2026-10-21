@@ -15,6 +15,12 @@
  *   · Address, Name and Pages each take the keys when pressed;
  *   · Look only, no presses (under Advanced) reaches the workflow as `look`.
  *
+ * J, 2026-10-21: a capture whose page was closed before its run was found,
+ * or one started on GitHub itself, was never listed and had to be
+ * downloaded by hand. So the list also holds GitHub's own runs of the
+ * workflow (captureRunsOnGitHub.ts), each finished one with Bring into a
+ * new site, finished badly or not, as long as it handed a capture back.
+ *
  * GitHub is a stand-in in the browser; the token is a STANDIN_ placeholder.
  *
  *   node tests/capture-dialog.mjs http://127.0.0.1:3013
@@ -42,6 +48,35 @@ check("a run written again replaces its older line", swapped.length === 1 && swa
 check("at most twelve are kept", R.keptRuns(Array.from({ length: 20 }, (_, i) => run(i + 1, i * 1000)), now).length === R.RUNS_MOST);
 check("days left count down from 30", R.daysLeft(run(9, 10 * DAY), now) === 20 && R.agoWords(now - 2 * 3600000, now) === "2 hours ago");
 
+/* GitHub's runs, the pure half. */
+const G = await import("../src/features/studio/captureRunsOnGitHub.ts");
+const iso = (ago) => new Date(now - ago).toISOString();
+const ghRuns = [
+  { id: 61, status: "completed", conclusion: "success", html_url: "https://github.test/run/61", display_title: "Capture https://mochi.trade", created_at: iso(DAY), updated_at: iso(DAY - 600000) },
+  { id: 62, status: "completed", conclusion: "cancelled", html_url: "https://github.test/run/62", display_title: "Capture https://slow.test", created_at: iso(2 * DAY), updated_at: iso(2 * DAY - 600000) },
+  { id: 63, status: "in_progress", conclusion: null, html_url: "https://github.test/run/63", display_title: "Capture https://now.test", created_at: iso(60000) },
+  { id: 64, status: "completed", conclusion: "failure", html_url: "https://github.test/run/64", display_title: "Capture https://broke.test", created_at: iso(3 * DAY), updated_at: iso(3 * DAY) },
+  { id: 65, status: "completed", conclusion: "success", html_url: "https://github.test/run/65", display_title: "Capture https://old.test", created_at: iso(31 * DAY), updated_at: iso(31 * DAY) },
+];
+const ghArts = [
+  { id: 7061, name: "capture-mochi", expired: false, workflow_run: { id: 61 } },
+  { id: 7062, name: "capture-slow-test", expired: false, workflow_run: { id: 62 } },
+];
+const stub = (u) => {
+  const body = /\/actions\/workflows\/capture\.yml\/runs/.test(u) ? { workflow_runs: ghRuns } : /\/actions\/artifacts/.test(u) ? { artifacts: ghArts } : null;
+  return Promise.resolve(new Response(JSON.stringify(body ?? { message: "no" }), { status: body ? 200 : 404 }));
+};
+const listed = await G.listCaptureRuns({ capturer: "STANDIN-owner/polio", token: "STANDIN_x", fetch: stub, now });
+const byId = Object.fromEntries((listed.ok ? listed.runs : []).map((x) => [x.runId, x]));
+check("GitHub's runs are listed, named by their artifact, past 30 days left out", listed.ok && byId[61]?.name === "mochi" && byId[61]?.url === "https://mochi.trade" && !byId[65], Object.keys(byId).join(","));
+check("a finished run with a capture is ready to bring in from its run", byId[61]?.at === "done" && byId[61]?.ref === "run:61");
+check("a run that ended badly but handed a capture back can be brought in too", byId[62]?.at === "done" && byId[62]?.ref === "run:62" && /cancelled/.test(byId[62]?.says ?? ""));
+check("one still going is running, one that failed with nothing is failed", byId[63]?.at === "running" && byId[64]?.at === "failed");
+const merged = G.mergeRuns([run(61, DAY, { name: "mochi", pages: "/, /trade", at: "running", endedAt: undefined }), run(66, DAY / 2)], listed.ok ? listed.runs : []);
+check("one line per run: GitHub's state, this browser's pages, this browser's own runs kept", merged.filter((x) => x.runId === 61).length === 1 && merged.find((x) => x.runId === 61)?.at === "done" && merged.find((x) => x.runId === 61)?.pages === "/, /trade" && merged.some((x) => x.runId === 66));
+const refusedList = await G.listCaptureRuns({ capturer: "STANDIN-owner/polio", token: "STANDIN_x", fetch: () => Promise.resolve(new Response("{}", { status: 401 })), now });
+check("a token GitHub does not know is said as the token", !refusedList.ok && /token/.test(refusedList.says));
+
 /* The browser half. */
 /* The default capturer, polio itself, which hands a capture back as its run's artifact; every call to it is answered here. */
 const OWNER = "sparkygogo77-spec", NAME = "polio", REPO = `/repos/${OWNER}/${NAME}`;
@@ -49,6 +84,8 @@ const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(A
 const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
 const gh = { dispatched: null, statusReads: 0, finishAfter: Infinity, artifactAsks: [] };
 const runs = [];
+/* A run started on GitHub itself, never seen by this browser, finished a day ago. */
+const elsewhere = { id: 71, status: "completed", conclusion: "success", html_url: "https://github.test/run/71", display_title: "Capture https://mochi.trade", created_at: new Date(Date.now() - DAY).toISOString(), updated_at: new Date(Date.now() - DAY + 600000).toISOString() };
 await page.route("https://api.github.com/**", (r) => {
   const req = r.request();
   const u = new URL(req.url());
@@ -57,7 +94,8 @@ await page.route("https://api.github.com/**", (r) => {
   const rest = decodeURIComponent(u.pathname.slice(REPO.length));
   if (!rest) return j({ default_branch: "main" });
   if (rest.endsWith("/dispatches")) { gh.dispatched = JSON.parse(req.postData() || "{}"); runs.push({ id: 51, html_url: "https://github.test/run/51", created_at: new Date().toISOString() }); return r.fulfill({ status: 204, body: "" }); }
-  if (/\/actions\/workflows\/.+\/runs$/.test(rest)) return j({ workflow_runs: runs });
+  if (/\/actions\/workflows\/.+\/runs$/.test(rest)) return j({ workflow_runs: [...runs, elsewhere] });
+  if (rest === "/actions/artifacts") return j({ artifacts: [{ id: 7071, name: "capture-mochi", size_in_bytes: 1000, expired: false, workflow_run: { id: 71 } }] });
   if (rest === "/actions/runs/51/jobs") return j({ jobs: [{ steps: [{ name: "Capture", status: "in_progress" }] }] });
   if (rest === "/actions/runs/51") { gh.statusReads++; const done = gh.statusReads > gh.finishAfter; return j({ status: done ? "completed" : "in_progress", conclusion: done ? "success" : null, html_url: "https://github.test/run/51" }); }
   if (rest === "/actions/runs/51/artifacts") return j({ artifacts: [{ id: 7051, name: "capture-pst-preview", size_in_bytes: 1000, expired: false }] });
@@ -88,6 +126,9 @@ await page.waitForTimeout(500);
 await page.locator("[data-toolbar-more]").first().click(); await page.locator("[data-capture-site]").first().click();
 await page.waitForSelector("[data-capture-url]");
 const val = (sel) => page.locator(sel).inputValue();
+await page.waitForSelector('[data-capture-run="71"]', { timeout: 8000 }).catch(() => {});
+const away = page.locator('[data-capture-run="71"]');
+check("a run started elsewhere is listed from GitHub, with Bring into a new site", (await away.count()) === 1 && (await away.locator("[data-capture-recent-bring]").count()) === 1 && /mochi/.test(await away.innerText().catch(() => "")), await page.locator("[data-capture-recent]").innerText().catch(() => "no list"));
 check("the address has the keys when the dialog opens", await page.evaluate(() => document.activeElement?.hasAttribute("data-capture-url")));
 await page.keyboard.type("https://pst-server-beige.vercel.app");
 await page.locator("[data-capture-name]").click();
