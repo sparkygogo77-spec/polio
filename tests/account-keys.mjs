@@ -13,11 +13,14 @@
  *   3. cancelling a key stops it at once; a listed key never shows its hash;
  *   4. saved work may go only under data/ (never keys/, never ..), and is
  *      served only as JSON, a picture or a video (never HTML or SVG);
- *   5. too many wrong keys from one address are made to wait.
+ *   5. too many wrong keys from one address are made to wait;
+ *   6. the owner's GitHub key opens it as the owner (GitHub stood in), a
+ *      GitHub key of anyone else does not, GitHub is asked once for many
+ *      requests, and GitHub not answering is not a wrong key.
  *
  *   node tests/account-keys.mjs
  */
-import { cancelKey, cleanName, dataPath, hashKey, identify, KEY_RE, listKeys, makeKey, memoryBackend, offered, ownerKey, Throttle, typeFor } from "../src/app/api/account/core.ts";
+import { cancelKey, cleanName, GITHUB_RE, GithubDown, githubOwners, dataPath, hashKey, identify, KEY_RE, listKeys, makeKey, memoryBackend, offered, ownerKey, Throttle, typeFor } from "../src/app/api/account/core.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`); };
@@ -69,6 +72,36 @@ const t = new Throttle(3, 1000);
 for (let i = 0; i < 3; i++) t.failed("1.2.3.4", 0);
 check("three wrong keys from one address: that address waits", t.blocked("1.2.3.4", 10) && !t.blocked("5.6.7.8", 10));
 check("and may try again once the window has passed", !t.blocked("1.2.3.4", 2000));
+
+// 6. the GitHub key
+const GH_OWNER = "ghp_" + "A".repeat(36);
+const GH_OTHER = "github_pat_" + "B".repeat(60);
+const GH_DEAD = "ghp_" + "C".repeat(36);
+let asked = 0;
+const gh = async (_url, init) => {
+  asked++;
+  const tok = String(init?.headers?.authorization ?? "").replace(/^Bearer /, "");
+  if (tok === GH_OWNER) return new Response(JSON.stringify({ login: "SparkyGoGo77-spec" }), { status: 200 });
+  if (tok === GH_OTHER) return new Response(JSON.stringify({ login: "someone-else" }), { status: 200 });
+  return new Response("{}", { status: 401 });
+};
+const ghEnv = { VERCEL_GIT_REPO_OWNER: "sparkygogo77-spec" };
+check("GitHub tokens of both kinds have the shape", GITHUB_RE.test(GH_OWNER) && GITHUB_RE.test(GH_OTHER) && !GITHUB_RE.test(OWNER));
+check("the owners are POLIO_GITHUB_OWNERS, else the deployment's repository owner", githubOwners({ POLIO_GITHUB_OWNERS: " A, b ", VERCEL_GIT_REPO_OWNER: "c" }).join() === "a,b" && githubOwners(ghEnv).join() === "sparkygogo77-spec" && githubOwners({}).length === 0);
+const ghWho = await identify(memoryBackend(), ghEnv, bearer(GH_OWNER), { fetch: gh, now: 1 });
+check("the owner's GitHub key opens the account as the owner, whatever the login's case", ghWho?.role === "owner" && ghWho.github === "SparkyGoGo77-spec");
+await identify(memoryBackend(), ghEnv, bearer(GH_OWNER), { fetch: gh, now: 2 });
+check("GitHub is asked once for many requests", asked === 1);
+check("someone else's GitHub key does not open it", (await identify(memoryBackend(), ghEnv, bearer(GH_OTHER), { fetch: gh, now: 3 })) === null);
+check("a GitHub key GitHub does not know does not open it", (await identify(memoryBackend(), ghEnv, bearer(GH_DEAD), { fetch: gh, now: 4 })) === null);
+const before = asked;
+check("with no GitHub owner set, a GitHub key opens nothing and GitHub is not asked", (await identify(memoryBackend(), {}, bearer("ghp_" + "D".repeat(36)), { fetch: gh, now: 5 })) === null && asked === before);
+let down = null;
+try { await identify(memoryBackend(), ghEnv, bearer("ghp_" + "E".repeat(36)), { fetch: async () => { throw new Error("offline"); }, now: 6 }); } catch (e) { down = e; }
+check("GitHub not answering is said, not taken for a wrong key", down instanceof GithubDown);
+const store5 = memoryBackend();
+await identify(store5, ghEnv, bearer(GH_OWNER), { fetch: gh, now: 7 });
+check("the GitHub key is never written to the store", store5.items.size === 0);
 
 const failed = results.filter((r) => !r).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);

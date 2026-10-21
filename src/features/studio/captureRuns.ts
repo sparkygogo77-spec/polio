@@ -59,6 +59,28 @@ export function withRun(list: CaptureRun[], run: CaptureRun, now = Date.now()): 
   return keptRuns([run, ...list.filter((r) => !(r.capturer === run.capturer && r.runId === run.runId))], now);
 }
 
+/**
+ * Two browsers' lists as one (the account's sync, `account/sync.ts`): a run
+ * both have keeps the line that saw it end, else the later one.
+ */
+export function mergeRemembered(mine: CaptureRun[], theirs: unknown, now = Date.now()): CaptureRun[] {
+  const out = new Map<string, CaptureRun>();
+  const ended = (r: CaptureRun) => (r.at === "running" ? 0 : 1);
+  for (const r of [...mine, ...(Array.isArray(theirs) ? (theirs as CaptureRun[]) : [])]) {
+    if (!r || typeof r.runId !== "number" || typeof r.capturer !== "string") continue;
+    const k = `${r.capturer.toLowerCase()}#${r.runId}`;
+    const was = out.get(k);
+    if (!was || ended(r) > ended(was) || (ended(r) === ended(was) && (r.endedAt ?? r.startedAt) > (was.endedAt ?? was.startedAt))) out.set(k, r);
+  }
+  return keptRuns([...out.values()], now);
+}
+
+/** Write the whole list, as the account's sync brought it. */
+export function keepAllRuns(list: CaptureRun[], s: Store | null = store()): void {
+  try { s?.setItem(RUNS_KEY, JSON.stringify(list)); } catch { /* not kept here */ }
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("studio:capture-runs"));
+}
+
 /** How long ago, in plain words. */
 export function agoWords(at: number, now = Date.now()): string {
   const m = Math.round((now - at) / 60000);

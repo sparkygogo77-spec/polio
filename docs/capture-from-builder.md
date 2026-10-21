@@ -108,3 +108,10 @@ The cost: a second conversion per page on the runner, more artifacts per
 run (fine: the limit is per repository storage, not count), and a draft
 board that changes under the owner while he looks at it, which needs its
 own design pass (`docs/DESIGN.md`) before it is built.
+
+The same key is the account key (J, 2026-10-21): with it in Keys, the
+Builder signs in to the Account by itself, so saved sites and the
+remembered capture runs follow it into any browser (`account/`,
+`api/account/core.ts`). The server takes it for the owner's when GitHub
+says it belongs to `POLIO_GITHUB_OWNERS`, else to the owner of the
+repository the deployment is built from.

@@ -46,6 +46,8 @@ check("runs past GitHub's 30 days are dropped, newest first, one line per run", 
 const swapped = R.withRun([run(5, DAY, { at: "running", endedAt: undefined })], run(5, DAY, { ref: "run:5" }), now);
 check("a run written again replaces its older line", swapped.length === 1 && swapped[0].at === "done" && swapped[0].ref === "run:5");
 check("at most twelve are kept", R.keptRuns(Array.from({ length: 20 }, (_, i) => run(i + 1, i * 1000)), now).length === R.RUNS_MOST);
+const both = R.mergeRemembered([run(6, DAY, { at: "running", endedAt: undefined }), run(7, DAY)], [run(6, DAY, { ref: "run:6" }), run(8, 2 * DAY), { junk: true }, run(9, 40 * DAY)], now);
+check("two browsers' runs merge: the line that saw it end wins, junk and expired runs are dropped", both.map((x) => x.runId).join(",") === "6,7,8" && both[0].at === "done" && R.mergeRemembered([], "not a list", now).length === 0, both.map((x) => `${x.runId}:${x.at}`).join(","));
 check("days left count down from 30", R.daysLeft(run(9, 10 * DAY), now) === 20 && R.agoWords(now - 2 * 3600000, now) === "2 hours ago");
 
 /* GitHub's runs, the pure half. */
