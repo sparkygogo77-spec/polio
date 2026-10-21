@@ -152,15 +152,18 @@ export const FILM_STRETCH = 1.5;
  * y 293, only 1.32× its frames, a second glow standing still (J, 2026-10-21).
  * A pinned film is held back like a stretched one (tests/film-stretch.mjs).
  */
-export function filmPic<P extends { moving?: { kind: string; pinned?: boolean } | null }>(node: { picture?: P | null; from?: { position?: string } | null }): P | null | undefined {
+export function filmPic<P extends { moving?: { kind: string; pinned?: boolean; shown?: boolean } | null }>(node: { picture?: P | null; from?: { position?: string } | null; hidden?: boolean }): P | null | undefined {
   const pic = node.picture;
-  if (!pic?.moving || node.from?.position !== "fixed") return pic;
+  if (!pic?.moving) return pic;
+  /* Its eye opened by hand in the Look panel's layers (`hidden: false`): drawn, guard or not (tests/look-layers.mjs). */
+  if (node.hidden === false) return { ...pic, moving: { ...pic.moving, shown: true } };
+  if (node.from?.position !== "fixed") return pic;
   return { ...pic, moving: { ...pic.moving, pinned: true } };
 }
 
 export function PictureSlot({ t, pic, src, label, mode = "board", box }: {
   t: Theme;
-  pic?: { alt?: string; w?: number; h?: number; pixelated?: boolean; seeThrough?: boolean; depths?: { bands: number; band: number } | null; moving?: { kind: string; pinned?: boolean } | null } | null;
+  pic?: { alt?: string; w?: number; h?: number; pixelated?: boolean; seeThrough?: boolean; depths?: { bands: number; band: number } | null; moving?: { kind: string; pinned?: boolean; shown?: boolean } | null } | null;
   src?: string;
   label?: string;
   mode?: PartMode;
@@ -174,7 +177,7 @@ export function PictureSlot({ t, pic, src, label, mode = "board", box }: {
    * find (2026-10-21). Past 1.5 times its frames either way a film draws
    * nothing, and the part it was filmed over shows through (tests/film-stretch.mjs).
    */
-  if (pic?.moving && (pic.moving.pinned || (box && pic.w && pic.h && (box.w > pic.w * FILM_STRETCH + 0.5 || box.h > pic.h * FILM_STRETCH + 0.5)))) return null;
+  if (pic?.moving && !pic.moving.shown && (pic.moving.pinned || (box && pic.w && pic.h && (box.w > pic.w * FILM_STRETCH + 0.5 || box.h > pic.h * FILM_STRETCH + 0.5)))) return null;
   if (pic && src && pic.depths && pic.depths.bands > 1) {
     /*
      * A STRIP OF DEPTHS (`Picture.depths`): the picture is `bands` stills one

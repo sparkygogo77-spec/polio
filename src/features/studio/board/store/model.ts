@@ -265,7 +265,8 @@ export interface StudioNode {
   /**
    * ITS EYE IS SHUT (the Look panel's layers, J 2026-10-21): the board does
    * not draw it, though it keeps its place and can be picked, and the
-   * published page and the blueprint leave it out.
+   * published page and the blueprint leave it out. A film (`…::frames`) set
+   * `false` is drawn even where the stretch guard would hold it back.
    */
   hidden?: boolean;
   /** `position`: the capture placed it out of the flow (absolute or fixed), so it sizes nothing that holds it. */
