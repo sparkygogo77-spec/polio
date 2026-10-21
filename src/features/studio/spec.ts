@@ -372,7 +372,8 @@ export function compileSpec(input: CompileInput): Spec {
   });
 
   const pageSpecs: PageSpec[] = pages.map((page) => {
-    const pNodes = nodes.filter((n) => n.pageId === page.id);
+    /* A part set hidden is not on the page, so there is nothing of it to build. */
+    const pNodes = nodes.filter((n) => n.pageId === page.id && !n.hidden);
     const pShapes = shapes.filter((s) => s.pageId === page.id);
     const pGroups = groups.filter((g) => g.pageId === page.id);
     // Behaviours apply to the whole page, so they are not part of its layout.

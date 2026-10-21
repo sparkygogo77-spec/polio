@@ -17,8 +17,11 @@ export const FILM_STRETCH = 1.5;
  * y 293, only 1.32× its frames, a second glow standing still (J, 2026-10-21).
  * A pinned film is held back like a stretched one (tests/film-stretch.mjs).
  */
-export function filmPic<P extends { moving?: { kind: string; pinned?: boolean } | null }>(node: { picture?: P | null; from?: { position?: string } | null }): P | null | undefined {
+export function filmPic<P extends { moving?: { kind: string; pinned?: boolean; shown?: boolean } | null }>(node: { picture?: P | null; from?: { position?: string } | null; hidden?: boolean }): P | null | undefined {
   const pic = node.picture;
-  if (!pic?.moving || node.from?.position !== "fixed") return pic;
+  if (!pic?.moving) return pic;
+  /* Its eye opened by hand in the Look panel's layers (`hidden: false`): drawn, guard or not (tests/look-layers.mjs). */
+  if (node.hidden === false) return { ...pic, moving: { ...pic.moving, shown: true } };
+  if (node.from?.position !== "fixed") return pic;
   return { ...pic, moving: { ...pic.moving, pinned: true } };
 }

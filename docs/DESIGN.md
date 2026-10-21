@@ -286,6 +286,16 @@ same boxes as everywhere else, in the screen's colours.
   back, its name and kind, then Content, Position and size, Look, Motion,
   and the prompt and Make a picture folded; sections remember being folded.
   A link's words are edited on the label inside it. `tests/side-panel-g.mjs`.
+- **A background is a stack, and its layers are hidden in the Look panel.**
+  Pick a section (or the page, or nothing) and the Look panel's Colours
+  preview lists its background's layers, top first: a swatch, a plain name
+  (Fill, Picture, Fade, Lines, Glow, Grain, Bar, Moving picture) and an eye.
+  The eye stops a layer drawing on the board and on the published page; a
+  layer drags above or below another; the section's fill stays at the foot.
+  A film the stretch guard holds back reads shut and says why. There is no
+  eye in Elements (J, 2026-10-21): Elements finds a part, the layer list
+  shows and hides it (`look/layers.ts`, `look/LayerList.tsx`,
+  `tests/layer-list.mjs`).
 - **A picture is made in one place**: the Pictures tab, the drawing tool on
   a tab of its own, there whether or not anything is picked. With one part
   picked it draws for that part and puts what it draws on it; a drawing also
