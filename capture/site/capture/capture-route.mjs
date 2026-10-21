@@ -76,6 +76,7 @@ import { scanHeld, HIDE_GATE, WRITES, ACCOUNT } from "./held.mjs";
 import { PRESS_WATCH, afterPress, holdAfterPress } from "./presses.mjs";
 import { readGlides } from "./glide.mjs";
 import { waitReady } from "./ready.mjs";
+import { scrollThrough } from "./sweep.mjs";
 import { SPENDS, WALLET_WORDS } from "./worlds.mjs";
 
 const req = createRequire(import.meta.url);
@@ -1084,7 +1085,7 @@ if (withStates) {
     if (await waitLoader()) await page.waitForTimeout(400);
     await agreeGate();
     await page.evaluate(() => document.fonts?.ready).catch(() => {});
-    await page.evaluate(async () => { const h = document.documentElement.scrollHeight; for (let y = 0; y < h; y += Math.max(100, innerHeight / 6)) { scrollTo(0, y); await new Promise((r) => setTimeout(r, 40)); } scrollTo(0, 0); });
+    await scrollThrough(page);
     await page.waitForTimeout(600);
     await primeGesture();
     reloads++;
