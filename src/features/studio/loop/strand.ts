@@ -90,7 +90,7 @@
  * far along the vine a point is, which a bezier cannot say.
  */
 
-import type { Band } from "./lanes";
+import type { Band } from "./lanesModel";
 
 export interface Point {
   x: number;

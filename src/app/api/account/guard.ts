@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { addressOf, backend, NO_STORE, throttle } from "./backend";
 import { GithubDown, githubOwners, identify, offered, ownerKey, type Backend, type Who } from "./core";
-import { githubBackend, GithubStoreError, savesRepo } from "./github";
+import { bodyOf, explain } from "./explain";
+import { githubBackend, savesRepo } from "./github";
 
 export const answer = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: NO_STORE });
 
@@ -22,7 +23,8 @@ export async function guard(request: Request, need: "any" | "owner"): Promise<{ 
   } catch (err) {
     if (err instanceof GithubDown) return answer({ ok: false, code: "github-down", says: "GitHub did not answer when asked whose key this is. Try again in a moment." }, 503);
     /* The store did not answer: that says nothing about the key, so it is neither counted nor refused. */
-    return answer({ ok: false, code: "store-down", says: "The account's store did not answer. Try again in a moment." }, 503);
+    const r = explain(err);
+    return answer(bodyOf(r), r.status);
   }
   if (!who) {
     throttle.failed(ip);
@@ -38,19 +40,16 @@ export async function guard(request: Request, need: "any" | "owner"): Promise<{ 
 export const noStore = () => answer({ ok: false, says: "This server has no store for saved work yet. Connect a Vercel Blob store to the project." }, 503);
 
 /**
- * A route whose store may fail says why, rather than a bare 500: GitHub's
- * own reason for a GitHub sign-in, and plainly when Vercel has suspended
- * the Blob store.
+ * A route whose store may fail says why, rather than a bare 500: the
+ * reason and what to do about it (`explain.ts`), with a status that fits.
  */
 export function said(handler: (request: Request) => Promise<Response>): (request: Request) => Promise<Response> {
   return async (request) => {
     try {
       return await handler(request);
     } catch (err) {
-      if (err instanceof GithubStoreError) return answer({ ok: false, code: "github-store", says: err.message }, err.status);
-      const m = err instanceof Error ? err.message : "";
-      if (/suspended/i.test(m)) return answer({ ok: false, code: "store-suspended", says: "Vercel has suspended this server's Blob store (it went over its plan's limits). Sign in with your GitHub key instead: that keeps your work in a private GitHub repository." }, 503);
-      return answer({ ok: false, code: "store-down", says: "The account's store did not answer. Try again in a moment." }, 503);
+      const r = explain(err);
+      return answer(bodyOf(r), r.status);
     }
   };
 }

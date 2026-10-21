@@ -1,6 +1,6 @@
 import { backend } from "../backend";
 import { githubOwners, ownerKey, offered } from "../core";
-import { answer, guard } from "../guard";
+import { answer, guard, said } from "../guard";
 import { savesRepo } from "../github";
 
 /**
@@ -10,7 +10,7 @@ import { savesRepo } from "../github";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(request: Request) {
+export const GET = said(async (request: Request) => {
   const github = githubOwners(process.env).length > 0;
   /* With a GitHub owner, a GitHub sign-in keeps its own store (a private repository), so there is always somewhere to save. */
   const setup = { store: !!backend() || github, owner: !!ownerKey(process.env), github };
@@ -18,4 +18,4 @@ export async function GET(request: Request) {
   const g = await guard(request, "any");
   if (g instanceof Response) return g;
   return answer({ ok: true, ...setup, who: g.who.role === "owner" ? { role: "owner", name: g.who.name, ...(g.who.github ? { github: g.who.github, saves: savesRepo(process.env, g.who.github) } : {}) } : { role: "key", name: g.who.name } });
-}
+});

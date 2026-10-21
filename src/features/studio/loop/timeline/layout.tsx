@@ -2,7 +2,7 @@
 import * as React from "react";
 import { Brush, Image as ImageIcon, Flag, GitBranch, Layers, ListChecks, Sparkles } from "lucide-react";
 import { acrossFor, STAGGER_MS } from "../../timelineView";
-import { LANE_MODE } from "../lanes";
+import { LANE_MODE } from "../lanesModel";
 import { type Point } from "../strand";
 import { PROCESS, threadTitle, type Thread, type ThreadNode } from "../threads";
 import { formOf, within } from "../../formation";

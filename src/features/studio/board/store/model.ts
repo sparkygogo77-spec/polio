@@ -10,7 +10,7 @@ import type { NodeArt, NodeColour, NodeEdge, NodeFont, NodeLayout, NodePad, Node
 import type { NodeEmbed, NodeMotion } from "../../shelf";
 import { type OutlineClip, type Sketch } from "../../pictures";
 import type { LookPicture } from "../../partPicture";
-import type { Worn } from "../../wornShape";
+import type { Worn } from "../../wornModel";
 import type { Remixed } from "../../remix";
 import type { DrawnKind } from "../../shapeKind";
 import type { DrawnVector, VectorRole } from "../../vector";

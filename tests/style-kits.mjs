@@ -33,7 +33,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { kitsFromDoc, motionsFromDoc, parseShadows, KITS_PER_ROLE, siteShortName } from "../src/features/studio/look/styleKits.ts";
-import { bandOffset, closeLine, glossFrame, motionFrames, nearlyClosed, shapeFromLine, snapOutline, toBox, wornCss, wornFor } from "../src/features/studio/wornShape.ts";
+import { bandOffset, closeLine, glossFrame, motionFrames, nearlyClosed, shapeFromLine, snapOutline, toBox, wornCss, wornFor } from "../src/features/studio/wornModel.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 let SINK = process.argv[2] ?? process.env.SINK ?? join(here, "..", "capture", "versions", "sink-0ee06fa");
