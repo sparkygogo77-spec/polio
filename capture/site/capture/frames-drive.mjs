@@ -237,6 +237,12 @@ const CSS_LOOPS = `({ skipIds, most }) => {
  * properties that move on it and inside it (up to 60 descendants), and its
  * words.
  */
+/** Which of these parts is fixed to the window (itself or an ancestor): its box is a place in the window, whatever the scroll. */
+const FIXED_IDS = `({ ids }) => {
+  const B = window.__sinkBehaviours;
+  return ids.filter((id) => { const el = B.byId ? B.byId(id) : null; for (let n = el; n && n !== document.documentElement; n = n.parentElement) if (getComputedStyle(n).position === "fixed") return true; return false; });
+}`;
+
 const LOOK_STYLE = `({ ids }) => {
   const B = window.__sinkBehaviours;
   const PROPS = ["opacity", "transform", "rotate", "translate", "scale", "background-position", "background-color", "background-image", "color", "filter", "clip-path", "width", "height", "left", "top", "box-shadow", "border-color", "visibility", "stroke-dashoffset", "fill", "mask-position"];
@@ -492,7 +498,10 @@ export async function movingFrames(page, { every = 100, seconds = 3.2, most = 16
     const { groups, left } = changed.length ? await evalFn(GROUPS, { changed, cols: d1.cols, rows: d1.rows, t: d1.t, skipIds: [...skipped], skip2d }) : { groups: [], left: [] };
     for (const id of left) skipped.add(id);
     const loops = await evalFn(CSS_LOOPS, { skipIds: [...skipped, ...groups.map((g) => g.el)], most });
-    const parts = [...groups.sort((p, q) => q.tiles - p.tiles), ...loops].slice(0, most - results.length).map((g) => ({ ...g, pageBox: [g.box[0], g.box[1] + scrollY, g.box[2], g.box[3]] }));
+    const picked = [...groups.sort((p, q) => q.tiles - p.tiles), ...loops].slice(0, most - results.length);
+    /* A fixed part is at the same place in the window in every window: its box is not moved down by the scroll. */
+    const fixedHere = new Set(picked.length ? await evalFn(FIXED_IDS, { ids: picked.map((g) => g.el) }) : []);
+    const parts = picked.map((g) => ({ ...g, pageBox: [g.box[0], g.box[1] + (fixedHere.has(g.el) ? 0 : scrollY), g.box[2], g.box[3]] }));
     found.push({ band, changed: changed.length, parts: parts.length });
     if (!parts.length) continue;
     const ids = parts.map((p) => p.el);
