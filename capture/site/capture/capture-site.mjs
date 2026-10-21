@@ -16,7 +16,7 @@
  *   sites/<name>/assets/pictures          its pictures
  *
  *   node capture/site/capture/capture-site.mjs --url <address> --name <folder> [--pages "/, /docs"]
- *        [--width 1440 --height 900] [--wallet] [--no-agree | --hide-gate] [--no-behaviours] [--no-states] [--no-network] [--shots <dir>]
+ *        [--width 1440 --height 900] [--wallet] [--no-agree | --hide-gate] [--no-behaviours] [--no-states] [--no-network] [--no-widths] [--shots <dir>]
  *        [--crawl [--skip "/rewards"] [--limit 30]] [--look-only] [--jobs 3] [--budget <minutes>]
  *   node capture/site/capture/capture-site.mjs --reconvert --name <folder>   (the committed captures, converted again; no browser)
  *
@@ -195,7 +195,7 @@ export function linksOf(capture, origin) {
 }
 
 /** Everything a capture would do, as data. Runs nothing. */
-export function plan({ url, name, pages, root, viewport = [1440, 900], wallet = false, agree = true, gate = "agree", behaviours = true, shots = null, states = true, network = true, crawl = false, skip = [], limit = 30, jobs = 3, deadline = null }) {
+export function plan({ url, name, pages, root, viewport = [1440, 900], wallet = false, agree = true, gate = "agree", behaviours = true, shots = null, states = true, network = true, widths = true, crawl = false, skip = [], limit = 30, jobs = 3, deadline = null }) {
   const site = new URL(url);
   const folder = siteName(name) ?? nameFrom(url);
   if (!folder) throw new Error(`A name is needed: letters, digits and dashes. "${name}" is not one.`);
@@ -264,10 +264,12 @@ export function plan({ url, name, pages, root, viewport = [1440, 900], wallet = 
   });
   const captures = routes.pages.map(captureOf);
   const convert = { args: [join(here, "capture-to-document.mjs"), join(captureDir, "routes.json"), outDir, "--assets", assets] };
+  /* The site's own layout at a tablet and a phone (capture-widths.mjs), read from the pages just captured, unless `--no-widths`. */
+  const widthsStep = widths ? { args: [join(here, "capture-widths.mjs"), join(captureDir, "routes.json"), ...(gate === "hide" ? ["--hide-gate"] : [])] } : null;
   /* The record keeps the pages as asked (`?screen=*` stays one line), so capturing again asks the same. */
   const record = { version: 1, url: site.href, name: folder, pages: askedOf(routes.pages), viewport, takenAt: null };
   const skipped = pageList(skip.join(",")).map((x) => x.path).filter(() => skip.length);
-  return { name: folder, origin: site.origin, outDir, captureDir, routesFile: join(captureDir, "routes.json"), ledgerFile: join(captureDir, "ledger.txt"), recordFile: join(captureDir, "run.json"), routes, captures, convert, record, captureOf, crawl: crawl ? { skip: skipped, limit, origin: site.origin, scope } : null, jobs };
+  return { name: folder, origin: site.origin, outDir, captureDir, routesFile: join(captureDir, "routes.json"), widths: widthsStep, ledgerFile: join(captureDir, "ledger.txt"), recordFile: join(captureDir, "run.json"), routes, captures, convert, record, captureOf, crawl: crawl ? { skip: skipped, limit, origin: site.origin, scope } : null, jobs };
 }
 
 /** Run the plan: the captures, then the converter. Returns how many pages failed. */
@@ -287,6 +289,11 @@ export function run(p) {
   else for (const c of p.captures) take(c);
   if (p.crawl) crawlOn(p, take);
   if (failed === p.captures.length) return failed;
+  /* Not fatal: a site whose tablet and phone could not be read is still captured at the desktop, as before. */
+  if (p.widths) {
+    const r = spawnSync(process.execPath, p.widths.args, { stdio: "inherit" });
+    if (r.status !== 0) console.error("widths: the tablet and phone could not be read; the document has the desktop layout only");
+  }
   if (!convertKeeping(p)) return failed + 1;
   writeFileSync(p.recordFile, JSON.stringify({ ...p.record, pages: askedOf(p.routes.pages), takenAt: new Date().toISOString(), failed, ...(p.routes.crawl ? { crawl: p.routes.crawl } : {}) }, null, 2) + "\n");
   return failed;
@@ -464,7 +471,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     url, name: opt("--name", ""), pages: opt("--pages", "/"), root: join(here, "..", ".."),
     viewport: [Number(opt("--width", 1440)), Number(opt("--height", 900))],
     wallet: args.includes("--wallet"), agree: !args.includes("--no-agree"), gate: args.includes("--hide-gate") ? "hide" : "agree",
-    behaviours: !args.includes("--no-behaviours"), shots: opt("--shots"), states: !args.includes("--no-states") && !args.includes("--look-only"), network: !args.includes("--no-network"),
+    behaviours: !args.includes("--no-behaviours"), shots: opt("--shots"), states: !args.includes("--no-states") && !args.includes("--look-only"), network: !args.includes("--no-network"), widths: !args.includes("--no-widths"),
     crawl: args.includes("--crawl"), skip: String(opt("--skip", "")).split(",").map((x) => x.trim()).filter(Boolean), limit: Number(opt("--limit", 30)),
     jobs: Number(opt("--jobs", process.env.CAPTURE_JOBS ?? 3)),
     /* `--budget <minutes>`: from now, the time the pages have for what only adds (capture-route.mjs `--deadline`). */
