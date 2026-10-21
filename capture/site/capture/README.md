@@ -78,7 +78,16 @@ CSS default, or nowhere), page by page.
   or the scroll's, and played back as a flipbook svg among the document's
   pictures (`behaviours.motion.frames`). A still window costs three looks.
   `check-moving-frames.mjs`; `--no-moving`, `--moving-every`,
-  `--moving-seconds`, `--moving-most`.
+  `--moving-seconds`, `--moving-most`. Left out on a heavy page (a frame
+  every `--heavy-ms`, 250, or slower on the machine capturing: mochi.trade's
+  took 15 minutes), with the scroll's own motion; at most 8 parts hovered.
+- `capture-site.mjs --budget <minutes>` — the run's time (the workflow
+  gives 20 of its 30). Past it, each page (`capture-route.mjs --deadline`)
+  leaves out what only adds (moving pictures, hover reads, presses, a
+  canvas's frames and world, the loader's film), says each on stderr as
+  `time: …`, and is still read and converted: a slow site comes back
+  thinner, not lost to the job's limit. `SINK_TIMING=1` also says where the
+  behaviours drive's time went.
 - `check-press-feel.mjs` — the owner's four from trumpmorty.fun, on a
   stand-in: a scripted glide read as its rule; a copy bar's "COPIED!" and
   toast read as a state with how long each lasted and where the toast came

@@ -62,17 +62,21 @@ jobs:
           node-version: 22
 
       # Playwright goes in its own folder, not this project's: the Builder's own
-      # dependencies are not needed to capture, and are not installed.
+      # dependencies are not needed to capture, and are not installed. Only the
+      # full browser: the capture never runs the headless shell (--no-shell).
       - name: Install the browser
         run: |
           mkdir -p "$RUNNER_TEMP/pw" && cd "$RUNNER_TEMP/pw"
           npm init -y > /dev/null
           npm install --no-audit --no-fund playwright@1.55.0
-          npx playwright install --with-deps chromium
+          npx playwright install --with-deps --no-shell chromium
 
       # Observe only: a terms or cookie gate is hidden in the capture's own browser,
       # never agreed to (--hide-gate); nothing is signed, connected or submitted.
       # The inputs reach the shell as variables, never pasted into the script.
+      # --budget 20: past 20 minutes each page leaves out what only adds (moving
+      # pictures, presses) and is still written, so a slow page (mochi.trade
+      # drew a frame a second here) comes back inside the job's 30, not lost.
       - name: Capture
         env:
           IN_URL: ${{ inputs.url }}
@@ -82,7 +86,7 @@ jobs:
         run: |
           export PLAYWRIGHT_MODULE="$RUNNER_TEMP/pw/node_modules/playwright"
           export CHROMIUM="$(node -e "console.log(require(process.env.PLAYWRIGHT_MODULE).chromium.executablePath())")"
-          node capture/site/capture/capture-site.mjs --url "$IN_URL" --name "$IN_NAME" --pages "$IN_PAGES" --hide-gate $([ "$IN_LOOK" = "true" ] && echo --look-only)
+          node capture/site/capture/capture-site.mjs --url "$IN_URL" --name "$IN_NAME" --pages "$IN_PAGES" --hide-gate --budget 20 $([ "$IN_LOOK" = "true" ] && echo --look-only)
           echo "NAME=$(node -e "import('./capture/site/capture/capture-site.mjs').then(m => console.log(m.siteName(process.argv[1]) ?? m.nameFrom(process.argv[2])))" "$IN_NAME" "$IN_URL")" >> "$GITHUB_ENV"
 
       # Learn on click: only the held server calls the owner chose, once each, 2 s apart, stopping at any wallet prompt.

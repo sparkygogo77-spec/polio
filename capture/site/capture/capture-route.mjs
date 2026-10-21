@@ -123,6 +123,20 @@ const click = opt("--click");
 const within = opt("--within", "body");
 const section = opt("--section");
 const watch = opt("--sources") === null ? null : Number(opt("--sources"));
+/*
+ * THE RUN'S TIME (`--deadline <ms since 1970>`, from capture-site.mjs
+ * `--budget`). mochi.trade drew a frame a second on the workflow's machine,
+ * and its moving pictures alone took 15 minutes: the run met the workflow's
+ * 30 and handed back nothing. Past the deadline the reads that only add
+ * (moving pictures, the scroll's own motion, presses, a canvas's frames, a
+ * world's characters, the loader's film) are left out or cut short, said on
+ * stderr, and the page is still read and written out, so a long page comes
+ * back thinner, never not at all.
+ */
+const deadline = Number(opt("--deadline", 0)) || Infinity;
+const late = () => Date.now() > deadline;
+const cutShort = new Set();
+const leftOut = (what) => { if (cutShort.has(what)) return; cutShort.add(what); console.error(`time: the run's budget is spent: ${what} left out`); };
 if (watch !== null && !(watch >= 0)) { console.error("--sources takes the seconds to watch the page for, e.g. --sources 60"); process.exit(2); }
 
 /* ------------------------------------------------------------------ */
@@ -429,7 +443,7 @@ if (still && (behaviours || flag("--states"))) console.error("still: a still scr
 /* What the page's scripts do, measured before the pass below scrolls the page for everything else. */
 /* Pictures of what moves (frames-drive.mjs), with the behaviours: `--no-moving` leaves them out; `--moving-every <ms>`, `--moving-seconds <s>`, `--moving-most <n>` set the pace, the window and the budget. A 2d canvas the canvas pass reads itself is left to it. */
 const moving = flag("--no-moving") ? null : { every: Number(opt("--moving-every", 100)), seconds: Number(opt("--moving-seconds", 3.2)), most: Number(opt("--moving-most", 16)), skip2d: Number(opt("--frames", 3)) > 0 };
-const behaved = behaviours && !still ? await driveBehaviours(page, { shots: shotsDir, shot, frames: moving }) : null;
+const behaved = behaviours && !still ? await driveBehaviours(page, { shots: shotsDir, shot, frames: moving, late, leftOut, heavyMs: Number(opt("--heavy-ms", 250)) }) : null;
 /* How its in-page links take a visitor to their places: a glide by its script or its stylesheet, or a jump (glide.mjs). */
 if (behaved) behaved.glide = await readGlides(page);
 lap("behaviours");
@@ -608,7 +622,7 @@ const sampleFrames = async (seconds, near = null) => {
   await page.evaluate(() => scrollTo(0, 0));
   await page.waitForTimeout(300);
 };
-if (frameSecs > 0) await sampleFrames(frameSecs);
+if (frameSecs > 0) { if (late()) leftOut("a canvas's frames"); else await sampleFrames(frameSecs); }
 /*
  * A CANVAS THAT FOLLOWS THE SCROLL (J, 2026-10-11, sunkcoin.fun). The sea is
  * a fixed canvas under the whole page whose camera is the scroll (`cam =
@@ -700,14 +714,15 @@ const sampleDepths = async () => {
   }
   await page.evaluate((kept) => { window.__sinkDepths = kept; }, kept);
 };
-if (frameSecs > 0 && depthsMax > 0) await sampleDepths();
+if (frameSecs > 0 && depthsMax > 0) { if (late()) leftOut("a canvas's depths"); else await sampleDepths(); }
 /*
  * A CANVAS WORLD (worlds.mjs): a canvas seen repainting whose sprites open
  * something when pressed. Its frames are read again, held still one by one,
  * with where each character stands in each and the dialog it opens; the
  * flipbook becomes those frames, so the places and the pictures agree.
  */
-if (worldsOn && frameSecs > 0) {
+if (worldsOn && frameSecs > 0 && late()) leftOut("a canvas world's characters");
+else if (worldsOn && frameSecs > 0) {
   const n = await probeWorlds(page, { frames: Number(opt("--world-frames", 15)), every: Number(opt("--world-every", 200)), log: (s) => console.error(s) });
   if (n) console.error(`worlds: ${n} canvas${n === 1 ? "" : "es"} with characters to press`);
 }
@@ -795,7 +810,10 @@ if (behaviours) {
   });
   await page.evaluate(() => window.__sinkBehaviours.mark());
 }
-const withStates = flag("--states") && !still;
+/* Past the deadline already, no press is made at all: the pass begins with loads of its own. */
+const statesLate = flag("--states") && !still && late();
+if (statesLate) leftOut("the presses");
+const withStates = flag("--states") && !still && !statesLate;
 const sheets = [...sheetText].map(([href, text]) => ({ href, text }));
 /*
  * READ AT REST, THE POINTER AWAY. The behaviours drive leaves the pointer
@@ -1397,6 +1415,7 @@ if (withStates) {
     if (group[0]?.twinOf != null) continue;
     for (const opt of group) {
       if (!opt.single && tried++ >= statesMax) break;
+      if (late()) { leftOut("the presses not yet made"); break; }
       /* Where each press's time goes (SINK_TIMING=1): the load before it, finding it, the press and its wait, the frames, the read, the undo. */
       const timing = process.env.SINK_TIMING ? { at: Date.now(), laps: [] } : null;
       const tlap = (name) => { if (!timing) return; const now = Date.now(); timing.laps.push(`${name} ${((now - timing.at) / 1000).toFixed(1)}`); timing.at = now; };
@@ -1780,7 +1799,8 @@ lap("states");
  * holds its last picture (`behaviours.loader.film`); the Builder shows it
  * full window as the page opens and fades it as the page did.
  */
-if (behaved && !flag("--no-loader-film")) {
+if (behaved && !flag("--no-loader-film") && late()) leftOut("the loader's film");
+else if (behaved && !flag("--no-loader-film")) {
   const l = (behaved.loaders ?? []).find((x) => (x.words ?? []).length || (x.pictures ?? []).length);
   const from = Number(l?.nav?.shown), to = Number(l?.nav?.off ?? l?.nav?.gone);
   if (l && Number.isFinite(from) && Number.isFinite(to) && to > from) {

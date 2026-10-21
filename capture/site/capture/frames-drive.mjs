@@ -397,7 +397,7 @@ function thin(rec) {
 
 /* ------------------------------------------------------------------ drive */
 
-export async function movingFrames(page, { every = 100, seconds = 3.2, most = 16, bands = 8, skip = [], skip2d = true, log = () => {} } = {}) {
+export async function movingFrames(page, { every = 100, seconds = 3.2, most = 16, bands = 8, skip = [], skip2d = true, late = () => false, log = () => {} } = {}) {
   const vw = page.viewportSize();
   const cdp = await page.context().newCDPSession(page);
   /* The window as it stands: the clip is in page coordinates, so the scroll is the clip's top (`atY`, kept by whoever scrolls). */
@@ -427,7 +427,7 @@ export async function movingFrames(page, { every = 100, seconds = 3.2, most = 16
     const shots = [];
     const t0 = Date.now();
     let last = t0;
-    while (shots.length < count && (count !== Infinity || Date.now() - t0 < ms)) {
+    while (shots.length < count && (count !== Infinity || Date.now() - t0 < ms) && !late()) {
       if (tick) await tick(shots.length);
       const began = Date.now();
       const src = await shot(1, "jpeg");
@@ -475,7 +475,8 @@ export async function movingFrames(page, { every = 100, seconds = 3.2, most = 16
   };
 
   /* ------------------------------------------------------------ find and record, a window at a time */
-  for (let band = 0; band < nBands && results.length < most; band++) {
+  /* Past the run's deadline (capture-route.mjs `--deadline`), no more is looked for: what was recorded is kept. */
+  for (let band = 0; band < nBands && results.length < most && !late(); band++) {
     let scrollY = await scrollTo(band * vw.height);
     if (band && scrollY < band * vw.height - vw.height / 2) break;
     await wait(band === 0 ? 300 : 900);
@@ -509,7 +510,7 @@ export async function movingFrames(page, { every = 100, seconds = 3.2, most = 16
   await scrollTo(0);
   await page.mouse.move(AWAY[0], AWAY[1], { steps: 2 });
   await wait(400);
-  if (results.length < most) {
+  if (results.length < most && !late()) {
     const a = await shot(LOOK_SCALE, "png");
     const p1 = [Math.round(vw.width * 0.3), Math.round(vw.height * 0.35)], p2 = [Math.round(vw.width * 0.65), Math.round(vw.height * 0.6)];
     await page.mouse.move(p1[0], p1[1], { steps: 12 });
@@ -550,7 +551,7 @@ export async function movingFrames(page, { every = 100, seconds = 3.2, most = 16
   }
 
   /* ------------------------------------------------------------ the scroll */
-  if (results.length < most && height > vw.height + 200) {
+  if (results.length < most && height > vw.height + 200 && !late()) {
     const SHIFT = 160;
     await scrollTo(0);
     await wait(300);
