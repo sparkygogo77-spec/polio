@@ -64,7 +64,7 @@
 const AWAY = [-5, -5];
 const TILE = 16;        /* CSS px a tile when looking for change */
 const LOOK_SCALE = 0.5; /* the looks, half size */
-const SIDE = 512;       /* a frame's longest side */
+const SIDE = 1024;      /* a frame's longest side: a film of a part up to 40% of the window is kept at about its own size, never stretched over the board */
 
 /* ------------------------------------------------------------ in the page */
 
@@ -237,6 +237,48 @@ const CSS_LOOPS = `({ skipIds, most }) => {
  * properties that move on it and inside it (up to 60 descendants), and its
  * words.
  */
+/**
+ * A FILM MAY ONLY RECORD PIXELS THE ELEMENT ITSELF PAINTS. Left out, with the
+ * reason: a canvas or video is its own pixels and always stays; any other
+ * element is left out when
+ *   - it covers over 40% of the window: a copy over the real parts (the hero
+ *     section, 1440 x 991 on thesolface);
+ *   - something in it moves by a transform that loops (a spin, a float, a
+ *     marquee): the parts in it already carry that motion (the ticker);
+ *   - it is a landmark (section, main, header, footer, nav, article, aside)
+ *     holding parts of its own (words, pictures, controls);
+ *   - it is blended with, or blurs, what is behind it (`mix-blend-mode`,
+ *     `backdrop-filter`): its pixels are the page under it (the cursor glow);
+ *   - a fixed part with words, a picture or a control of its own (the header)
+ *     lies over it: the shot would hold that part too.
+ */
+const FILM_OK = `({ ids, side }) => {
+  const B = window.__sinkBehaviours;
+  const out = {};
+  const fixedOnes = Array.from(document.body.querySelectorAll("*")).filter((e) => {
+    const cs = getComputedStyle(e);
+    if (cs.position !== "fixed" && cs.position !== "sticky") return false;
+    if (cs.display === "none" || cs.visibility === "hidden" || Number(cs.opacity) < 0.05) return false;
+    const r = e.getBoundingClientRect(); if (r.width < 4 || r.height < 4) return false;
+    return !!(e.querySelector("a, button, img, svg, picture, input") || (e.textContent ?? "").trim());
+  });
+  for (const id of ids) {
+    const el = B.byId ? B.byId(id) : null;
+    out[id] = null;
+    if (!el || el === document.body || /^(CANVAS|VIDEO)$/.test(el.tagName)) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width * r.height > innerWidth * innerHeight * 0.4) { out[id] = "covers over 40% of the window (" + Math.round(r.width) + " x " + Math.round(r.height) + ")"; continue; }
+    let loops = false; try { loops = el.getAnimations({ subtree: true }).some((a) => { const t = a.effect?.getTiming?.(); if (!t || t.iterations !== Infinity) return false; const ks = a.effect.getKeyframes?.() ?? []; return ks.length > 0 && ks.every((f) => Object.keys(f).every((k) => ["offset", "easing", "composite", "computedOffset", "transform", "rotate", "translate", "scale"].includes(k))); }); } catch { loops = false; }
+    if (loops && el.children.length) { out[id] = "its parts already carry the looping move inside it"; continue; }
+    if (/^(SECTION|MAIN|HEADER|FOOTER|NAV|ARTICLE|ASIDE)$/.test(el.tagName) && (el.querySelector("a, button, img, svg, picture, input, h1, h2, h3, p, li") || (el.textContent ?? "").trim())) { out[id] = "a landmark holding parts of its own"; continue; }
+    const cs = getComputedStyle(el);
+    if (cs.mixBlendMode !== "normal" || (cs.backdropFilter && cs.backdropFilter !== "none")) { out[id] = "its pixels are the page behind it (blend or backdrop)"; continue; }
+    const over = fixedOnes.find((f) => { if (f === el || f.contains(el) || el.contains(f)) return false; const q = f.getBoundingClientRect(); return q.left < r.right && q.right > r.left && q.top < r.bottom && q.bottom > r.top; });
+    if (over) out[id] = "a fixed part with parts of its own lies over it";
+  }
+  return out;
+}`;
+
 /** Which of these parts is fixed to the window (itself or an ancestor): its box is a place in the window, whatever the scroll. */
 const FIXED_IDS = `({ ids }) => {
   const B = window.__sinkBehaviours;
@@ -418,6 +460,14 @@ export async function movingFrames(page, { every = 100, seconds = 3.2, most = 16
   const wait = (ms) => page.waitForTimeout(ms);
   const evalFn = (src, arg) => page.evaluate(`(${src})(${JSON.stringify(arg)})`);
   const hasById = await page.evaluate(() => typeof window.__sinkBehaviours?.byId === "function");
+  /* Parts that may be filmed (FILM_OK); the rest are left out, once, with the reason. A patch of the page itself (no element of its own) is kept. */
+  const filmable = async (parts, where) => {
+    const ids = parts.filter((p) => p.self !== false).map((p) => p.el);
+    if (!ids.length) return parts;
+    const why = await evalFn(FILM_OK, { ids, side: SIDE });
+    for (const p of parts) if (why[p.el]) { skipped.add(p.el); log(`frames: ${where}: ${p.tag ?? "a part"} at ${JSON.stringify(p.box)} left out of the films: ${why[p.el]}`); }
+    return parts.filter((p) => !why[p.el]);
+  };
   if (!hasById) { log("frames: the recorder keeps no element list; nothing recorded"); return { frames: [], looked: 0 }; }
 
   const height = await page.evaluate(() => document.documentElement.scrollHeight);
@@ -501,7 +551,7 @@ export async function movingFrames(page, { every = 100, seconds = 3.2, most = 16
     const picked = [...groups.sort((p, q) => q.tiles - p.tiles), ...loops].slice(0, most - results.length);
     /* A fixed part is at the same place in the window in every window: its box is not moved down by the scroll. */
     const fixedHere = new Set(picked.length ? await evalFn(FIXED_IDS, { ids: picked.map((g) => g.el) }) : []);
-    const parts = picked.map((g) => ({ ...g, pageBox: [g.box[0], g.box[1] + (fixedHere.has(g.el) ? 0 : scrollY), g.box[2], g.box[3]] }));
+    const parts = await filmable(picked.map((g) => ({ ...g, pageBox: [g.box[0], g.box[1] + (fixedHere.has(g.el) ? 0 : scrollY), g.box[2], g.box[3]] })), "window " + (band + 1));
     found.push({ band, changed: changed.length, parts: parts.length });
     if (!parts.length) continue;
     const ids = parts.map((p) => p.el);
@@ -534,7 +584,7 @@ export async function movingFrames(page, { every = 100, seconds = 3.2, most = 16
     /* Read while the pointer is still over the page: what follows it is there to be found. A 2d canvas is pictured here too: the canvas pass never moves the pointer. */
     const { groups } = changed.length ? await evalFn(GROUPS, { changed, cols: d1.cols, rows: d1.rows, t: d1.t, skipIds: [...skipped], skip2d: false }) : { groups: [] };
     await page.mouse.move(AWAY[0], AWAY[1], { steps: 2 });
-    const parts = groups.sort((p, q) => q.tiles - p.tiles).slice(0, most - results.length).map((g) => ({ ...g, pageBox: [g.box[0], g.box[1], g.box[2], g.box[3]] }));
+    const parts = await filmable(groups.sort((p, q) => q.tiles - p.tiles).slice(0, most - results.length).map((g) => ({ ...g, pageBox: [g.box[0], g.box[1], g.box[2], g.box[3]] })), "pointer");
     if (parts.length) {
       /* The pointer round a slow circle through the middle of the window; a trail that belongs to no part is cut round the circle. */
       const cx = vw.width / 2, cy = vw.height / 2, rx = vw.width * 0.22, ry = vw.height * 0.22;
@@ -571,7 +621,7 @@ export async function movingFrames(page, { every = 100, seconds = 3.2, most = 16
     const d = await evalFn(DIFF, { a, b, scale: LOOK_SCALE, tile: TILE, shift: SHIFT });
     /* The groups are read on the scrolled page, where its tiles are. */
     const { groups } = d.changed.length ? await evalFn(GROUPS, { changed: d.changed, cols: d.cols, rows: d.rows, t: d.t, skipIds: [...skipped], skip2d: false }) : { groups: [] };
-    const parts = groups.sort((p, q) => q.tiles - p.tiles).slice(0, most - results.length).map((g) => ({ ...g, pageBox: [g.box[0], g.box[1] + SHIFT, g.box[2], g.box[3]] }));
+    const parts = await filmable(groups.sort((p, q) => q.tiles - p.tiles).slice(0, most - results.length).map((g) => ({ ...g, pageBox: [g.box[0], g.box[1] + SHIFT, g.box[2], g.box[3]] })), "scroll");
     if (parts.length) {
       await scrollTo(0);
       await wait(300);
