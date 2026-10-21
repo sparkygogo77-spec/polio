@@ -10,7 +10,8 @@
  * holds, its first heading) and keeps that beside the list.
  *
  *   1. every part of the saved PST board is named exactly as the reading
- *      part by part names it (the code before, kept below as `slow`);
+ *      part by part names it (the same rules read the plain way, kept below
+ *      as `slow`, and kept in step with them: tests/section-names.mjs);
  *   2. so is every part of a 2,400-part board built from it;
  *   3. and naming all 2,400 takes under a second, half the time or
  *      less of naming them part by part.
@@ -34,9 +35,23 @@ const check = (name, ok, detail = "") => { results.push(ok === true); console.lo
 /* ---------------------------------------- the reading part by part, as it was */
 const clip = (s, max = 40) => (s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s);
 const contains = (a, b) => (a.x ?? 0) <= (b.x ?? 0) + 1 && (a.y ?? 0) <= (b.y ?? 0) + 1 && (a.x ?? 0) + (a.w ?? 0) >= (b.x ?? 0) + (b.w ?? 0) - 1 && (a.y ?? 0) + (a.h ?? 0) >= (b.y ?? 0) + (b.h ?? 0) - 1;
-const within = (box, all) => all.filter((m) => m.id !== box.id && (!box.pageId || m.pageId === box.pageId) && contains(box, m) && (m.w ?? 0) * (m.h ?? 0) < (box.w ?? 0) * (box.h ?? 0)).sort((a, b) => (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0));
-const firstHeading = (box, all) => { const h = within(box, all).find(isHeadingish); return h ? clip(wordsOf(h)) : null; };
-const ownTitle = (box, all) => { const inside = within(box, all); if (!inside.length) return null; const h = inside.find(isHeadingish) ?? inside.find((m) => !!wordsOf(m)); return h ? clip(wordsOf(h)) : null; };
+/* The same rules, read the plain way (tests/section-names.mjs): a part with a path holds another only when its box does and the path continues its own; an h1–h4 is read across its pieces; a button never names what holds it. */
+const pathOf = (n) => (n.from?.selector ?? "").trim();
+const under = (p, k) => !!p && !!k && k !== p && k.startsWith(p) && (/^ > /.test(k.slice(p.length)) || /^::(before|after)$/.test(k.slice(p.length)) || /^ ::line\(\d+\)$/.test(k.slice(p.length)));
+const within = (box, all) => all.filter((m) => m.id !== box.id && (!box.pageId || m.pageId === box.pageId) && contains(box, m) && (m.w ?? 0) * (m.h ?? 0) < (box.w ?? 0) * (box.h ?? 0) && (!pathOf(box) || !pathOf(m) || under(pathOf(box), pathOf(m)))).sort((a, b) => (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0));
+const headingAt = (n) => /^(.* > h[1-4](?::nth-of-type\(\d+\))?)(?: > .*)?$/.exec(pathOf(n))?.[1] ?? null;
+const meets = (a, b) => (a.x ?? 0) < (b.x ?? 0) + (b.w ?? 0) && (b.x ?? 0) < (a.x ?? 0) + (a.w ?? 0) && (a.y ?? 0) < (b.y ?? 0) + (b.h ?? 0) && (b.y ?? 0) < (a.y ?? 0) + (a.h ?? 0);
+const headingWords = (el, near, all) => { const page = all.filter((q) => !near.pageId || q.pageId === near.pageId); const own = page.find((q) => pathOf(q) === el) ?? near; return page.filter((q) => q.id !== own.id && headingAt(q) === el && !!wordsOf(q) && meets(own, q)).sort((x, y) => (x.y ?? 0) - (y.y ?? 0) || (x.x ?? 0) - (y.x ?? 0)).map(wordsOf).join(" "); };
+const headingIn = (box, all) => {
+  const inside = within(box, all);
+  for (const p of inside) { const el = wordsOf(p) ? headingAt(p) : null; if (el) return clip(headingWords(el, box, all) || wordsOf(p)); if (isHeadingish(p)) return clip(wordsOf(p)); }
+  const own = pathOf(box);
+  if (own && headingAt(box) === own) { const w = headingWords(own, box, all); if (w) return clip(w); }
+  return null;
+};
+const firstHeading = (box, all) => headingIn(box, all);
+const isControl = (n) => /^cta-/.test(n.featureId ?? "");
+const ownTitle = (box, all) => { const inside = within(box, all); if (!inside.length) return null; const h0 = headingIn(box, all); if (h0) return h0; const controls = inside.filter(isControl).map(pathOf).filter(Boolean); const h = inside.find((m) => !!wordsOf(m) && !isControl(m) && !controls.some((c) => under(c, pathOf(m)))); return h ? clip(wordsOf(h)) : null; };
 const LANDMARKS = new Set(["Section", "Header", "Footer", "Menu", "Page body", "Form", "List"]);
 function sectionOf(n, all) {
   const page = all.filter((m) => m.id !== n.id && (!n.pageId || m.pageId === n.pageId));
