@@ -19,7 +19,7 @@ import { Button } from "@/core/ui/button";
 import { Input } from "@/core/ui/input";
 import { Tooltip } from "@/core/ui/tooltip";
 import { play } from "@/core/audio/engine";
-import { makeKit, MEME_DEFAULTS, readStyle, useOnPage, type KitItem, type KitStyle, type MemeWords } from "./launchKit";
+import { makeKit, MEME_DEFAULTS, readStyle, useOnPage, type KitItem, type KitStyle, type MemeWords } from "./launchKitModel";
 
 export const useLaunchKit = create<{ open: boolean }>(() => ({ open: false }));
 export const openLaunchKit = () => useLaunchKit.setState({ open: true });

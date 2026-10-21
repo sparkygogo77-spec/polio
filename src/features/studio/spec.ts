@@ -8,7 +8,7 @@
  * specification rather than decoration.
  */
 import { describeWork } from "./shelf";
-import type { Worn } from "./wornShape";
+import type { Worn } from "./wornModel";
 import { getFeature, categoryOf } from "./shelf";
 import { isLinkable, resolvePart } from "./shelf/ui";
 import { FORMAT_FIELDS, formatLabel, FORMAT_GROUPS, type FormatValues } from "./format";

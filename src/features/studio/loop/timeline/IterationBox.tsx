@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, Pin, RotateCcw } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { EDGE } from "../../boxGround";
-import { LANE_MODE } from "../lanes";
+import { LANE_MODE } from "../lanesModel";
 import { type Point } from "../strand";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
 import { processDone, type Thread, type ThreadDoc } from "../threads";

@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, Coins, Copy, Flag, MapPin, Pin, PinOff, Scis
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { Tooltip } from "@/core/ui/tooltip";
-import { LANE_MODE } from "../lanes";
+import { LANE_MODE } from "../lanesModel";
 import { strandBounds, strandReach, REACH_WIDTH, type Point, type VineEnd } from "../strand";
 import { sayWhere, saySpend } from "../../spend";
 import { diffDocs, type Thread } from "../threads";
