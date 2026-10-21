@@ -88,6 +88,17 @@ export function smallSheet<N extends SmallNode>(plan: SmallPlan<N>, o: SmallShee
       const show = o.stated?.(b.node.id) ? "" : "display:flex!important;";
       rule(P(b.node.id), `${show}position:absolute!important;left:calc(${k(b.x)} * 100cqw - var(--sm-ox, 0px))!important;top:calc(${b.y}px - var(--sm-oy, 0px))!important;width:calc(${k(b.w)} * 100cqw)!important;min-height:${b.h}px!important;height:auto!important;margin:0!important;right:auto!important;bottom:auto!important`);
       rule(`${P(b.node.id)}>*`, `--sm-ox:calc(${k(b.x)} * 100cqw);--sm-oy:${b.y}px`);
+      /*
+       * Its box here is where the site showed it, its own transform in it; the
+       * desktop's move is not made again (thesolface's hero frog, centred by
+       * translateX(-50%): 345 px left of its phone box, off the page). A turn
+       * or a scale stays. Only its own drawing: not a part carried inside it.
+       */
+      const tm = /^matrix\(([^)]+)\)$/.exec(((b.node as { art?: { transform?: string } }).art?.transform ?? "").trim());
+      const tv = tm?.[1] ? tm[1].split(",").map(Number) : null;
+      if (tv && tv.length === 6 && tv.every(Number.isFinite) && (Math.abs(tv[4]!) > 1 || Math.abs(tv[5]!) > 1)) {
+        rule(`${P(b.node.id)} [style*="matrix("]:not(${P(b.node.id)} .sm-p *):not(${P(b.node.id)} .sm-p)`, `transform:matrix(${tv.slice(0, 4).join(", ")}, 0, 0)!important`);
+      }
       /* Taller here than at full width and narrower: the site set its words on more lines here (PST's intro, one line at 1440, two at 390), so a line held whole there is let wrap. */
       /* Its type at the size the site set it here (PST's "Tuning in" box, 11px on a phone): the part's own words, not the parts inside it. */
       if (b.px) rule([own(b.node.id), `${own(b.node.id)} [style*="font-size"]`], `font-size:${b.px}px!important`);
