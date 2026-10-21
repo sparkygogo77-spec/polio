@@ -57,7 +57,7 @@ import { MapPin } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { columnHolds, hold, sameView, settleEase, settleView, zoomCeiling, SETTLE_MARGIN, SETTLE_MIN_ZOOM, SETTLE_MS, type View } from "../../timelineView";
 import { Lanes } from "../Lanes";
-import { laneRects } from "../lanes";
+import { laneRects } from "../lanesModel";
 import { paintStrand, strandBounds, type Point, type StrandTone, type VineEnd } from "../strand";
 import { REST, letGo, pickUp, still, step, type Rope } from "../../tugSpring";
 import { chainOf, type Thread, type ThreadNode } from "../threads";

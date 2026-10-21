@@ -16,7 +16,7 @@
  */
 import { createRequire } from "node:module";
 import { mkdirSync } from "node:fs";
-import { BANDS, BAND_COLOUR, LANE_H, LANE_BANDS, PICKS, RATES, REACH, TURN, bandOf, costOf, laneArm, laneRects, laneSpine, lanesOf, nextIn, pickFor, saidMinutes, shown } from "../src/features/studio/loop/lanes.ts";
+import { BANDS, BAND_COLOUR, LANE_H, LANE_BANDS, PICKS, RATES, REACH, TURN, bandOf, costOf, laneArm, laneRects, laneSpine, lanesOf, nextIn, pickFor, saidMinutes, shown } from "../src/features/studio/loop/lanesModel.ts";
 import { ITEMS } from "../src/features/studio/loop/lanesSample.ts";
 import { LANE_STRAND_WIDTH, STRAND_WIDTH } from "../src/features/studio/loop/strand.ts";
 import { MOLTEN_MEANS, moltenClass } from "../src/core/ui/molten.ts";

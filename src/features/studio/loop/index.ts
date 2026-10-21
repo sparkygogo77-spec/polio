@@ -3,8 +3,8 @@
 export { ITEMS } from "./lanesSample.ts";
 export { GENERATION, PROCESS, THREAD_LIMIT, chainOf, diffDocs, flatten, liveAfterPrune, pieceOwners, pieceToText, piecesFrom, piecesToSend, processDone, pruneThread, threadTitle, threadTree, threadsToMarkdown } from "./threads.ts";
 export type { Piece, ProcessState, Thread, ThreadDoc, ThreadNode } from "./threads.ts";
-export { BANDS, BAND_COLOUR, LANE_BANDS, LANE_H, LANE_LABEL, LANE_MODE, PICKS, RATES, REACH, TURN, bandOf, costOf, laneArm, laneRects, laneSpine, lanesOf, nextIn, pickFor, saidCost, saidMinutes, shown } from "./lanes.ts";
-export type { Band, Choice, Difficulty, Effort, Item, Lane, Lanes, ModelId, Rect, Shown } from "./lanes.ts";
+export { BANDS, BAND_COLOUR, LANE_BANDS, LANE_H, LANE_LABEL, LANE_MODE, PICKS, RATES, REACH, TURN, bandOf, costOf, laneArm, laneRects, laneSpine, lanesOf, nextIn, pickFor, saidCost, saidMinutes, shown } from "./lanesModel.ts";
+export type { Band, Choice, Difficulty, Effort, Item, Lane, Lanes, ModelId, Rect, Shown } from "./lanesModel.ts";
 export { QUEUE_KEEP, askingJob, doneJobs, failedJobs, nextJob, pendingJobs, trimQueue, typedSince } from "./queue.ts";
 export type { DrawJob, JobStatus } from "./queue.ts";
 export { LANE_STRAND_WIDTH, REACH_WIDTH, SEAM_WIDTH, STRAND_WIDTH, VINE, along, bracketBounds, bracketEnvelope, dusk, lch, paintBracket, paintStrand, section, strandBounds, strandEnvelope, strandMiddle, strandPath, strandReach, strandSeam } from "./strand.ts";

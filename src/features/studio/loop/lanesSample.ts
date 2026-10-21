@@ -10,7 +10,7 @@
  * that source hands over a list of items and nothing else changes. This
  * file imports nothing at run time, so the checks can read it off the disk.
  */
-import type { Item } from "./lanes";
+import type { Item } from "./lanesModel";
 
 export const ITEMS: Item[] = [
   {
