@@ -480,7 +480,7 @@ const INLINE = new Set(["span", "a", "b", "i", "em", "strong", "small", "code", 
  * (The third, a heading's own padding, is `ValueProp`'s to drop.) A part
  * with no `from` is never passed through here: a hand-built part is untouched.
  */
-export function applyCaptured(t: Theme, node: { from?: { selector?: string } | null; h: number }): Theme {
+export function applyCaptured(t: Theme, node: { from?: { selector?: string } | null; h: number; font?: { leading?: number; px?: number } | null; pad?: { top?: number; bottom?: number } | null }): Theme {
   const selector = node.from?.selector?.trim();
   if (!selector) return t;
   // No reading measure: the box is the measure. Not `node.w` itself —
@@ -499,6 +499,26 @@ export function applyCaptured(t: Theme, node: { from?: { selector?: string } | n
   const next: Theme = { ...t, captured: true, measurePx: 100_000, partGround: undefined };
   const tag = (selector.split(">").pop() ?? "").trim().split(/[:.#[]/)[0]!.toLowerCase();
   /*
+   * A LINE THE PAGE SET AT `line-height: normal` IS AS TALL AS ITS BOX SAYS.
+   * The capture reads no number for `normal`, and for a block records no line
+   * box to read one from, so such a part carries no leading and fell to the
+   * theme's 1.55: thesolface's 11px eyebrows drew 17 for the page's 14, its
+   * 76px "✳" 118 for 106, every label on the page 3 to 13px taller. With no
+   * leading of its own, its line is its box's room (less its padding) shared
+   * among the whole lines a normal line, about 1.25 of its size, would make
+   * (tests/normal-leading.mjs). Its size is the one the page drew the words
+   * at (`font.px`) where the capture says: a value-prop draws them at 1.6 ×
+   * its box's size, and a line-height multiplies the size they are drawn at.
+   */
+  const drawnPx = typeof node.font?.px === "number" && node.font.px > 0 ? node.font.px : t.fontPx;
+  if (typeof node.font?.leading !== "number" && node.h > 0 && drawnPx > 0) {
+    const room = node.h - (node.pad?.top ?? 0) - (node.pad?.bottom ?? 0);
+    if (room > 0) {
+      const lines = Math.max(1, Math.round(room / (drawnPx * 1.25)));
+      next.lineHeight = Math.ceil((room / lines / drawnPx) * 1e5) / 1e5;
+    }
+  }
+  /*
    * Its line as tall as its box, written as the page's stylesheet keeps it.
    * A style is written out at six figures, so 20 / 14 = 1.4285714… went up as
    * 1.42857, a line of 19.99998px the published page laid at 19.984 where
@@ -506,7 +526,7 @@ export function applyCaptured(t: Theme, node: { from?: { selector?: string } | n
    * (tests/export-page.mjs). Rounded up at the fifth place, it is written as
    * it is, and never shorter than the box.
    */
-  if (INLINE.has(tag) && node.h > 0 && node.h < t.fontPx * t.lineHeight) next.lineHeight = Math.ceil((node.h / t.fontPx) * 1e5) / 1e5;
+  if (INLINE.has(tag) && node.h > 0 && node.h < next.fontPx * next.lineHeight) next.lineHeight = Math.ceil((node.h / t.fontPx) * 1e5) / 1e5;
   return next;
 }
 
