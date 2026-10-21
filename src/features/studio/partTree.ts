@@ -5,7 +5,11 @@
  * made, so on trumpmorty.fun the second section ("THE LORE") came last. A
  * person reads a page top to bottom and a section as the things inside it,
  * so the list is a tree: each part under the part that holds it, and each
- * level sorted by where it sits, top to bottom, then left to right.
+ * level in the order the page's own code has it (J, 2026-10-21: "in order
+ * by order of what contains what"). A captured page is read in document
+ * order, so a captured part's place in the list is its place in the page;
+ * a part placed by hand has none and goes in by where it sits, top to
+ * bottom, then left to right.
  *
  * What holds what is read the way the rest of the Builder reads it
  * (`owner.ts`): the page path the capture recorded, else the box. A part
@@ -54,6 +58,26 @@ const byPlace = (all: Map<string, TreePart>) => (a: string, b: string) => {
   return p.y - q.y || p.x - q.x || area(q) - area(p);
 };
 
+/**
+ * One level in page order: the captured parts as the capture met them (the
+ * document's order, which a sticky header or a grid reordered by CSS does not
+ * change), and the hand-placed ones merged in by place.
+ */
+function inPageOrder(ids: string[], all: Map<string, TreePart>, at: Map<string, number>): string[] {
+  const place = byPlace(all);
+  const caught = ids.filter((id) => pathOf(all.get(id)!)).sort((a, b) => at.get(a)! - at.get(b)!);
+  const placed = ids.filter((id) => !pathOf(all.get(id)!)).sort(place);
+  if (!placed.length) return caught;
+  if (!caught.length) return placed;
+  const out: string[] = [];
+  let i = 0, j = 0;
+  while (i < caught.length || j < placed.length) {
+    if (j >= placed.length || (i < caught.length && place(caught[i]!, placed[j]!) <= 0)) out.push(caught[i++]!);
+    else out.push(placed[j++]!);
+  }
+  return out;
+}
+
 export function partTree(nodes: readonly TreePart[]): PartTree {
   const all = new Map(nodes.map((n) => [n.id, n]));
   const bySel = new Map<string, string>();
@@ -95,10 +119,9 @@ export function partTree(nodes: readonly TreePart[]): PartTree {
     if (p) kids.set(p, [...(kids.get(p) ?? []), n.id]);
     else roots.push(n.id);
   }
-  const order = byPlace(all);
-  roots.sort(order);
-  for (const list of kids.values()) list.sort(order);
-  return { roots, kids, parent };
+  const at = new Map(nodes.map((n, i) => [n.id, i]));
+  for (const [id, list] of kids) kids.set(id, inPageOrder(list, all, at));
+  return { roots: inPageOrder(roots, all, at), kids, parent };
 }
 
 /** The part's holders, outermost first, not including itself. */
@@ -108,7 +131,12 @@ export function ancestors(tree: PartTree, id: string): string[] {
   return out;
 }
 
-export interface TreeRow { id: string; depth: number; kids: number }
+/**
+ * One row of the tree as shown. `ends` is how many of the open holders
+ * around it close after it: the innermost `ends` of its `depth` holders,
+ * so the panel can draw each open holder as a box round what it holds.
+ */
+export interface TreeRow { id: string; depth: number; kids: number; ends: number }
 
 /** The rows shown: every root, and the parts inside each open one, in page order. */
 export function visibleRows(tree: PartTree, open: ReadonlySet<string>): TreeRow[] {
@@ -116,11 +144,12 @@ export function visibleRows(tree: PartTree, open: ReadonlySet<string>): TreeRow[
   const walk = (ids: readonly string[], depth: number) => {
     for (const id of ids) {
       const k = tree.kids.get(id) ?? [];
-      out.push({ id, depth, kids: k.length });
+      out.push({ id, depth, kids: k.length, ends: 0 });
       if (k.length && open.has(id)) walk(k, depth + 1);
     }
   };
   walk(tree.roots, 0);
+  for (let i = 0; i < out.length; i++) out[i]!.ends = Math.max(0, out[i]!.depth - (out[i + 1]?.depth ?? 0));
   return out;
 }
 
@@ -130,28 +159,4 @@ export function pageOrder(tree: PartTree): string[] {
   const walk = (ids: readonly string[]) => { for (const id of ids) { out.push(id); walk(tree.kids.get(id) ?? []); } };
   walk(tree.roots);
   return out;
-}
-
-/**
- * The tree with each component's layers folded under its host
- * (`components.ts`): a button is one row, its words, light and shadow
- * layers inside it, wherever the page path or the box would have put them.
- * A component inside another stays under it. Returns a new tree.
- */
-export function foldComponents(tree: PartTree, comps: readonly { id: string; layers: readonly { id: string }[] }[]): PartTree {
-  const parent = new Map(tree.parent);
-  for (const c of comps) for (const l of c.layers) if (parent.has(l.id) && l.id !== c.id) parent.set(l.id, c.id);
-  /* A loop cannot be made (a host is never another's layer), but a host must not end up under its own layer. */
-  for (const c of comps) { const p = parent.get(c.id); if (p && c.layers.some((l) => l.id === p)) parent.set(c.id, tree.parent.get(p) ?? null); }
-  const kids = new Map<string, string[]>();
-  const roots: string[] = [];
-  const order = new Map(pageOrder(tree).map((id, i) => [id, i]));
-  for (const [id, p] of parent) {
-    if (p) kids.set(p, [...(kids.get(p) ?? []), id]);
-    else roots.push(id);
-  }
-  const by = (a: string, b: string) => (order.get(a) ?? 0) - (order.get(b) ?? 0);
-  roots.sort(by);
-  for (const list of kids.values()) list.sort(by);
-  return { roots, kids, parent };
 }
