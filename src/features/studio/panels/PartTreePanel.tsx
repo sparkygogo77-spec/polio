@@ -3,8 +3,9 @@
  * THE ELEMENT TAB'S WAY IN: THE PAGE'S PARTS AS A TREE, AND WHAT STILL NEEDS DECIDING.
  *
  * With nothing picked the tab lists the page's parts in the order they come
- * on the page, top to bottom, each section holding what is inside it
- * (`partTree.ts`). Hovering a row outlines the part on the board
+ * on the page, each holding what is inside it (`partTree.ts`); under "Show
+ * nesting" every open holder is a box round what it holds, boxes inside
+ * boxes, starting from the outermost container. Hovering a row outlines the part on the board
  * (`pointAt`); pressing it picks the part, brings it into view and opens its
  * own panel. A part picked on the board is lit in the tree, and the tree
  * opens down to it.
@@ -26,7 +27,7 @@ import {
 } from "lucide-react";
 import { getFeature } from "../shelf";
 import { useHeldStudio, useStudio, type StudioNode } from "../board/store";
-import { ancestors, foldComponents, partTree, visibleRows, type PartTree } from "../partTree";
+import { ancestors, partTree, visibleRows, type PartTree, type TreeRow } from "../partTree";
 import { componentsOf, KIND_WORD, LAYER_WORD, type CompNode, type Components } from "../components";
 import { resolvePalette } from "../shelf/run";
 import { filterRows, foldComponentRows, partList, type ComponentRow, type ListPart } from "../partList";
@@ -69,11 +70,58 @@ export function goToPart(id: string) {
   });
 }
 
-/** The tree for these nodes, worked out once per change of the page. */
-/** The tree of a page's parts, each component one row with its layers folded inside (`components.ts`). */
+/**
+ * The tree of a page's parts, exactly as they hold each other on the page,
+ * worked out once per change of the page. Components are not folded here: a
+ * ticker read round a whole page pulled its header and body up beside each
+ * other (J, 2026-10-21), so a component's host says what it is on its row
+ * and its layers stay wherever the page has them.
+ */
 export function usePartTree(nodes: StudioNode[]): PartTree {
-  const comps = usePageComponents(nodes);
-  return React.useMemo(() => foldComponents(partTree(nodes), comps.list), [nodes, comps]);
+  return React.useMemo(() => partTree(nodes), [nodes]);
+}
+
+/** Open a holder, and any wrapper that is all it holds (a div round a div round the header), so a press shows something to read. */
+function openDown(tree: PartTree, open: Set<string>, id: string) {
+  for (let at: string | undefined = id; at; ) {
+    open.add(at);
+    const k: string[] = tree.kids.get(at) ?? [];
+    at = k.length === 1 && tree.kids.get(k[0]!)?.length ? k[0] : undefined;
+  }
+}
+
+/* Each open holder is drawn as a box round what it holds, boxes inside boxes, as J sketched it. */
+const INDENT = 12;
+/** How far in a box at this depth stands from the right edge: each level a little inside the one round it. */
+const insetRight = (k: number) => 2 + k * 3;
+
+/** The boxes behind one row: the sides of each holder it is in, the top of its own when open, and the bottom of each that closes after it. */
+function Boxes({ r, open }: { r: TreeRow; open: boolean }) {
+  const own = open && r.kids > 0;
+  const levels = own ? r.depth + 1 : r.depth;
+  if (!levels) return null;
+  const out: React.ReactNode[] = [];
+  for (let k = 0; k < levels; k++) {
+    const top = own && k === r.depth;
+    /* The innermost `ends` holders close here, each a little above the one round it. */
+    const closing = !top && k >= r.depth - r.ends;
+    const lift = closing ? 2 + (r.depth - 1 - k) * 2 : 0;
+    out.push(
+      <span
+        key={k}
+        aria-hidden
+        data-tree-box={k}
+        data-tree-box-edge={top ? "top" : closing ? "bottom" : undefined}
+        className={cn(
+          "pointer-events-none absolute border-x border-border bg-fg/[0.03]",
+          top && "rounded-t-md border-t",
+          closing && "rounded-b-md border-b",
+        )}
+        style={{ left: 1 + k * INDENT, right: insetRight(k), top: top ? 2 : 0, bottom: lift }}
+      />,
+    );
+  }
+  return <>{out}</>;
 }
 
 /** The components among these parts, read with the site's own colour roles. */
@@ -92,15 +140,15 @@ export function PartsTree({ nodes, picked, className }: { nodes: StudioNode[]; p
   const tree = usePartTree(nodes);
   const comps = usePageComponents(nodes);
   const byId = React.useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
-  /* A component keeps its own name and says what it is beside it ("Button · 3 layers"); each of its layers reads as the job it does there ("Words: BUY $TRORTY"). A component with no layers is just the part. */
-  const roleOfLayer = React.useMemo(() => new Map(comps.list.flatMap((c) => c.layers.map((l) => [l.id, l.role] as const))), [comps]);
+  /* A component keeps its own name and says what it is beside it ("Button · 3 layers"); a layer sitting in it reads as the job it does there ("Words: BUY $TRORTY"). A component with no layers is just the part. */
+  const roleOfLayer = React.useMemo(() => new Map(comps.list.flatMap((c) => c.layers.filter((l) => ancestors(tree, l.id).includes(c.id)).map((l) => [l.id, l.role] as const))), [comps, tree]);
   const stacked = React.useMemo(() => new Map(comps.list.filter((c) => c.layers.length).map((c) => [c.id, c])), [comps]);
   const names = React.useMemo(() => new Map(nodes.map((n) => {
     const role = roleOfLayer.get(n.id);
     return [n.id, role ? `${LAYER_WORD[role]}: ${nameOf(n, nodes)}` : nameOf(n, nodes)];
   })), [nodes, roleOfLayer]);
   /* The top level starts open: a page is usually one body holding its sections, and a tree that opens on one row says nothing. */
-  const [open, setOpen] = React.useState<Set<string>>(() => new Set(tree.roots));
+  const [open, setOpen] = React.useState<Set<string>>(() => { const n = new Set<string>(); for (const id of tree.roots) openDown(tree, n, id); return n; });
   /* Picked on the board: open the tree down to it. */
   React.useEffect(() => {
     if (!picked || !byId.has(picked)) return;
@@ -108,7 +156,7 @@ export function PartsTree({ nodes, picked, className }: { nodes: StudioNode[]; p
     setOpen((was) => (up.every((a) => was.has(a)) ? was : new Set([...was, ...up])));
   }, [picked, tree, byId]);
   const rows = React.useMemo(() => visibleRows(tree, open), [tree, open]);
-  const toggle = (id: string) => setOpen((was) => { const n = new Set(was); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const toggle = (id: string) => setOpen((was) => { const n = new Set(was); if (n.has(id)) n.delete(id); else openDown(tree, n, id); return n; });
   /* Bring the picked row into view once the tree has opened down to it. */
   const box = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
@@ -141,13 +189,16 @@ export function PartsTree({ nodes, picked, className }: { nodes: StudioNode[]; p
               data-tree-row={r.id}
               data-tree-depth={r.depth}
               data-tree-picked={on ? "" : undefined}
-              className={cn("group flex h-7 items-center gap-1 rounded-sm pr-1.5 text-plain", on ? "bg-accent-soft text-fg shadow-[inset_2px_0_0_var(--accent)]" : "hover:bg-hover")}
-              style={{ paddingLeft: 4 + r.depth * 12 }}
+              data-tree-open={r.kids ? String(isOpen) : undefined}
+              className="group relative h-7"
+              style={{ paddingLeft: 4 + r.depth * INDENT, paddingRight: insetRight(isOpen && r.kids ? r.depth : Math.max(0, r.depth - 1)) + 4 }}
               onPointerEnter={() => pointAt([r.id])}
               /* A right-click on a picture's row opens "Remake this picture…", the same card as the wheel's tray (RemakePicture.tsx). */
               onContextMenu={canRemake(n) ? (e) => { e.preventDefault(); e.stopPropagation(); openRemake(r.id); } : undefined}
               data-tree-picture={canRemake(n) ? "" : undefined}
             >
+              <Boxes r={r} open={isOpen} />
+              <div className={cn("relative flex h-full items-center gap-1 rounded-sm pl-0.5 pr-1 text-plain", on ? "bg-accent-soft text-fg shadow-[inset_2px_0_0_var(--accent)]" : "hover:bg-hover")}>
               {r.kids ? (
                 <button
                   type="button"
@@ -175,6 +226,7 @@ export function PartsTree({ nodes, picked, className }: { nodes: StudioNode[]; p
                   </span>
                 ) : roleOfLayer.get(r.id) ? <span data-tree-layer={roleOfLayer.get(r.id)} className="sr-only">layer</span> : r.kids ? <span className="num shrink-0 text-fine text-fg-faint">{r.kids}</span> : null}
               </button>
+              </div>
             </div>
           );
         }}
