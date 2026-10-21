@@ -72,6 +72,13 @@ export interface Span {
   textShadow?: string;
   textStroke?: { w: number; color: string };
   paintOrder?: string;
+  /**
+   * Words painted with an image clipped to their letters (a gradient set with
+   * `background-clip: text`) over transparent ink: `image` is the computed
+   * background-image as the browser reported it. Only a capture writes it;
+   * the outline twin of it is `textStroke` (`tests/run-fill.mjs`).
+   */
+  fill?: { image: string; clip: "text" };
   /** The letter's transform when measured, as the browser computed it. */
   transform?: string;
   /** The letter's own animation (`parts/capturedMotion.ts`), replayed live. */

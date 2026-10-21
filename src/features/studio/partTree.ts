@@ -44,7 +44,8 @@ const boxHolds = (o: TreePart, i: TreePart) => {
 
 /** The path one step up: "a > b > c" is "a > b"; "a > b::after" is "a > b". */
 function up(path: string): string | null {
-  const pseudo = /::?(before|after)$/.exec(path);
+  /* A film (`::frames`, `captured.ts`) is its element's own, as a ::before is (tests/films-listed.mjs). */
+  const pseudo = /::?(before|after|frames)$/.exec(path);
   if (pseudo) return path.slice(0, pseudo.index);
   const i = path.lastIndexOf(" > ");
   return i < 0 ? null : path.slice(0, i);

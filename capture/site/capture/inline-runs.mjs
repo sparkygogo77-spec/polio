@@ -69,6 +69,17 @@ export function inlineLines(nodes, elOf, skip = new Set()) {
     const across = (y, h) => y - 1 <= mid && mid <= y + h + 1;
     const oneLine = ot.every((r) => r[5] === 1 && r[0] !== "\n" && across(r[2], r[4])) && kids.every((k) => across(k.y, k.h));
     if (!ordered && !oneLine) continue;
+    /*
+     * A FLEX OR GRID CONTAINER'S ITEMS ARE NOT ONE SENTENCE. Its own words are
+     * an item of their own (an anonymous one) beside each child. When those
+     * words wrap or break across lines they are no line with the child on it:
+     * thesolface's sign-off, a 60px arrow beside two lines, folded into one
+     * sentence drew 133px tall against the 60 the page measured
+     * (check-flex-wrap-fold.mjs). The child stays a part, and the words become
+     * a part of their own at the box they were drawn in (below). A row whose
+     * words stay on one line still folds.
+     */
+    const flexed = /(flex|grid)$/.test(el.disp ?? "") && !oneLine;
     const words = ot.map((r) => r[0]).join("");
     const own = ot.map(([text, x, y, w, h], i) => ({ text, x, y, w, h, i }));
     /* Every element it holds is one of these children: nothing else on the line sits between the words. */
@@ -76,7 +87,16 @@ export function inlineLines(nodes, elOf, skip = new Set()) {
     const dumpKids = (el.kids ?? []).filter((k) => !k.pseudo);
     const shown = dumpKids.filter((k) => k.w > 0 && k.h > 0).length;
     if (shown !== kids.length || !kids.every((k) => TEXT_KINDS.has(k.featureId) && typeof k.content === "string" && k.content.trim())) continue;
-    if (!SEPARATORS.test(words)) {
+    if (flexed) {
+      /* All the words of the item, its lines kept (a <br> is a newline run), at the union of the boxes of its runs. */
+      const NL = String.fromCharCode(10);
+      const lines = own.filter((o) => o.text !== NL && o.text.trim());
+      if (!lines.length || SEPARATORS.test(words)) continue;
+      const x0 = Math.min(...lines.map((o) => o.x)), y0 = Math.min(...lines.map((o) => o.y));
+      const x1 = Math.max(...lines.map((o) => o.x + o.w)), y1 = Math.max(...lines.map((o) => o.y + o.h));
+      const text = own.map((o) => o.text).join("").replace(/[ \t]*\n[ \t]*/g, NL);
+      out.push({ p, kids, mode: "split", own: [{ text, x: x0, y: y0, w: x1 - x0, h: y1 - y0, i: lines[0].i }] });
+    } else if (!SEPARATORS.test(words)) {
       let pieces;
       if (ordered) {
         /* A run before its kid number b sits at 2b, the kid at 2b+1: the sentence as written, whatever the boxes say. */

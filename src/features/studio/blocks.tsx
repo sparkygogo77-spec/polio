@@ -12,7 +12,7 @@ import * as React from "react";
 import { resolvePart, type NodeLink, type PartEvent, type PartMode, type PartTour, type Theme } from "./shelf/ui";
 import { EMBED_SANDBOX, embedSrc, hasMotion, motionClass } from "./shelf";
 import { livingLayered } from "./living";
-import { applyBand, applyCaptured, applyEdge, applyFont, applyLayout, applyPad, applyText, boxPicture, boxStyle, hasBox, liftTheme, overrideTheme, type NodeText } from "./shelf/run";
+import { applyBand, applyCaptured, applyEdge, applyFont, applyLayout, applyPad, applyText, boxPicture, boxStyle, filmPic, hasBox, liftTheme, overrideTheme, type NodeText } from "./shelf/run";
 import { lands, textureCss, type Light, type Palette, type TextureLayer, driftKeyframes } from "./look";
 import { WornTexture } from "./WornTexture";
 import { frameDoc, hasBody } from "./snippet";
@@ -162,7 +162,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
    */
   const found = usePicture(node.picture ?? null);
   const picture = node.picture
-    ? { pic: node.picture, src: pictureAt ? pictureAt(node.picture) : found.src }
+    ? { pic: filmPic(node) ?? node.picture, src: pictureAt ? pictureAt(node.picture) : found.src }
     : null;
   /* A captured video's own file, found as a picture is (tests/video-part.mjs). */
   const mediaNode = (node as { media?: NodeMedia | null }).media ?? null;
@@ -178,7 +178,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
   // the fact, so a part that draws its own edge can stand aside for his.
   // See `NodeSaid` in `parts/theme.ts`.
   const band = bandOf(node);
-  const painted = applyBand(applyCaptured(applyLayout(applyEdge(applyPad(applyText(applyFont(node.colour && palette ? overrideTheme(siteTheme, node.colour, palette) : siteTheme, node.font, { captured: !!node.from?.selector?.trim() }), wordsSet(node)), node.pad), node.edge), node.layout), { from: node.from, h: size?.h ?? node.h }), band);
+  const painted = applyBand(applyCaptured(applyLayout(applyEdge(applyPad(applyText(applyFont(node.colour && palette ? overrideTheme(siteTheme, node.colour, palette) : siteTheme, node.font, { captured: !!node.from?.selector?.trim() }), wordsSet(node)), node.pad), node.edge), node.layout), { from: node.from, h: size?.h ?? node.h, font: node.font, pad: node.pad }), band);
   // …and wear one texture layer of its own, or none, whatever the site does.
   const worn = node.texture && node.texture !== "none" ? layers?.find((l) => l.id === node.texture) : undefined;
   const dressed = React.useMemo(() => {

@@ -73,6 +73,15 @@ function look(s: Span, t: Theme, mode?: PartMode): React.CSSProperties | undefin
   if (s.textShadow) { out.textShadow = s.textShadow; any = true; }
   if (s.textStroke && s.textStroke.w > 0) { out.WebkitTextStroke = `${s.textStroke.w}px ${s.textStroke.color}`; any = true; }
   if (s.paintOrder) { out.paintOrder = s.paintOrder; any = true; }
+  /* Words painted with a gradient clipped to their letters, over their transparent ink, on every line they wrap onto: thesolface's "MAP" and "FROG" were invisible without it (tests/run-fill.mjs). */
+  if (s.fill?.image && s.fill.clip === "text") {
+    out.backgroundImage = s.fill.image;
+    out.backgroundClip = "text";
+    (out as Record<string, string>).WebkitBackgroundClip = "text";
+    out.boxDecorationBreak = "clone";
+    (out as Record<string, string>).WebkitBoxDecorationBreak = "clone";
+    any = true;
+  }
   const anim = mode === "live" ? animationsValue(s.motion?.animation) : null;
   if ((s.transform && s.transform !== "none") || anim) {
     out.display = "inline-block";
