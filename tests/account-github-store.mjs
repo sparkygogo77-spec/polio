@@ -15,7 +15,8 @@
  *
  *   node tests/account-github-store.mjs
  */
-import { blobSha, githubBackend, GithubStoreError, savesRepo, sniff } from "../src/app/api/account/github.ts";
+import { blobSha, githubBackend, savesRepo, sniff } from "../src/app/api/account/github.ts";
+import { Explained } from "../src/app/api/account/explain.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`); };
@@ -96,7 +97,7 @@ check("remove takes a file away", (await store().read("data/pictures/pic_1")) ==
 const locked = fakeGitHub({ mayCreate: false });
 let err = null;
 try { await githubBackend({ token: "ghp_STANDIN", repo: "STANDIN-owner/polio-saves", fetch: locked.fetch }).write("data/prefs.json", enc("{}"), "application/json"); } catch (e) { err = e; }
-check("a key that may not make the repository is told what it needs", err instanceof GithubStoreError && /Administration/.test(err.message) && err.status === 403, err?.message);
+check("a key that may not make the repository is told what it needs", err instanceof Explained && /Administration/.test(err.reason.todo) && err.reason.status === 403, err?.message);
 
 const failed = results.filter((r) => !r).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);

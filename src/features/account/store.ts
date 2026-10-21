@@ -19,7 +19,7 @@
 import { create } from "zustand";
 import { canWrap, isWrapped, unwrap, wrap } from "@/features/keys/keyring";
 import { heldKeys, keysReady } from "@/features/keys/store";
-import { AccountError, reportSays, syncAll } from "./sync";
+import { AccountError, reasonOf, reportSays, syncAll } from "./sync";
 
 export const ACCOUNT_KEY = "builder.account";
 /** "off": the GitHub key in Keys is not offered to the account in this browser. */
@@ -55,10 +55,10 @@ interface Account {
 
 const auth = (key: string) => ({ authorization: `Bearer ${key}` });
 
-async function status(key: string | null): Promise<{ ok: boolean; store: boolean; owner: boolean; github: boolean; who: Who | null; says?: string }> {
+async function status(key: string | null): Promise<{ ok: boolean; store: boolean; owner: boolean; github: boolean; who: Who | null; says?: string; todo?: string }> {
   const res = await fetch("/api/account/status", { headers: key ? auth(key) : {}, cache: "no-store" });
-  const b = (await res.json().catch(() => ({}))) as { ok?: boolean; store?: boolean; owner?: boolean; github?: boolean; who?: Who | null; says?: string };
-  return { ok: res.ok && !!b.ok, store: !!b.store, owner: !!b.owner, github: !!b.github, who: b.who ?? null, says: b.says };
+  const b = (await res.json().catch(() => ({}))) as { ok?: boolean; store?: boolean; owner?: boolean; github?: boolean; who?: Who | null; says?: string; todo?: string };
+  return { ok: res.ok && !!b.ok, store: !!b.store, owner: !!b.owner, github: !!b.github, who: b.who ?? null, says: b.says ? reasonOf(b, res.status) : undefined };
 }
 
 const githubOff = (): boolean => { try { return localStorage.getItem(GITHUB_OFF) === "off"; } catch { return false; } };
@@ -177,19 +177,19 @@ export const useAccount = create<Account>()((set, get) => ({
     const key = get().key;
     if (!key) return;
     const res = await fetch("/api/account/keys", { headers: auth(key), cache: "no-store" }).catch(() => null);
-    const b = (await res?.json().catch(() => ({}))) as { keys?: KeyShown[]; says?: string } | undefined;
+    const b = (await res?.json().catch(() => ({}))) as { keys?: KeyShown[]; says?: string; todo?: string } | undefined;
     if (res?.ok && b?.keys) set({ keys: b.keys });
-    else set({ says: b?.says ?? "Could not read the keys." });
+    else set({ says: b?.says ? reasonOf(b, res?.status ?? 0) : "Could not read the keys." });
   },
 
   makeKey: async (name) => {
     const key = get().key;
     if (!key) return;
     const res = await fetch("/api/account/keys", { method: "POST", headers: { ...auth(key), "content-type": "application/json" }, body: JSON.stringify({ name }) }).catch(() => null);
-    const b = (await res?.json().catch(() => ({}))) as { key?: string; record?: KeyShown; says?: string } | undefined;
+    const b = (await res?.json().catch(() => ({}))) as { key?: string; record?: KeyShown; says?: string; todo?: string } | undefined;
     if (res?.ok && b?.key && b.record) {
       set((s) => ({ made: { name: b.record!.name, key: b.key! }, keys: [...(s.keys ?? []), b.record!], says: null }));
-    } else set({ says: b?.says ?? "The key was not made." });
+    } else set({ says: b?.says ? reasonOf(b, res?.status ?? 0) : "The key was not made." });
   },
 
   cancelKey: async (id) => {
@@ -197,7 +197,10 @@ export const useAccount = create<Account>()((set, get) => ({
     if (!key) return;
     const res = await fetch(`/api/account/keys?id=${encodeURIComponent(id)}`, { method: "DELETE", headers: auth(key) }).catch(() => null);
     if (res?.ok) set((s) => ({ keys: (s.keys ?? []).filter((k) => k.id !== id), says: "Cancelled. That key stops working now." }));
-    else set({ says: ((await res?.json().catch(() => ({}))) as { says?: string } | undefined)?.says ?? "The key was not cancelled." });
+    else {
+      const b = (await res?.json().catch(() => ({}))) as { says?: string; todo?: string } | undefined;
+      set({ says: b?.says ? reasonOf(b, res?.status ?? 0) : "The key was not cancelled." });
+    }
   },
 
   clearMade: () => set({ made: null }),
