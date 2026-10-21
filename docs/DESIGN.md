@@ -599,7 +599,8 @@ guess at:
 You do not fine-tune a model on a chat log. What carries across sessions is:
 
 - **This file and `AGENTS.md`**, read first by every session (`CLAUDE.md`
-  points at both). Every rule above was once a sentence the owner typed; the
+  points at both), with the long record of how each Builder behaviour came
+  about in `docs/BUILDER-HISTORY.md`, searched rather than read whole. Every rule above was once a sentence the owner typed; the
   file is the conversation with the noise removed.
 - **The Playwright suites** (`wheel.mjs`, `bugs.mjs`, `frame.mjs`, `erase.mjs`,
   `studio.mjs` and the `shot-*.mjs` screenshot scripts). Each check is one

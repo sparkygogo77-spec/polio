@@ -11,7 +11,7 @@
 # branch check must never be the reason a turn does not start.
 #
 # The same check is owed again by hand before every commit: the rule in
-# AGENTS.md §11 and docs/DESIGN.md §4.
+# AGENTS.md §13 and docs/DESIGN.md §4.
 set -uo pipefail
 
 root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
