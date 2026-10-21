@@ -17,7 +17,11 @@
  *       square): no film (its pixels are the page under it);
  *   (3) a ticker, a track of words 1900 px wide sliding in a clipped band
  *       (already parts and motion): no film;
- *   (4) a small dot that blinks (48 x 48): still filmed.
+ *   (4) a small dot that blinks (48 x 48): still filmed;
+ *   (5) a floating picture (an <img> with a drop-shadow, 200 square): already a
+ *       part, no film (a blurry copy of the frog lay over the real one);
+ *   (6) a blurred, translucent glow (a div of a radial gradient with a blur,
+ *       300 square): its pixels are the page behind it, no film.
  *
  *   node capture/site/capture/check-film-own-pixels.mjs
  */
@@ -49,10 +53,13 @@ const PAGE = `<!doctype html><html><head><meta charset="utf-8"><style>
   .track span{flex:none;width:380px;font:700 36px/70px sans-serif;color:#4cff83}
   @keyframes slide{to{transform:translateX(-950px)}}
   .dot{width:48px;height:48px;margin:30px 50px;border-radius:50%;background:#ff8a3c;animation:blink 1s steps(2) infinite}
+  .frog{position:absolute;left:880px;top:140px;width:200px;height:200px;filter:drop-shadow(0 0 20px #4cff83);animation:bob 2s ease-in-out infinite}
+  @keyframes bob{50%{translate:0 -14px;opacity:.6}}
+  .aura{position:absolute;left:600px;top:380px;width:300px;height:300px;background:radial-gradient(circle,rgba(23,234,166,.55),rgba(0,0,0,0) 70%);filter:blur(12px);animation:blink 1s steps(2) infinite}
   .tall{height:600px}
 </style></head><body>
 <header><a href="#a">LORE</a><a href="#b">STORY</a><a href="#c">ROADMAP</a></header>
-<section class="hero"><h1>THE HERO TITLE</h1><button>MEET THE LEGEND</button><div class="l l1"></div><div class="l l2"></div><div class="l l3"></div></section>
+<section class="hero"><h1>THE HERO TITLE</h1><button>MEET THE LEGEND</button><div class="l l1"></div><div class="l l2"></div><div class="l l3"></div><img class="frog" alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Ccircle cx='100' cy='100' r='80' fill='%234cff83'/%3E%3C/svg%3E"><div class="aura"></div></section>
 <div class="ticker"><div class="track"><span>SEE THE GREEN</span><span>TRUST THE VISION</span><span>SEE THE GREEN</span><span>TRUST THE VISION</span><span>SEE THE GREEN</span></div></div>
 <div class="dot"></div>
 <div id="glow"></div>
@@ -81,7 +88,9 @@ check("(1) the hero section is not filmed", !F.some((f) => f.box && f.box[2] >= 
 check("(2) the glow is not filmed (a 450 square)", !F.some((f) => f.box && f.box[2] === 450 && f.box[3] === 450), J(boxes));
 check("(3) the ticker is not filmed (nothing 600 px wide or more)", !F.some(wide), J(boxes));
 check("(4) the small blinking dot is still filmed", F.some((f) => f.box && f.box[2] === 48 && f.box[3] === 48), J(boxes));
-check("(5) no film is shown larger than its frames (no blur over the board): drawn at most 1.5 times the frame", F.every((f) => f.box && f.w && Math.max(f.box[2], f.box[3]) / Math.max(f.w, f.h) <= 1.5), J(boxes));
+check("(5) the floating picture is not filmed (a 200 square)", !F.some((f) => f.box && f.box[2] === 200 && f.box[3] === 200), J(boxes));
+check("(6) the blurred glow is not filmed (a 300 square)", !F.some((f) => f.box && f.box[2] >= 290 && f.box[2] <= 330 && f.box[3] >= 290 && f.box[3] <= 330), J(boxes));
+check("(7) no film is shown larger than its frames (no blur over the board): drawn at most 1.5 times the frame", F.every((f) => f.box && f.w && Math.max(f.box[2], f.box[3]) / Math.max(f.w, f.h) <= 1.5), J(boxes));
 
 let failed = 0;
 for (const r of results) { if (!r.ok) failed++; console.log(`${r.ok ? "  ok  " : " FAIL "} ${r.name}${r.ok ? "" : ` — ${String(r.detail).slice(0, 500)}`}`); }

@@ -249,6 +249,11 @@ const CSS_LOOPS = `({ skipIds, most }) => {
  *     holding parts of its own (words, pictures, controls);
  *   - it is blended with, or blurs, what is behind it (`mix-blend-mode`,
  *     `backdrop-filter`): its pixels are the page under it (the cursor glow);
+ *   - it is a picture, or holds one (an img, a picture, an svg): the picture is
+ *     already a part, drawn from its own file (the frog on thesolface was
+ *     filmed 409 x 512 and shown at 632 x 881 over the real art);
+ *   - it is a bare decoration painted as a translucent gradient or a blur (the
+ *     hero's glow): its pixels are the page behind it;
  *   - a fixed part with words, a picture or a control of its own (the header)
  *     lies over it: the shot would hold that part too.
  */
@@ -272,6 +277,8 @@ const FILM_OK = `({ ids, side }) => {
     if (loops && el.children.length) { out[id] = "its parts already carry the looping move inside it"; continue; }
     if (/^(SECTION|MAIN|HEADER|FOOTER|NAV|ARTICLE|ASIDE)$/.test(el.tagName) && (el.querySelector("a, button, img, svg, picture, input, h1, h2, h3, p, li") || (el.textContent ?? "").trim())) { out[id] = "a landmark holding parts of its own"; continue; }
     const cs = getComputedStyle(el);
+    if (/^(IMG|PICTURE|SVG)$/i.test(el.tagName) || el.querySelector("img, picture, svg")) { out[id] = "a picture, or holding one: the picture is already a part"; continue; }
+    if (!el.children.length && !(el.textContent ?? "").trim() && ((cs.filter && /blur\\(/.test(cs.filter)) || /gradient\\(.*(rgba\\([^)]*,\\s*0?\\.\\d+\\)|rgba\\([^)]*,\\s*0\\)|transparent)/.test(cs.backgroundImage))) { out[id] = "a translucent gradient or a blur: its pixels are the page behind it"; continue; }
     if (cs.mixBlendMode !== "normal" || (cs.backdropFilter && cs.backdropFilter !== "none")) { out[id] = "its pixels are the page behind it (blend or backdrop)"; continue; }
     const over = fixedOnes.find((f) => { if (f === el || f.contains(el) || el.contains(f)) return false; const q = f.getBoundingClientRect(); return q.left < r.right && q.right > r.left && q.top < r.bottom && q.bottom > r.top; });
     if (over) out[id] = "a fixed part with parts of its own lies over it";
