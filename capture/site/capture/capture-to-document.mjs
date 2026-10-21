@@ -2981,20 +2981,28 @@ const layoutsSection = (() => {
   const byPage = new Map();
   for (const c of converted) { const m = new Map(); for (const mm of c.made) { const id = mm.el?.p ? partOfEl.get(mm.el) : null; if (id && alive.has(id)) m.set(mm.el.p, id); } byPage.set(c.def.id, m); }
   const out = {};
-  for (const f of readdirSync(dir).filter((x) => /\.\d+\.json$/.test(x)).sort()) {
-    const w = JSON.parse(readFileSync(join(dir, f), "utf8"));
+  /* A width from 600 to 1023 is the tablet, under 600 the phone; read at two for one device, the one nearer the Builder's frame (834, 390) is kept. Its boxes go across to that frame (x and w scaled; y and h as read). */
+  const FRAME = { tablet: 834, phone: 390 };
+  const deviceOf = (W) => (W < 600 ? "phone" : W < 1024 ? "tablet" : `w${W}`);
+  const files = readdirSync(dir).filter((x) => /\.\d+\.json$/.test(x)).sort().map((f) => JSON.parse(readFileSync(join(dir, f), "utf8")));
+  const nearest = {};
+  for (const w of files) { const d = `${w.page}|${deviceOf(w.width)}`; if (nearest[d] == null || Math.abs(w.width - (FRAME[deviceOf(w.width)] ?? w.width)) < Math.abs(nearest[d] - (FRAME[deviceOf(w.width)] ?? w.width))) nearest[d] = w.width; }
+  for (const w of files) {
     const ids = byPage.get(w.page);
     if (!ids) continue;
     /* A path's own part, or the nearest part it sits in. */
     const partAt = (p) => { for (let q = String(p).split("::")[0]; q.includes(">"); q = q.slice(0, q.lastIndexOf(">"))) { const id = ids.get(q); if (id) return id; } return null; };
-    const device = w.width === 834 ? "tablet" : w.width === 390 ? "phone" : `w${w.width}`;
+    const device = deviceOf(w.width);
+    if (nearest[`${w.page}|${device}`] !== w.width) continue;
+    const sx = FRAME[device] ? FRAME[device] / w.width : 1;
     const dev = (out[device] ??= { width: w.width, height: w.height, pages: {} });
     const place = {}, font = {};
     for (const [p, box] of Object.entries(w.parts ?? {})) { const id = ids.get(p); if (id) place[id] = box; }
     for (const [p, ft] of Object.entries(w.fonts ?? {})) { const id = ids.get(p); if (id) font[id] = ft; }
     const hidden = [...new Set((w.hidden ?? []).map((p) => ids.get(p)).filter(Boolean))].filter((id) => !place[id]);
     const order = [...new Set((w.order ?? []).map(partAt).filter(Boolean))];
-    for (const [id, [x, y, bw, bh]] of Object.entries(place)) setWidth(id, device, { x, y, w: bw, h: bh });
+    /* Its words' type at this width rides on the box (`px`, live/small.ts): the site's 30 px phone heading, not the desktop's 48. */
+    for (const [id, [x, y, bw, bh]] of Object.entries(place)) setWidth(id, device, { x: Math.round(x * sx), y, w: Math.round(bw * sx), h: bh, ...(typeof font[id]?.[0] === "number" && font[id][0] > 0 ? { px: font[id][0] } : {}) });
     for (const id of hidden) setWidth(id, device, { x: 0, y: 0, w: 0, h: 0, hidden: true });
     /* The menu's button: its own part, or one made for it when it shows at this width only. */
     let triggerId = w.menu ? ids.get(w.menu.trigger.p) ?? null : null;
