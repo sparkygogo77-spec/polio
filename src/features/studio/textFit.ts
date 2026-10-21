@@ -52,6 +52,8 @@ export interface Drawn {
   pad?: { left?: number; right?: number };
   /** Its captured `layout` declares a stretching row — a grid, or a flex row not told to align otherwise — so its children in one line share one height. */
   row?: boolean;
+  /** The capture recorded it out of the flow (`from.position` fixed or absolute): it takes no room beside its siblings. */
+  out?: boolean;
 }
 
 /** A box that has to move, grow, or both. */
@@ -133,6 +135,15 @@ export function fitRows(boxes: readonly Drawn[], grows?: (id: string) => boolean
  *     declares a stretching row (a grid, or a flex row not aligned otherwise).
  * When the last of a row is placed, its members line up on the row's lowest
  * top — carrying what they hold, by rule 2 — and all grow to its lowest bottom.
+ *
+ * AND A PART OUT OF THE FLOW IS NOBODY'S SIBLING. A part the capture records
+ * as fixed or absolute (`out`) takes no room on the page: nothing standing
+ * over it moves it, its growth moves nothing beside it, and it does not grow
+ * the box that holds it. It still travels with that box (rule 2) and still
+ * grows to its own words. Read as a sibling, thesolface.site's fixed header
+ * (y 14) stood under `body > main` (y 0) and was carried 648px down into the
+ * hero by main's words, and its skip link, fixed at y -90, grew 4px and moved
+ * the whole page down 4 (`tests/out-of-flow-still.mjs`).
  */
 function fitTree(boxes: readonly Drawn[], grows?: (id: string) => boolean, frame?: number): Fitted[] {
   const byId = new Map(boxes.map((b) => [b.id, b]));
@@ -158,8 +169,8 @@ function fitTree(boxes: readonly Drawn[], grows?: (id: string) => boolean, frame
     const right = box ? box.x + box.w - (box.pad?.right ?? 0) : frame;
     const seen = new Set<string>();
     for (const a of sibs) {
-      if (seen.has(a.id) || !a.path) continue;
-      const line = sibs.filter((b) => b.path && Math.abs(b.y - a.y) <= 1 && Math.abs(b.h - a.h) <= 1);
+      if (seen.has(a.id) || !a.path || a.out) continue;
+      const line = sibs.filter((b) => b.path && !b.out && Math.abs(b.y - a.y) <= 1 && Math.abs(b.h - a.h) <= 1);
       line.forEach((b) => seen.add(b.id));
       if (line.length < 2) continue;
       const xs = [...line].sort((p, q) => p.x - q.x);
@@ -183,10 +194,10 @@ function fitTree(boxes: readonly Drawn[], grows?: (id: string) => boolean, frame
     for (const b of sibs) {
       const mayMove = !grows || grows(b.id);
       let rel = 0;
-      if (mayMove) {
+      if (mayMove && !b.out) {
         for (const p of sibs) {
           if (p === b) break;
-          if (p.y >= b.y || !across(b, p)) continue;
+          if (p.out || p.y >= b.y || !across(b, p)) continue;
           const was = put.get(p.id)!;
           if (b.path && p.path) {
             /* The sibling's own shift inside this box, and its growth: the gap the capture recorded is kept exactly. */
@@ -215,7 +226,7 @@ function fitTree(boxes: readonly Drawn[], grows?: (id: string) => boolean, frame
         }
       }
     }
-    for (const b of sibs) { const p = put.get(b.id)!; inside = Math.max(inside, p.moved - base + p.grew); }
+    for (const b of sibs) { if (b.out) continue; const p = put.get(b.id)!; inside = Math.max(inside, p.moved - base + p.grew); }
     return inside;
   };
   place(null, 0);
@@ -401,7 +412,7 @@ export function boardElements(): Map<string, Element> {
 }
 
 /** What a node's box drew at on the board, or null if it is not on screen. */
-export function drawnOnBoard(node: { id: string; x: number; y: number; w: number; h: number; from?: { selector?: string } | null; content?: unknown; layout?: { display?: string; direction?: string; align?: string } | null; pad?: { left?: number; right?: number } | null }, onBoard?: Map<string, Element>): Drawn | null {
+export function drawnOnBoard(node: { id: string; x: number; y: number; w: number; h: number; from?: { selector?: string; position?: string } | null; content?: unknown; layout?: { display?: string; direction?: string; align?: string } | null; pad?: { left?: number; right?: number } | null }, onBoard?: Map<string, Element>): Drawn | null {
   const el = onBoard ? onBoard.get(node.id) : document.querySelector(`[data-node-id="${node.id}"]`);
   if (!(el instanceof HTMLElement)) return null;
   const path = (node.from?.selector ?? "").trim();
@@ -410,7 +421,8 @@ export function drawnOnBoard(node: { id: string; x: number; y: number; w: number
   const l = node.layout;
   const row = !!l && (l.display === "grid" || (l.display === "flex" && (!l.direction || l.direction === "row"))) && (!l.align || l.align === "stretch" || l.align === "normal");
   const pad = node.pad ? { left: node.pad.left ?? 0, right: node.pad.right ?? 0 } : undefined;
-  return { id: node.id, x: node.x, y: node.y, w: node.w, h: node.h, drew: el.offsetHeight, ...(path ? { path, words, row, ...(pad ? { pad } : {}) } : {}) };
+  const out = node.from?.position === "fixed" || node.from?.position === "absolute";
+  return { id: node.id, x: node.x, y: node.y, w: node.w, h: node.h, drew: el.offsetHeight, ...(path ? { path, words, row, ...(pad ? { pad } : {}), ...(out ? { out } : {}) } : {}) };
 }
 
 /* ------------------------------------------------------------------ */
@@ -466,7 +478,7 @@ export function drawnOnBoard(node: { id: string; x: number; y: number; w: number
  * brace: the same answer is never applied twice.
  */
 export function useSettleToWords(
-  nodes: readonly { id: string; x: number; y: number; w: number; h: number; byHand?: boolean; from?: { selector?: string } | null; content?: unknown; layout?: { display?: string; direction?: string; align?: string } | null; pad?: { left?: number; right?: number } | null; work?: { id: string; off?: boolean; also?: { id: string; off?: boolean }[] } | null }[],
+  nodes: readonly { id: string; x: number; y: number; w: number; h: number; byHand?: boolean; from?: { selector?: string; position?: string } | null; content?: unknown; layout?: { display?: string; direction?: string; align?: string } | null; pad?: { left?: number; right?: number } | null; work?: { id: string; off?: boolean; also?: { id: string; off?: boolean }[] } | null }[],
   apply: (f: Fitted[]) => void,
   /** The page frame's width: a top-level row fills it edge to edge. */
   frame?: number,

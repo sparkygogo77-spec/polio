@@ -31,7 +31,7 @@ import { VARIANTS, itemOf } from "./shelf/index.ts";
 import { isWorkKey } from "./shelf/index.ts";
 import { getWork, onUsesOf, withInput, type WorkUse } from "./shelf/index.ts";
 import { PLAIN_BAR } from "./look/index.ts";
-import { PATH_WORDS, PATH_WORDS_SAMPLE, pathWordsSize, type Worn } from "./wornShape.ts";
+import { PATH_WORDS, PATH_WORDS_SAMPLE, pathWordsSize, type Worn } from "./wornModel.ts";
 
 /** The side panel's sections for a part. */
 export type Section = "content" | "position" | "look" | "motion";

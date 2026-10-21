@@ -19,7 +19,7 @@ import { createJiti } from "jiti";
 const here = dirname(fileURLToPath(import.meta.url));
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
 const F = await jiti.import(join(here, "..", "src", "features", "studio", "fixLoop.ts"));
-const L = await jiti.import(join(here, "..", "src", "features", "studio", "loop", "lanes.ts"));
+const L = await jiti.import(join(here, "..", "src", "features", "studio", "loop", "lanesModel.ts"));
 const read = (f) => readFileSync(join(here, "..", f), "utf8");
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`); };

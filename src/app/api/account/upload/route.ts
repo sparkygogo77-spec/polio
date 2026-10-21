@@ -1,6 +1,6 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { dataPath, ITEM_MAX } from "../core";
-import { answer, guard } from "../guard";
+import { answer, guard, said } from "../guard";
 
 /**
  * A big item (over 4 MB) goes from the browser straight into the Blob store:
@@ -10,7 +10,7 @@ import { answer, guard } from "../guard";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function POST(request: Request) {
+export const POST = said(async (request: Request) => {
   const g = await guard(request, "any");
   if (g instanceof Response) return g;
   if (g.store?.kind !== "blob") return answer({ ok: false, says: "Big items need the Vercel Blob store." }, 503);
@@ -35,6 +35,8 @@ export async function POST(request: Request) {
     });
     return answer(out);
   } catch (err) {
-    return answer({ ok: false, says: err instanceof Error ? err.message : "The upload was refused." }, 400);
+    /* A refusal of ours says so; anything else is the store failing, and says why. */
+    if (err instanceof Error && err.message === "Not a place saved work is kept.") return answer({ ok: false, says: err.message }, 400);
+    throw err;
   }
-}
+});
