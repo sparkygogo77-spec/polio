@@ -466,7 +466,7 @@ export function drawnOnBoard(node: { id: string; x: number; y: number; w: number
  * brace: the same answer is never applied twice.
  */
 export function useSettleToWords(
-  nodes: readonly { id: string; x: number; y: number; w: number; h: number; byHand?: boolean; from?: { selector?: string } | null; content?: unknown; layout?: { display?: string; direction?: string; align?: string } | null; pad?: { left?: number; right?: number } | null }[],
+  nodes: readonly { id: string; x: number; y: number; w: number; h: number; byHand?: boolean; from?: { selector?: string } | null; content?: unknown; layout?: { display?: string; direction?: string; align?: string } | null; pad?: { left?: number; right?: number } | null; work?: { id: string; off?: boolean; also?: { id: string; off?: boolean }[] } | null }[],
   apply: (f: Fitted[]) => void,
   /** The page frame's width: a top-level row fills it edge to edge. */
   frame?: number,
@@ -519,7 +519,9 @@ export function useSettleToWords(
       for (const n of ns) {
         const d = drawnOnBoard(n, onBoard);
         if (d) boxes.push(d);
-        const el = d && machines.has(n.id) ? onBoard.get(n.id) : null;
+        /* A marquee's words run past its box by design (mochi.trade's ticker): widened to them it was 5428 wide, and the window pinned it to the right edge. */
+        const runs = !!n.work && [n.work, ...(n.work.also ?? [])].some((u) => u.id === "marquee" && !u.off);
+        const el = d && machines.has(n.id) && !runs ? onBoard.get(n.id) : null;
         const w = el instanceof HTMLElement ? lineWidth(el, n.w) : undefined;
         if (w) wide.set(n.id, w);
       }

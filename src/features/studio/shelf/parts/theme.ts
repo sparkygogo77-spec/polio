@@ -523,6 +523,19 @@ export function applyPad(t: Theme, pad: NodePad | null | undefined): Theme {
  * box's; alignment and case are inherited by the words inside it, and a
  * part that sets its own case keeps it.
  */
+/**
+ * The corners a part's box was rounded with, or nothing. The live page puts
+ * them on the part's own holder too: a class the page swaps in as it plays
+ * (mochi.trade's third check, `bg-up` once it is done) paints that holder,
+ * and painted square it drew a green square where the page drew a dot.
+ */
+export function cornersOf(n: Pick<NodeBox, "radius" | "radii" | "radiiY">): number | string | undefined {
+  const four = (r: unknown): r is number[] => Array.isArray(r) && r.length === 4 && r.every((v) => typeof v === "number" && Number.isFinite(v) && v >= 0);
+  if (four(n.radii) && n.radii.some((r) => r > 0)) return n.radii.map((r) => `${r}px`).join(" ") + (four(n.radiiY) ? ` / ${n.radiiY.map((r) => `${r}px`).join(" ")}` : "");
+  if (typeof n.radius === "number" && Number.isFinite(n.radius) && n.radius > 0) return n.radius;
+  return undefined;
+}
+
 export function boxStyle(n: NodeBox, t: Theme, palette?: Palette): React.CSSProperties {
   const s: React.CSSProperties = {};
   const l = n.layout;
@@ -570,9 +583,8 @@ export function boxStyle(n: NodeBox, t: Theme, palette?: Palette): React.CSSProp
     if (typeof e.shadow === "string" && e.shadow.trim() && e.shadow.trim() !== "none") s.boxShadow = e.shadow.trim();
   }
   /* The corners as the page rounded them, on the board and the published page alike. */
-  if (typeof n.radius === "number" && Number.isFinite(n.radius) && n.radius > 0) s.borderRadius = n.radius;
-  const four = (r: unknown): r is number[] => Array.isArray(r) && r.length === 4 && r.every((v) => typeof v === "number" && Number.isFinite(v) && v >= 0);
-  if (four(n.radii) && n.radii.some((r) => r > 0)) s.borderRadius = n.radii.map((r) => `${r}px`).join(" ") + (four(n.radiiY) ? ` / ${n.radiiY.map((r) => `${r}px`).join(" ")}` : "");
+  const corners = cornersOf(n);
+  if (corners !== undefined) s.borderRadius = corners;
   /* The clothes an artistic page wore: transparency, blending, filters, a rotation, a gradient, outlined and shadowed type. */
   if (typeof n.opacity === "number" && Number.isFinite(n.opacity) && n.opacity >= 0 && n.opacity < 1) s.opacity = n.opacity;
   const a = n.art;

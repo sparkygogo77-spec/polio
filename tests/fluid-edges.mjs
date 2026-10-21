@@ -47,6 +47,26 @@ const ca = at("ca"), caWords = at("caWords"), chain = at("chain"), hosts = at("h
 check("the box against the bar's right border (the CA) moves with the right edge", ca.left === 1260 + D && caWords.left === 1278 + D, JSON.stringify({ ca, caWords }));
 check("…while the boxes packed from the left stay at the left", hosts.left === 31 && chain.left === 685, JSON.stringify({ hosts, chain }));
 {
+  /*
+   * mochi.trade (its capture, 2026-10-21): a 72px nav fixed at the left, the
+   * window's height, and beside it the panel, 72 to 1432 with an 8px margin
+   * on the right, in a wrapper the board folded away. The window Preview slid
+   * the panel right whole, leaving a black band the window's growth wide
+   * beside the nav; the board, at 1440, showed it right.
+   */
+  const mochi = fluidParts([
+    { id: "nav", x: 0, y: 0, w: 72, h: 900, selector: "body > nav", position: "fixed", layout: { display: "flex", direction: "column", align: "center" } },
+    { id: "icon", x: 14, y: 16, w: 44, h: 44, selector: "body > nav > a" },
+    { id: "panel", x: 72, y: 8, w: 1360, h: 6051, selector: "body > div > div", layout: { display: "flex", direction: "column" } },
+    { id: "header", x: 72, y: 8, w: 1360, h: 64, selector: "body > div > div > header", position: "sticky" },
+    { id: "cta", x: 96, y: 20, w: 320, h: 40, selector: "body > div > div > header > a" },
+  ], 1440);
+  const v = (f) => ({ left: f.left.c + f.left.k * 1120, width: f.width.c + f.width.k * 1120 });
+  const nav = v(mochi.get("nav")), panel = v(mochi.get("panel")), cta = v(mochi.get("cta"));
+  check("beside a rail fixed at the left, the panel keeps its place and grows", panel.left === 72 && panel.width === 1360 + 1120, JSON.stringify(panel));
+  check("…the rail keeps its 72px, and what the panel holds stays by the rail", nav.left === 0 && nav.width === 72 && cta.left === 96, JSON.stringify({ nav, cta }));
+}
+{
   /* Control: a grid of equal columns still shares the growth evenly. */
   const even = fluidParts([
     { id: "g", x: 0, y: 0, w: 1200, h: 100, selector: "body > div", layout: { display: "grid", columns: 3 } },

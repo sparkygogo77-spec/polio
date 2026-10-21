@@ -132,7 +132,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { measureParts, verdicts } from "./join-arbiter.mjs";
 import { holesIn, placeHoles } from "./hole-arbiter.mjs";
-import { inlineLines, foldRuns, wordsPart } from "./inline-runs.mjs";
+import { inlineLines, foldRuns, gapSide, wordsPart } from "./inline-runs.mjs";
 /** Why a line's own words became parts of their own rather than runs of it. */
 const SPLIT_WHY = (kids) => (kids.every((k) => k.link) ? "its own words only separate its links" : "its own words only separate them");
 import { imageSize } from "./image-size.mjs";
@@ -943,7 +943,12 @@ function convert(pageDef, cap) {
   const runsOf = (e, colour) => {
     const items = [...(e.ot ?? []).map((r) => ({ x: r[1], text: r[0] })), ...(e.kids ?? []).filter((k) => !k.pseudo).map((k) => ({ x: k.x, kid: k }))].sort((a, b) => a.x - b.x);
     if (!items.length) return (e.text ?? "").trim() ? [{ text: e.text.trim(), ...(e.color && e.color !== colour ? { colour: e.color } : {}) }] : [];
-    return items.flatMap((i) => (i.kid ? runsOf(i.kid, colour) : (i.text ? [{ text: i.text, ...(e.color && e.color !== colour ? { colour: e.color } : {}) }] : [])));
+    const each = items.map((i) => (i.kid ? runsOf(i.kid, colour) : (i.text ? [{ text: i.text, ...(e.color && e.color !== colour ? { colour: e.color } : {}) }] : []))).filter((r) => r.length);
+    /* A flex row's gap stands between its items (mochi.trade's ticker: "MochiMan closed $Kimchi ▼6.9%", each a span in a row with an 8px gap; foldRuns). */
+    const gap = /flex$/.test(e.disp ?? "") && !/column/.test(e.dir ?? "") ? parseFloat(e.gap) || 0 : 0;
+    if (!gap) return each.flat();
+    const side = gapSide(gap, e.fs ?? e.kids?.find((k) => k.fs)?.fs);
+    return each.flatMap((r, i) => (i ? [{ text: " ", pad: [0, side, 0, side] }, ...r] : r));
   };
   for (const el of all) {
     const a = (el.motion?.animation ?? []).find((x) => x.iterations === "infinite" && slideOf(x.name));
@@ -2372,13 +2377,27 @@ for (const g of generics) note("(faces)", g, "nowhere", `a generic keyword: the 
     const elOfPart = new Map([...partOfEl].map(([el, id]) => [id, el]));
     const gone = new Set();
     const after = new Map();
-    for (const line of inlineLines(nodes, (id) => elOfPart.get(id), tagParts)) {
+    /*
+     * The deepest first, so a child that folds its own children (mochi's
+     * "86.7%" holding its "▼") is runs before the sentence holding it takes
+     * them; the other way round, the sentence took the child's words alone
+     * and the ▼ went with the child.
+     */
+    const kidRuns = (k, p) => {
+      if (!Array.isArray(k.content)) return runOf(k, p);
+      const dress = runOf({ ...k, content: "" }, p);
+      delete dress.text;
+      return k.content.map((r) => ({ ...dress, ...r }));
+    };
+    for (const line of inlineLines(nodes, (id) => elOfPart.get(id), tagParts).reverse()) {
       const { p, kids } = line;
       notePage = p.pageId;
       const was = p.content;
       handled.add(p.id);
       if (line.mode === "fold") {
-        p.content = foldRuns(line.runs, (k) => runOf(k, p));
+        const el = elOfPart.get(p.id);
+        const row = /flex$/.test(el?.disp ?? "") && !/column/.test(el?.dir ?? "") ? { gap: parseFloat(el.gap) || 0, fs: el.fs ?? p.font?.px ?? BASE_PX } : null;
+        p.content = foldRuns(line.runs, (k) => kidRuns(k, p), row);
         const reads = p.content.map((x) => x.text).join("");
         if (p.label === was) p.label = reads;
         for (const k of kids) { gone.add(k.id); handled.add(k.id); }
