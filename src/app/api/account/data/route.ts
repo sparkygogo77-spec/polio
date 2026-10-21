@@ -1,6 +1,6 @@
 import { NO_STORE } from "../backend";
 import { dataPath, historyPath, PUT_MAX, typeFor } from "../core";
-import { answer, guard, noStore } from "../guard";
+import { answer, guard, noStore, said } from "../guard";
 
 /**
  * The account's saved work, for any key that opens it.
@@ -15,7 +15,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-export async function GET(request: Request) {
+export const GET = said(async (request: Request) => {
   const g = await guard(request, "any");
   if (g instanceof Response) return g;
   if (!g.store) return noStore();
@@ -28,9 +28,9 @@ export async function GET(request: Request) {
   return new Response(got.body, {
     headers: { ...NO_STORE, "content-type": typeFor(path, got.type) ?? "application/octet-stream", etag: got.etag, ...(got.size !== null ? { "content-length": String(got.size) } : {}) },
   });
-}
+});
 
-export async function PUT(request: Request) {
+export const PUT = said(async (request: Request) => {
   const g = await guard(request, "any");
   if (g instanceof Response) return g;
   if (!g.store) return noStore();
@@ -47,11 +47,11 @@ export async function PUT(request: Request) {
   }
   /* Nothing a browser saved is erased: a picture is written once, and a site's copy it replaces is kept under history/. */
   if (path.startsWith("data/pictures/") && (await g.store.list(path)).some((i) => i.path === path)) return answer({ ok: false, code: "exists", says: "That picture is saved already." }, 409);
-  const keep = historyPath(path);
+  const keep = g.store.kind === "github" ? null : historyPath(path);
   if (keep) {
     const before = await g.store.read(path);
     if (before) await g.store.write(keep, before.bytes, before.type);
   }
   const { etag } = await g.store.write(path, bytes, type);
   return answer({ ok: true, path, etag });
-}
+});

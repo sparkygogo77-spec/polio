@@ -115,3 +115,6 @@ remembered capture runs follow it into any browser (`account/`,
 `api/account/core.ts`). The server takes it for the owner's when GitHub
 says it belongs to `POLIO_GITHUB_OWNERS`, else to the owner of the
 repository the deployment is built from.
+With a GitHub sign-in the account is kept in a private repository of the
+owner's, `<login>/polio-saves` (`api/account/github.ts`), made by the key
+on its first save, rather than the Vercel Blob store.

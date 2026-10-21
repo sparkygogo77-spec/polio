@@ -25,7 +25,7 @@ export const ACCOUNT_KEY = "builder.account";
 /** "off": the GitHub key in Keys is not offered to the account in this browser. */
 export const GITHUB_OFF = "builder.account.github";
 
-export interface Who { role: "owner" | "key"; name: string; github?: string }
+export interface Who { role: "owner" | "key"; name: string; github?: string; /** For a GitHub sign-in, the private repository the account is kept in. */ saves?: string }
 export interface KeyShown { id: string; name: string; createdAt: string }
 
 interface Account {
@@ -153,7 +153,6 @@ export const useAccount = create<Account>()((set, get) => ({
     if (!get().who) return false;
     set({ says: `Signed in with your GitHub key as ${get().who!.name}. Bringing in your saved sites and capture runs…` });
     void get().sync();
-    void get().loadKeys();
     return true;
   },
 
