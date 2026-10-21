@@ -76,7 +76,7 @@ import { scanHeld, HIDE_GATE, WRITES, ACCOUNT } from "./held.mjs";
 import { PRESS_WATCH, afterPress, holdAfterPress } from "./presses.mjs";
 import { readGlides } from "./glide.mjs";
 import { waitReady } from "./ready.mjs";
-import { scrollThrough } from "./sweep.mjs";
+import { scrollThrough, settleImages } from "./sweep.mjs";
 import { SPENDS, WALLET_WORDS } from "./worlds.mjs";
 
 const req = createRequire(import.meta.url);
@@ -836,6 +836,7 @@ const sheets = [...sheetText].map(([href, text]) => ({ href, text }));
  * off the page (headless Chromium clears every hover for a point outside the
  * window) and the page given its longest transition to settle.
  */
+await settleImages(page);
 await restPointer(page);
 /* The presses held back (held.mjs): a form's own button, words that spend, sign, connect or write. Marked for the dump. */
 const heldHere = await scanHeld(page);
@@ -1086,6 +1087,7 @@ if (withStates) {
     await agreeGate();
     await page.evaluate(() => document.fonts?.ready).catch(() => {});
     await scrollThrough(page);
+    await settleImages(page);
     await page.waitForTimeout(600);
     await primeGesture();
     reloads++;
