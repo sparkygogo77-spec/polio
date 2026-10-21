@@ -74,11 +74,20 @@ export function smallSheet<N extends SmallNode>(plan: SmallPlan<N>, o: SmallShee
     /* The site's own layout at this width, as the capture measured it: each part where the site put it. */
     rule(".sm-root", `height:${plan.height}px!important;position:relative!important`);
     rule(".sm-g", "display:contents!important");
+    /*
+     * A part the published page carries inside a moving box (`exportSite.ts`,
+     * `carryOwned`: thesolface's community links, which lift on hover) is
+     * placed against that box, not the page: each box hands its own place at
+     * this width to what is inside it (`--sm-ox`, `--sm-oy`), and a part
+     * takes it off. Placed against the page, the words ran 10 000 px down a
+     * phone page. Nothing is carried on the board, where both are 0.
+     */
     for (const b of plan.boxes) {
       const k = (v: number) => +(v / plan.width).toFixed(5);
       /* A part a press shows is placed but not drawn: its press shows it. Forced to show here, a menu stood open on every phone. */
       const show = o.stated?.(b.node.id) ? "" : "display:flex!important;";
-      rule(P(b.node.id), `${show}position:absolute!important;left:calc(${k(b.x)} * 100cqw)!important;top:${b.y}px!important;width:calc(${k(b.w)} * 100cqw)!important;min-height:${b.h}px!important;height:auto!important;margin:0!important;right:auto!important;bottom:auto!important`);
+      rule(P(b.node.id), `${show}position:absolute!important;left:calc(${k(b.x)} * 100cqw - var(--sm-ox, 0px))!important;top:calc(${b.y}px - var(--sm-oy, 0px))!important;width:calc(${k(b.w)} * 100cqw)!important;min-height:${b.h}px!important;height:auto!important;margin:0!important;right:auto!important;bottom:auto!important`);
+      rule(`${P(b.node.id)}>*`, `--sm-ox:calc(${k(b.x)} * 100cqw);--sm-oy:${b.y}px`);
       /* Taller here than at full width and narrower: the site set its words on more lines here (PST's intro, one line at 1440, two at 390), so a line held whole there is let wrap. */
       /* Its type at the size the site set it here (PST's "Tuning in" box, 11px on a phone): the part's own words, not the parts inside it. */
       if (b.px) rule([own(b.node.id), `${own(b.node.id)} [style*="font-size"]`], `font-size:${b.px}px!important`);
