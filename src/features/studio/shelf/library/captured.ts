@@ -531,6 +531,8 @@ function fromBehaviours<N extends Node>(nodes: readonly N[], behaviours: unknown
       const host = typeof f.part === "string" ? byId.get(f.part) : undefined;
       if (!host && f.self !== false) continue;
       if (host && f.via === "css" && plays(host, f.name)) continue;
+      /* A stylesheet's movement filmed with no name, over a part that replays a stylesheet animation of its own: the same float twice, the film an opaque square (thesolface's uptrend picture, tests/film-css-twice.mjs). */
+      if (host && f.via === "css" && typeof f.name !== "string" && ((host.motion?.animation ?? []).length > 0 || !!host.art?.animation)) continue;
       if (host && f.via === "video" && host.media?.file) continue;
       const ref = host ?? out[0];
       if (!ref) continue;
