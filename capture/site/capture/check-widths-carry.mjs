@@ -17,7 +17,10 @@
  *   (3) read at 768, the parts carry `widths.tablet` (a width from 600 to
  *       1023 is the tablet), x and w scaled to the Builder's 834 frame, and
  *       `layouts.tablet.width` says 768 was what was read;
- *   (4) `capturedWidths` lists what was read: 1440, 768, 390.
+ *   (4) `capturedWidths` lists what was read: 1440, 768, 390;
+ *   (5) the Menu shown on a phone only is made a whole part (`options` and
+ *       every field a captured button has): without them the board read
+ *       `options.variant` off it and would not open (thesolface.site).
  *
  *   node capture/site/capture/check-widths-carry.mjs
  */
@@ -37,11 +40,14 @@ const PAGE = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewp
 *{box-sizing:border-box}body{margin:0;font:16px sans-serif}
 h1{font-size:48px;margin:20px}p{margin:20px}
 .row{display:flex;gap:20px;padding:20px}.row div{flex:1;height:120px;background:#eef}
-@media (max-width:599px){h1{font-size:30px}.row{flex-direction:column}}
+#menu{display:none}#panel{display:none}#panel.open{display:block}
+@media (max-width:599px){h1{font-size:30px}.row{flex-direction:column}#menu{display:inline-block}nav.links{display:none}}
 </style></head><body>
+<nav class="links"><a href="/a">STANDIN about</a> <a href="/b">STANDIN docs</a> <button type="button" id="go">STANDIN go</button></nav><button type="button" id="menu" aria-expanded="false">Menu</button><div id="panel"><a href="/a">STANDIN panel about</a> <a href="/b">STANDIN panel docs</a></div>
 <h1>STANDIN heading</h1>
 <p>STANDIN words that keep their size</p>
 <div class="row"><div></div><div></div></div>
+<script>menu.onclick = () => { const o = menu.getAttribute("aria-expanded") !== "true"; menu.setAttribute("aria-expanded", String(o)); panel.classList.toggle("open", o); };</script>
 </body></html>`;
 
 const server = createServer((req, res) => { res.writeHead(200, { "content-type": "text/html" }); res.end(PAGE); });
@@ -71,6 +77,11 @@ const tab = parts.filter((n) => n.widths?.tablet && !n.widths.tablet.hidden);
 const raw = existsSync(join(work, "widths", "page_home.768.json")) ? JSON.parse(readFileSync(join(work, "widths", "page_home.768.json"), "utf8")) : { parts: {} };
 const rawH1 = raw.parts["body>h1:1"];
 check("(3) read at 768, the parts carry widths.tablet, x and w scaled to the 834 frame; layouts.tablet says 768", tab.length * 2 >= parts.length && doc.layouts?.tablet?.width === 768 && !!rawH1 && Math.abs(h1.widths.tablet.w - Math.round(rawH1[2] * 834 / 768)) <= 1 && h1.widths.tablet.y === rawH1[1], J({ tablet: tab.length, of: parts.length, layouts: doc.layouts && Object.keys(doc.layouts), raw: rawH1, carried: h1?.widths?.tablet }));
+/* (5) The Menu, shown on a phone only, is made a part of its own: a whole one, every field a captured button has (the board read `options.variant` off it and would not open: thesolface.site's "Open navigation"). */
+const made = parts.find((n) => n.id.startsWith("n_ctaprimary_small_"));
+const btn = parts.find((n) => n.featureId === "cta-primary" && !n.id.startsWith("n_ctaprimary_small_"));
+const lacks = made && btn ? Object.keys(btn).filter((k) => !(k in made)) : ["no part"];
+check("(5) the phone-only Menu is a whole part: options and every field a captured button carries", !!made && typeof made.options === "object" && made.options !== null && lacks.filter((k) => !["pad", "edge", "text", "motion", "colour", "font"].includes(k)).length === 0, J({ made: made?.id, lacks }));
 check("(4) capturedWidths lists 1440, 768, 390", J(doc.capturedWidths) === J([1440, 768, 390]), J(doc.capturedWidths));
 
 const failed = results.filter((x) => !x).length;

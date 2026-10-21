@@ -3011,7 +3011,7 @@ const layoutsSection = (() => {
       let nd = triggers.get(key);
       if (!nd) {
         const label = w.menu.trigger.label || "Menu";
-        nd = { id: `n_ctaprimary_small_${triggers.size + 1}`, pageId: w.page, featureId: "cta-primary", label: `button “${label}”`, prompt: `The site's own menu button, shown at a tablet or a phone only (${w.menu.trigger.p}). Captured at ${w.width} wide.`, content: label, data: `button, named “${label}”`, x: 0, y: 0, w: 0, h: 0, groupId: null, from: { selector: w.menu.trigger.p, at: 0, ...(nodes.find((q) => q.pageId === w.page && q.from?.url)?.from?.url ? { url: nodes.find((q) => q.pageId === w.page && q.from?.url).from.url } : {}) }, widths: {} };
+        nd = { id: `n_ctaprimary_small_${triggers.size + 1}`, pageId: w.page, featureId: "cta-primary", label: `button “${label}”`, prompt: `The site's own menu button, shown at a tablet or a phone only (${w.menu.trigger.p}). Captured at ${w.width} wide.`, content: label, data: `button, named “${label}”`, x: 0, y: 0, w: 0, h: 0, groupId: null, options: {}, priority: "must", custom: false, glyph: null, hue: null, locked: false, link: null, colour: null, font: null, anim: null, animSpeed: 1, animDelay: 0, animEase: "smooth", shape: null, outline: null, kind: null, vector: null, role: null, cube: null, mesh: null, code: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null, from: { selector: w.menu.trigger.p, at: 0, ...(nodes.find((q) => q.pageId === w.page && q.from?.url)?.from?.url ? { url: nodes.find((q) => q.pageId === w.page && q.from?.url).from.url } : {}) }, widths: {} };
         triggers.set(key, nd);
         smallParts.push(nd);
         nodeById.set(nd.id, nd);
