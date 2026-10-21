@@ -97,21 +97,54 @@ export function inlineLines(nodes, elOf, skip = new Set()) {
 /**
  * The runs of a folded line, its white space collapsed as the browser
  * collapses it: a space after a space is dropped, none at the line's ends,
- * and plain words beside plain words are one run. `run(kid)` makes a child's.
+ * and plain words beside plain words are one run. `run(kid)` makes a child's
+ * (one run, or several where the child was folded first and holds runs).
+ *
+ * IN A FLEX ROW, THE ROW'S GAP STANDS BETWEEN ITS ITEMS. mochi.trade's
+ * "Live · MochiMan is up ▼86.7% this week →" is an <a> laid out as a flex
+ * row with an 8px gap: each child is an item, and so is each stretch of its
+ * own words between them. Folded with only the spaces its text held, it
+ * read "LiveMochiMan is up 86.7% this week→". With `flex` ({ gap, fs }), a
+ * stretch of words is one item, its ends trimmed as a line's are (one that
+ * is only white space is no item at all), and a spacer run carries the gap
+ * between every two items: a space, padded out to the gap (the marquee's
+ * spacer, capture-to-document.mjs). `check-flex-gap-runs.mjs`.
  */
-export function foldRuns(pieces, run) {
+/** Each side's padding on a spacer run (a space, about a quarter of the type) so that it stands `gap` wide. */
+export const gapSide = (gap, fs) => Math.max(0, Math.round(((gap - (fs || 16) * 0.27) / 2) * 10) / 10);
+
+export function foldRuns(pieces, run, flex = null) {
   const runs = [];
   const ends = () => { const last = runs[runs.length - 1]; return last ? /[ \n]$/.test(last.text) : true; };
-  for (const pc of pieces) {
-    const r = pc.kid ? run(pc.kid) : { text: pc.text };
-    let text = r.text;
-    if (text.startsWith(" ") && ends()) text = text.replace(/^ +/, "");
-    if (!text) continue;
-    const last = runs[runs.length - 1];
-    /* A line break (a <br>): no space before it, and the run it closes keeps it, so `lines()` cuts there. */
-    if (text === "\n" && last) last.text = last.text.replace(/ +$/, "");
-    if (!pc.kid && last && Object.keys(last).length === 1) last.text += text;
-    else runs.push({ ...r, text });
+  const asRuns = (k) => { const r = run(k); return Array.isArray(r) ? r : [r]; };
+  let items = pieces;
+  if (flex && flex.gap > 0) {
+    const grouped = [];
+    for (const pc of pieces) {
+      const last = grouped[grouped.length - 1];
+      if (!pc.kid && last && !last.kid) last.text += pc.text;
+      else grouped.push(pc.kid ? pc : { text: pc.text });
+    }
+    const side = gapSide(flex.gap, flex.fs);
+    items = [];
+    for (const it of grouped) {
+      if (!it.kid) { it.text = it.text.replace(/^[ \t]+|[ \t]+$/g, ""); if (!it.text.trim()) continue; }
+      if (items.length) items.push({ spacer: { text: " ", pad: [0, side, 0, side] } });
+      items.push(it);
+    }
+  }
+  for (const pc of items) {
+    if (pc.spacer) { runs.push({ ...pc.spacer }); continue; }
+    for (const r of pc.kid ? asRuns(pc.kid) : [{ text: pc.text }]) {
+      let text = r.text;
+      if (text.startsWith(" ") && ends()) text = text.replace(/^ +/, "");
+      if (!text) continue;
+      const last = runs[runs.length - 1];
+      /* A line break (a <br>): no space before it, and the run it closes keeps it, so `lines()` cuts there. */
+      if (text === "\n" && last) last.text = last.text.replace(/ +$/, "");
+      if (!pc.kid && last && Object.keys(last).length === 1) last.text += text;
+      else runs.push({ ...r, text });
+    }
   }
   const last = runs[runs.length - 1];
   if (last) last.text = last.text.replace(/[ \n]+$/, "");

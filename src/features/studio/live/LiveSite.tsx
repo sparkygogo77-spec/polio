@@ -33,6 +33,7 @@ import { leadsOf, withLead } from "../shelf";
 import { holderIds } from "../owner";
 import { svgUnder } from "./svgUnder";
 import { groundLayersOf, layerStyle, overParts, type GroundLayer } from "../board/themeDraw";
+import { cornersOf } from "../shelf/parts/theme";
 
 /**
  * THE PAGE'S OWN BACKGROUND LAYERS, LIVE. The html and body layers a page
@@ -394,6 +395,8 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
         // The same floor the board gives a box: its words are never
         // cut off, whatever height the capture measured.
         minHeight: p.h, display: "flex", flexDirection: "column",
+        // Its corners, for a class the page swaps onto this holder as it plays (`cornersOf`).
+        ...(p.node.from?.selector ? { borderRadius: cornersOf(p.node) } : null),
         ...((auraStyle(p.node.aura, palette, p.node.auraSize, p.node.auraStyle) ?? {}) as React.CSSProperties),
         // Its entrance. The board draws the finished state; this is the
         // only place a part is seen arriving.

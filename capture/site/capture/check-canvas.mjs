@@ -14,6 +14,10 @@
  * many frames as fit, taken evenly across the time it was watched, each
  * standing as long as the ones it stands for: a flipbook still.
  *
+ * And a 3D (webgl) canvas, which clears what it drew once the frame is on
+ * screen, was read as blank: mochi.trade's creatures were lost. It keeps
+ * the picture it showed.
+ *
  *   node capture/site/capture/check-canvas.mjs
  */
 import { createServer } from "node:http";
@@ -34,7 +38,9 @@ const PAGE = `<!doctype html><html><head><meta charset="utf-8"></head><body styl
 <canvas id="pet" width="14" height="16" style="width:56px;height:64px;image-rendering:pixelated;margin:40px"></canvas>
 <canvas id="blank" width="10" height="10" style="width:40px;height:40px"></canvas>
 <canvas id="scene" width="416" height="234" style="display:block;width:832px;height:468px;image-rendering:pixelated"></canvas>
-<script>const g=pet.getContext("2d");g.fillStyle="#f6c";g.fillRect(2,2,10,12);g.fillStyle="#2b1d2e";g.fillRect(4,5,2,2);g.fillRect(8,5,2,2);
+<canvas id="gl" width="120" height="60" style="display:block;width:120px;height:60px"></canvas>
+<script>const gx=gl.getContext("webgl");(function draw(){gx.clearColor(0.2,0.8,0.4,1);gx.clear(gx.COLOR_BUFFER_BIT);requestAnimationFrame(draw);})();
+const g=pet.getContext("2d");g.fillStyle="#f6c";g.fillRect(2,2,10,12);g.fillStyle="#2b1d2e";g.fillRect(4,5,2,2);g.fillRect(8,5,2,2);
 const sc=scene.getContext("2d"),img=sc.createImageData(416,234);let seed=1;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
 (function paint(){for(let i=0;i<img.data.length;i+=4){img.data[i]=rnd()*255;img.data[i+1]=rnd()*255;img.data[i+2]=rnd()*255;img.data[i+3]=255;}sc.putImageData(img,0,0);requestAnimationFrame(paint);})();</script></body></html>`;
 const server = createServer((req, res) => { res.writeHead(req.url === "/" ? 200 : 404, { "content-type": "text/html" }); res.end(req.url === "/" ? PAGE : ""); });
@@ -69,6 +75,17 @@ const fr = sceneEl?.frames;
 const span = (fr?.steps ?? []).reduce((a, [, d]) => a + d, 0);
 check("the big scene repainted every frame keeps frames, not one still", (fr?.frames?.length ?? 0) >= 6, JSON.stringify(fr ? { frames: fr.frames.length, steps: fr.steps.length } : Object.keys(sceneEl ?? {})));
 check("…within the budget, taken across the whole time watched (≥ 2.5 s)", fr && fr.frames.reduce((a, u) => a + u.length, 0) <= 4_000_000 && span >= 2500, JSON.stringify(fr && { bytes: fr.frames.reduce((a, u) => a + u.length, 0), span }));
+let glEl = null; (function w(e) { if (!e) return; if (e.t === "canvas" && e.w === 120) glEl = e; (e.kids ?? []).forEach(w); })(capd?.tree);
+/* Its middle pixel, read back from the PNG by a browser: green and solid, where a blank read is see-through. */
+const glPx = glEl?.drawn ? await (async () => {
+  const { launch } = await import("./tools/browser.mjs");
+  const b = await launch();
+  try {
+    const pg = await b.newPage();
+    return await pg.evaluate(async (src) => { const im = new Image(); im.src = src; await im.decode(); const c = document.createElement("canvas"); c.width = im.width; c.height = im.height; const g = c.getContext("2d"); g.drawImage(im, 0, 0); return Array.from(g.getImageData(im.width >> 1, im.height >> 1, 1, 1).data); }, glEl.drawn);
+  } finally { await b.close(); }
+})().catch(() => null) : null;
+check("a 3D (webgl) canvas keeps the picture it showed, not a blank", !!glPx && glPx[3] === 255 && glPx[1] > 150 && glPx[0] < 100, JSON.stringify(glPx ?? (glEl ? Object.keys(glEl) : null)));
 const sceneNode = doc.nodes.find((n) => /canvas:nth-of-type\(3\)$/.test(n.from?.selector ?? ""));
 check("…and it is a flipbook picture", sceneNode?.picture?.path?.endsWith(".svg"), JSON.stringify(sceneNode?.picture));
 

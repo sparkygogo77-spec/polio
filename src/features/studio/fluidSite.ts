@@ -299,6 +299,15 @@ export function fluidParts(parts: readonly FluidPart[], W: number): Map<string, 
     const fills = row && (!L?.justify || L.justify === "normal" || L.justify === "flex-start" || L.justify === "start")
       && kids.length > 1 && Math.abs(kids.reduce((t, c) => t + c.w, 0) + gapPx * (kids.length - 1) - (inR - inL)) <= E * kids.length;
     const grower = fills ? kids.reduce((a, b) => (b.w > a.w ? b : a)) : null;
+    /*
+     * A RAIL PINNED AT THE LEFT (mochi.trade's 72px nav, fixed, the window's
+     * height) stands where the rest of the page begins: the panel beside it
+     * (72 to 1432, an 8px margin on the right) is the page's width less the
+     * rail. Read from the page's edge it was "right of the middle" and slid
+     * right whole, leaving a black band the window's growth wide beside the
+     * rail. Read from the rail, it fills, and grows.
+     */
+    const railR = Math.max(inL, ...kids.filter((c) => c.position === "fixed" && c.x - inL <= E && c.w < (inR - inL) / 4 && c.h > 3 * c.w).map((c) => c.x + c.w));
     let pastGrower = false;
     kids.forEach((C, i) => {
       /* Where C's left is, as a share of P's growth, and how much of it C takes. */
@@ -359,6 +368,7 @@ export function fluidParts(parts: readonly FluidPart[], W: number): Map<string, 
       else if (!lost && row && (L?.justify === "flex-end" || L?.justify === "end")) k = at(1);
       else if (!lost && col && L?.align === "center" && !spans) k = at(0.5);
       else if (spans) k = at(0, 1);
+      else if (railR > inL + E && C.position !== "fixed" && C.x >= railR - E && C.x - railR <= 24 && right >= -E && right <= 24 && C.w > (inR - inL) / 2) k = at(0, 1);
       else if (Math.abs(right) <= E && C.w > (inR - inL) / 2) k = at(0, 1);
       /* Past both inner edges (trumpmorty.fun's turned ribbons, 1586 at -73 in 1440): it overhangs, and keeps its overhang as P grows (`tests/fluid-overhang.mjs`). */
       else if (left < -E && right < -E) k = at(0, 1);
