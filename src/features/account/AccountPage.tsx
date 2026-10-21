@@ -33,7 +33,7 @@ export function AccountPage() {
   const [busy, setBusy] = React.useState(false);
   const hasGithub = useKeys((k) => k.unlocked && !!k.values.GITHUB_TOKEN);
 
-  React.useEffect(() => { void s.refresh().then(() => { if (useAccount.getState().who?.role === "owner") void useAccount.getState().loadKeys(); }); // eslint-disable-next-line react-hooks/exhaustive-deps
+  React.useEffect(() => { void s.refresh().then(() => { if (useAccount.getState().who?.role === "owner" && useAccount.getState().via !== "github") void useAccount.getState().loadKeys(); }); // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const signIn = async (e: React.FormEvent) => {
@@ -102,6 +102,7 @@ export function AccountPage() {
       ) : (
         <Section title={s.via === "github" ? `Signed in with your GitHub key as ${s.who.name}` : s.who.role === "owner" ? "Signed in with the owner key" : `Signed in as ${s.who.name}`} icon={<Cloud className="size-4" />} hook="signed-in">
           <p className="text-small text-fg-muted" data-account="synced">
+            {s.via === "github" && <>Kept in a private repository on your GitHub, <b>{s.who.saves ?? `${s.who.name}/polio-saves`}</b>. </>}
             {s.syncing ? "Saving to the account…" : s.syncedAt ? `Last saved ${new Date(s.syncedAt).toLocaleTimeString()}. Changes save by themselves every minute while this browser is open.` : "Not saved yet in this visit."}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -111,7 +112,7 @@ export function AccountPage() {
         </Section>
       )}
 
-      {s.who?.role === "owner" && (
+      {s.who?.role === "owner" && s.via !== "github" && (
         <Section title="Keys" icon={<ShieldCheck className="size-4" />} hook="keys">
           <p className="mb-3 text-small text-fg-muted">A key opens your saved work in another browser, or for someone you trust. It cannot make or cancel keys; only your owner key can. Each key is shown once, when it is made, and kept on the server only as a fingerprint.</p>
           <form onSubmit={make} className="flex flex-col gap-2 sm:flex-row">

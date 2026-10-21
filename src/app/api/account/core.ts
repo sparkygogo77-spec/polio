@@ -39,9 +39,9 @@ export interface Item { path: string; size: number; at: string; etag: string }
 export interface Got { bytes: Uint8Array; type: string; etag: string }
 export interface Streamed { body: ReadableStream<Uint8Array>; type: string; size: number | null; etag: string }
 
-/** Where the account is kept: Vercel Blob in production, a folder in a local run, a Map in a test. */
+/** Where the account is kept: Vercel Blob, a private GitHub repository for a GitHub sign-in (`github.ts`), a folder in a local run, a Map in a test. */
 export interface Backend {
-  kind: "blob" | "folder" | "memory";
+  kind: "blob" | "folder" | "memory" | "github";
   read(path: string): Promise<Got | null>;
   stream(path: string): Promise<Streamed | null>;
   write(path: string, bytes: Uint8Array, type: string): Promise<{ etag: string }>;

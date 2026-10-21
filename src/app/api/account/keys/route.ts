@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const g = await guard(request, "owner");
   if (g instanceof Response) return g;
+  if (g.who.role === "owner" && g.who.github) return answer({ ok: false, says: "Your GitHub key is the key for every browser: put it in Keys there. Made keys need the owner key." }, 400);
   if (!g.store) return noStore();
   return answer({ ok: true, keys: await listKeys(g.store) });
 }
@@ -18,6 +19,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const g = await guard(request, "owner");
   if (g instanceof Response) return g;
+  if (g.who.role === "owner" && g.who.github) return answer({ ok: false, says: "Your GitHub key is the key for every browser: put it in Keys there. Made keys need the owner key." }, 400);
   if (!g.store) return noStore();
   const body = (await request.json().catch(() => ({}))) as { name?: unknown };
   const name = cleanName(body.name);
@@ -30,6 +32,7 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   const g = await guard(request, "owner");
   if (g instanceof Response) return g;
+  if (g.who.role === "owner" && g.who.github) return answer({ ok: false, says: "Your GitHub key is the key for every browser: put it in Keys there. Made keys need the owner key." }, 400);
   if (!g.store) return noStore();
   const id = new URL(request.url).searchParams.get("id") ?? "";
   if (!/^[0-9a-f]{16}$/.test(id)) return answer({ ok: false, says: "No such key." }, 404);
