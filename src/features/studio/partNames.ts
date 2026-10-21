@@ -23,6 +23,7 @@
  *
  * Pure: no store, no DOM, no catalogue, so a test reads it on its own.
  */
+import { under } from "./owns";
 
 export interface Named {
   id: string;
@@ -158,12 +159,27 @@ function onPageOf(pageId: string | undefined, all: readonly Named[]): readonly N
 }
 
 /** The parts drawn inside `box` on its page, top to bottom, then left to right. */
+/*
+ * WHAT A PART HOLDS, BY THE PATH WHERE THE CAPTURE RECORDED ONE. Read by the
+ * box alone, thesolface's hero held its fixed header (the header lies inside
+ * the hero's box at y 14), and the hero was named for the header's button,
+ * Section "JOIN THE WAVE" (J, 2026-10-21). Between two parts that both carry
+ * a path, one holds the other only when its box does and the other's path
+ * continues its own (`owns.ts#under`); a part placed by hand, with no path,
+ * is read by its box as before (tests/section-names.mjs).
+ */
+const pathOf = (n: Named) => (n.from?.selector ?? "").trim();
+const holds = (box: Named, x: Named) => {
+  if (!(contains(box, x) && (x.w ?? 0) * (x.h ?? 0) < (box.w ?? 0) * (box.h ?? 0))) return false;
+  const p = pathOf(box), q = pathOf(x);
+  return !p || !q || under(p, q);
+};
 function within(box: Named, all: readonly Named[]): Named[] {
   const m = memoOf(all);
   let got = m.within.get(box);
   if (!got) {
     got = onPageOf(box.pageId, all)
-      .filter((x) => x.id !== box.id && contains(box, x) && (x.w ?? 0) * (x.h ?? 0) < (box.w ?? 0) * (box.h ?? 0))
+      .filter((x) => x.id !== box.id && holds(box, x))
       .sort((a, b) => (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0));
     m.within.set(box, got);
   }
@@ -171,20 +187,51 @@ function within(box: Named, all: readonly Named[]): Named[] {
 }
 
 /** The first heading inside a part: a section is named by its own heading, never the page's. */
+/* The h1–h4 element a part's words sit in, by its path: the hero's title is an h1 of two spans, "THE" and "SOL FACE", neither a heading on its own. */
+const HEADING_STEP = /^(.* > h[1-4](?::nth-of-type\(\d+\))?)(?: > .*)?$/;
+const headingAt = (n: Named) => HEADING_STEP.exec(pathOf(n))?.[1] ?? null;
+const meets = (a: Named, b: Named) => (a.x ?? 0) < (b.x ?? 0) + (b.w ?? 0) && (b.x ?? 0) < (a.x ?? 0) + (a.w ?? 0) && (a.y ?? 0) < (b.y ?? 0) + (b.h ?? 0) && (b.y ?? 0) < (a.y ?? 0) + (a.h ?? 0);
+/** The words of the h1–h4 element at `el`, read across its pieces in order: those whose path is inside it and that touch its own box, or the box of the part being named where the element has no part of its own (a copy elsewhere with the same path, a press-shown twin, is not one of them). */
+function headingWords(el: string, near: Named, all: readonly Named[]): string {
+  const page = onPageOf(near.pageId, all);
+  const own = page.find((q) => pathOf(q) === el) ?? near;
+  return page.filter((q) => q.id !== own.id && headingAt(q) === el && !!wordsOf(q) && meets(own, q)).sort((x, y) => (x.y ?? 0) - (y.y ?? 0) || (x.x ?? 0) - (y.x ?? 0)).map(wordsOf).join(" ");
+}
+
+/** The first heading inside a part: a part that reads as one, or the words of an h1–h4 element read across its pieces. */
+function headingIn(box: Named, all: readonly Named[]): string | null {
+  const inside = within(box, all);
+  for (const p of inside) {
+    const el = wordsOf(p) ? headingAt(p) : null;
+    /* Its pieces by the path: a piece wider than the heading's own box ("SOL FACE", 736 in 708) is still part of it. */
+    if (el) return clip(headingWords(el, box, all) || wordsOf(p));
+    if (isHeadingish(p)) return clip(wordsOf(p));
+  }
+  /* The part may itself be the h1, holding the pieces. */
+  const own = pathOf(box);
+  if (own && headingAt(box) === own) { const words = headingWords(own, box, all); if (words) return clip(words); }
+  return null;
+}
+
 function firstHeading(box: Named, all: readonly Named[]): string | null {
   const m = memoOf(all);
   if (m.heading.has(box)) return m.heading.get(box)!;
-  const h = within(box, all).find(isHeadingish);
-  const v = h ? clip(wordsOf(h)) : null;
+  const v = headingIn(box, all);
   m.heading.set(box, v);
   return v;
 }
+
+/* A button's words name the button, never what holds it (the header was "Header “JOIN THE WAVE”"). */
+const isControl = (n: Named) => /^cta-/.test(n.featureId ?? "");
 
 /** A part's own title when it holds others: its first heading, else its first words. */
 function ownTitle(box: Named, all: readonly Named[]): string | null {
   const inside = within(box, all);
   if (!inside.length) return null;
-  const h = inside.find(isHeadingish) ?? inside.find((m) => !!wordsOf(m));
+  const heading = headingIn(box, all);
+  if (heading) return heading;
+  const controls = inside.filter(isControl).map(pathOf).filter(Boolean);
+  const h = inside.find((m) => !!wordsOf(m) && !isControl(m) && !controls.some((c) => under(c, pathOf(m))));
   return h ? clip(wordsOf(h)) : null;
 }
 

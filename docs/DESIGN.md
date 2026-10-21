@@ -253,6 +253,10 @@ same boxes as everywhere else, in the screen's colours.
 - **The side panel reads a captured site as a person does.** A part is
   named by its words, the name the browser gave it, or what it is and the
   heading of its section (`partNames.ts`), never "div · 1 inside" or an id;
+  a section is named for its own heading, read whole across its pieces,
+  and never for a button or for a part it does not hold by its page path
+  (thesolface's hero was Section "JOIN THE WAVE", its fixed header's
+  button; J, 2026-10-21, `tests/section-names.mjs`);
   a capture's element path stays inside the prompt, and the panel says
   "From <site>, <section>". Format and Settings > This site show what the
   site already says (light or dark, accent, faces, corners) and hide what
