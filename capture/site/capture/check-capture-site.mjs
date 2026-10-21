@@ -92,6 +92,12 @@ check("capture/sites/<name>/ is ignored, every file in it",
   check("the pages run three at a time unless told otherwise", sp.jobs === 3 && plan({ url: "https://standin.example/", name: "x", root, jobs: 1 }).jobs === 1);
   check("the workflow has Look only, no presses, and passes it as --look-only", /\n\s+look:\s*\n(\s+.*\n)*?\s+type: boolean/.test(y) && /IN_LOOK: \$\{\{ inputs\.look \}\}/.test(y) && /"\$IN_LOOK" = "true" \] && echo --look-only/.test(y));
 }
+{
+  const at = Date.now() + 60_000;
+  const bp = plan({ url: "https://standin.example/", name: "standin", pages: "/, /docs", root, deadline: at });
+  check("a budget reaches every page as its deadline, and no budget passes none", bp.captures.every((c) => c.args[c.args.indexOf("--deadline") + 1] === String(at)) && p.captures.every((c) => !c.args.includes("--deadline")));
+  check("the workflow bounds the capture with a budget inside its own limit", /--budget (\d+)/.test(y) && Number(/--budget (\d+)/.exec(y)[1]) < Number(/timeout-minutes: (\d+)/.exec(y)?.[1] ?? 0));
+}
 check("ledger.json is left out of the artifact", /rm -f "?capture\/sites\/\$NAME\/ledger\.json/.test(y) && y.indexOf("ledger.json\"") < y.indexOf("upload-artifact"));
 
 const failed = results.filter((r) => !r).length;

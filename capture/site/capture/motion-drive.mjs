@@ -272,9 +272,9 @@ const PARSE = `(t) => {
   return out;
 }`;
 
-export async function hoverMotion(page) {
+export async function hoverMotion(page, { late = () => false, most = 40 } = {}) {
   const vw = page.viewportSize();
-  const list = await page.evaluate(() => {
+  const list = await page.evaluate((most) => {
     const B = window.__sinkBehaviours;
     const cands = new Set();
     for (const el of B.pointerListened ?? []) if (el instanceof Element && el.isConnected && el !== document.body && el !== document.documentElement) cands.add(el);
@@ -299,13 +299,14 @@ export async function hoverMotion(page) {
       if (r.width < 16 || r.height < 16 || getComputedStyle(el).display === "none") continue;
       /* One inside another listed with a pointer listener of its own is looked at on its own. */
       out.push(B.idOf(el));
-      if (out.length >= 40) break;
+      if (out.length >= most) break;
     }
     window.__sinkHoverEls = new Map(out.map((id) => [id, B.byId(id)]));
     return out;
-  });
+  }, most);
   const results = [];
   for (const id of list) {
+    if (late()) break;
     const box = await page.evaluate((id) => {
       const el = window.__sinkHoverEls.get(id);
       el.scrollIntoView({ block: "center", inline: "nearest" });

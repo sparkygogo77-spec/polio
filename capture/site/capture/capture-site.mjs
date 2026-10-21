@@ -17,13 +17,17 @@
  *
  *   node capture/site/capture/capture-site.mjs --url <address> --name <folder> [--pages "/, /docs"]
  *        [--width 1440 --height 900] [--wallet] [--no-agree | --hide-gate] [--no-behaviours] [--no-states] [--no-network] [--shots <dir>]
- *        [--crawl [--skip "/rewards"] [--limit 30]] [--look-only] [--jobs 3]
+ *        [--crawl [--skip "/rewards"] [--limit 30]] [--look-only] [--jobs 3] [--budget <minutes>]
  *   node capture/site/capture/capture-site.mjs --reconvert --name <folder>   (the committed captures, converted again; no browser)
  *
  * `--look-only` presses nothing (no states pass): the page as it opens,
  * its behaviours and its data requests only. A still screen (`?still=1`,
  * or one of a `?screen=*` list) is always read that way, and without its
  * behaviours driven. The pages given are captured `--jobs` at a time (3).
+ *
+ * `--budget <minutes>` bounds the run: past it, each page leaves out what
+ * only adds (moving pictures, presses, a canvas's frames) and is still read
+ * and converted, so the workflow hands a capture back inside its own limit.
  *
  * `--crawl` also takes the same-site pages they link to: each plain page
  * once, and one representative of each pattern (`/token/:id`), whose ids
@@ -191,7 +195,7 @@ export function linksOf(capture, origin) {
 }
 
 /** Everything a capture would do, as data. Runs nothing. */
-export function plan({ url, name, pages, root, viewport = [1440, 900], wallet = false, agree = true, gate = "agree", behaviours = true, shots = null, states = true, network = true, crawl = false, skip = [], limit = 30, jobs = 3 }) {
+export function plan({ url, name, pages, root, viewport = [1440, 900], wallet = false, agree = true, gate = "agree", behaviours = true, shots = null, states = true, network = true, crawl = false, skip = [], limit = 30, jobs = 3, deadline = null }) {
   const site = new URL(url);
   const folder = siteName(name) ?? nameFrom(url);
   if (!folder) throw new Error(`A name is needed: letters, digits and dashes. "${name}" is not one.`);
@@ -254,6 +258,8 @@ export function plan({ url, name, pages, root, viewport = [1440, 900], wallet = 
       ...(states && !heldStill(p) ? ["--states"] : []),
       /* Every data request the page makes on its own, as an API map with samples (network.mjs), unless `--no-network`. */
       ...(network ? ["--network"] : []),
+      /* The run's deadline (`--budget`): past it each page leaves out what only adds, and is still written. */
+      ...(deadline ? ["--deadline", String(deadline)] : []),
     ],
   });
   const captures = routes.pages.map(captureOf);
@@ -461,6 +467,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     behaviours: !args.includes("--no-behaviours"), shots: opt("--shots"), states: !args.includes("--no-states") && !args.includes("--look-only"), network: !args.includes("--no-network"),
     crawl: args.includes("--crawl"), skip: String(opt("--skip", "")).split(",").map((x) => x.trim()).filter(Boolean), limit: Number(opt("--limit", 30)),
     jobs: Number(opt("--jobs", process.env.CAPTURE_JOBS ?? 3)),
+    /* `--budget <minutes>`: from now, the time the pages have for what only adds (capture-route.mjs `--deadline`). */
+    deadline: Number(opt("--budget", 0)) > 0 ? Date.now() + Number(opt("--budget")) * 60_000 : null,
   });
   console.error(`capturing ${p.routes.pages.length} page(s) of ${p.routes.site} into sites/${p.name}/`);
   process.exit(run(p) ? 1 : 0);

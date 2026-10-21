@@ -30,9 +30,12 @@ import { movingFrames } from "./frames-drive.mjs";
 
 const P1 = [0.25, 0.3], P2 = [0.75, 0.55];
 
-export async function driveBehaviours(page, { shots = null, shot = async () => {}, frames = {} } = {}) {
+export async function driveBehaviours(page, { shots = null, shot = async () => {}, frames = {}, late = () => false, leftOut = () => {}, heavyMs = 250 } = {}) {
   const wait = (ms) => page.waitForTimeout(ms);
   const vw = page.viewportSize();
+  /* Where the drive's time goes (SINK_TIMING=1), said once at the end. */
+  const blaps = []; let blapAt = Date.now();
+  const blap = (name) => { const now = Date.now(); blaps.push(`${name} ${((now - blapAt) / 1000).toFixed(1)}`); blapAt = now; };
   await page.evaluate(() => scrollTo(0, 0));
   /* The loader, if one stood, is gone before anything is measured. */
   for (let i = 0; i < 60; i++) {
@@ -41,6 +44,25 @@ export async function driveBehaviours(page, { shots = null, shot = async () => {
     await wait(250);
   }
   await wait(600);
+  blap("loader");
+  /*
+   * A HEAVY PAGE. Everything below waits on the page's own frames, and a
+   * page that draws a frame every second on this machine (mochi.trade's
+   * scene, drawn without a graphics card) makes every wait a long one: its
+   * moving pictures took 15 minutes. So the time between frames is measured
+   * first, over a second; at `heavyMs` or more, the moving pictures and the
+   * scroll's own motion are left out and at most 8 parts are hovered. The
+   * rest (the loader, the idle loops, the pointer, the reveals) is read as
+   * on any page.
+   */
+  const frameMs = await page.evaluate(async () => {
+    const ts = [performance.now()];
+    while (performance.now() - ts[0] < 1000) { await new Promise((r) => requestAnimationFrame(() => r())); ts.push(performance.now()); }
+    const gaps = ts.slice(1).map((t, i) => t - ts[i]).sort((a, b) => a - b);
+    return Math.round(gaps[Math.floor(gaps.length / 2)]);
+  }).catch(() => 0);
+  const heavy = heavyMs > 0 && frameMs >= heavyMs;
+  if (heavy) console.error(`heavy: the page draws a frame every ${frameMs} ms here: moving pictures and the scroll's own motion left out, at most 8 parts hovered`);
   await page.evaluate(() => window.__sinkBehaviours.phase("idle"));
   if (shots) await shot("idle");
 
@@ -137,6 +159,7 @@ export async function driveBehaviours(page, { shots = null, shot = async () => {
     idle.loops = idle.loops.filter((l) => l.kind === "marquee" || !floats.has(l.el));
   }
 
+  blap("idle");
   /* ------------------------------------------------------------ pointer */
   await page.evaluate(() => window.__sinkBehaviours.phase("pointer"));
   const inlineAll = () => page.evaluate(() => { const B = window.__sinkBehaviours; return Array.from(document.body.querySelectorAll("*")).map((el) => [B.idOf(el), el.style?.transform ?? ""]).filter(([, t]) => t); });
@@ -177,6 +200,7 @@ export async function driveBehaviours(page, { shots = null, shot = async () => {
   }, { at: at.map((p) => ({ ...p, transforms: [...p.transforms] })) });
   if (shots) { await page.mouse.move(Math.round(vw.width * P1[0]), Math.round(vw.height * P1[1]), { steps: 4 }); await wait(1500); }
 
+  blap("pointer");
   /* ------------------------------------------------------------ scroll */
   await page.evaluate(() => { window.__sinkBehaviours.phase("scroll"); window.__sinkBefore = window.__sinkBehaviours.snap(); });
   const moveIds = pointer.filter((p) => p.kind === "move").map((p) => p.el);
@@ -198,13 +222,19 @@ export async function driveBehaviours(page, { shots = null, shot = async () => {
   }, { moveIds });
   if (shots) await shot("bottom");
   /* The pointer over whatever listens to it or has a :hover rule that moves it; then the scroll's own motion (motion-drive.mjs). */
+  blap("scroll");
   await page.evaluate(() => window.__sinkBehaviours.phase("hover"));
-  const hover = await hoverMotion(page);
+  const hover = late() ? (leftOut("the hover reads"), []) : await hoverMotion(page, { late, most: heavy ? 8 : 40 });
+  blap("hover");
   await page.evaluate(() => window.__sinkBehaviours.phase("scroll-motion"));
-  const scrolled = await scrollMotion(page, { loops: idle.loops.filter((l) => l.kind === "marquee").map((l) => l.el) });
+  const scrolled = heavy ? {} : late() ? (leftOut("the scroll's own motion"), {}) : await scrollMotion(page, { loops: idle.loops.filter((l) => l.kind === "marquee").map((l) => l.el) });
+  blap("scroll-motion");
   /* Pictures of what moves, and only of that (frames-drive.mjs): found by looking at the screen, recorded cropped, read as a loop, a drift, a once, a live, a pointer's or the scroll's. */
   await page.evaluate(() => window.__sinkBehaviours.phase("frames"));
-  const pictured = frames ? await movingFrames(page, { ...frames, log: (s) => console.error(s) }).catch((e) => { console.error(`frames: ${String(e.message ?? e).split("\n")[0]}`); return { frames: [], looked: [] }; }) : { frames: [], looked: [] };
+  if (frames && !heavy && late()) leftOut("the moving pictures");
+  const pictured = frames && !heavy && !late() ? await movingFrames(page, { ...frames, late, log: (s) => console.error(s) }).catch((e) => { console.error(`frames: ${String(e.message ?? e).split("\n")[0]}`); return { frames: [], looked: [] }; }) : { frames: [], looked: [] };
+  blap("frames");
+  if (process.env.SINK_TIMING) console.error(`timing behaviours: ${blaps.join(", ")} s`);
   const motion = { ...still, hover, ...scrolled, frames: pictured.frames, looked: pictured.looked };
   await page.evaluate(async () => {
     window.__sinkBehaviours.phase("top");
