@@ -9,4 +9,5 @@ export { DESIGN_DIR, changesJson, changesMarkdown, deletedOnBoard, designBranch,
 export type { ChangeNode, HookChanges, HookMap, HookRef, RemovedHook } from "./designBranch.ts";
 export { PAGES_RECORD, pagesGone, pagesRecord } from "./pagesRecord.ts";
 export { BUILD_RECORD, buildKeeps, buildRecordFile, builtIn, intoPublic } from "./buildRecord.ts";
+export { PUBLISH_BRANCH, deployOnlyFrom, onlyBranchDeploys } from "./deployBranch.ts";
 export type { Built } from "./buildRecord.ts";
