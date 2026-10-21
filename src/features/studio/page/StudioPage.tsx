@@ -228,6 +228,8 @@ export function StudioPage() {
     /* A shelf effect put on a part, as a drop or "Put it on" puts it: for the checks (tests/speed-bar.mjs). */
     (w as unknown as { __studioGiveWork?: (id: string, work: string) => void }).__studioGiveWork = (id, work) => giveWork(id, work, {});
     (w as unknown as { __studioSelection?: () => string[] }).__studioSelection = () => useStudio.getState().selection;
+    /* Pick parts as a press would, for the checks: a section under its own background layers cannot be pressed on the board (tests/layer-list.mjs). */
+    (w as unknown as { __studioSelect?: (ids: string[]) => void }).__studioSelect = (ids) => useStudio.getState().setSelection(ids);
     /* A saved component placed on the open board as the shelf's Add places it: for the checks (tests/universal-effects.mjs). */
     (w as unknown as { __studioPutComponent?: (id: string, at?: { x: number; y: number }) => string[] | null }).__studioPutComponent = (id, at) => {
       const c = (useLearned.getState().lib.components ?? []).find((x) => x.id === id || x.name === id);

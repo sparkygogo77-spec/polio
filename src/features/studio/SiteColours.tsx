@@ -42,6 +42,7 @@ import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { Input } from "@/core/ui/input";
 import { Select } from "@/core/ui/select";
+import { LayerList } from "./look/LayerList";
 import { VirtualList } from "@/core/ui/virtual-list";
 
 function useSite() {
@@ -944,6 +945,8 @@ export function SiteColoursSection({ captured = true, paletteRoles = null }: { c
       </div>
       {captured ? null : paletteRoles}
       <ThemePreview site={site} palette={palette} picked={picked} onPick={(p) => setPicked((was) => (was === p ? null : p))} ground={ground} grounds={grounds} />
+      {/* The background's layers, for the section picked or the page (J, 2026-10-21: hide lives here, `look/LayerList.tsx`). */}
+      <LayerList />
       {picked !== null ? <KindEditor key={String(picked)} pick={picked} site={site} palette={palette} background={roles.left.backgroundLayers} onClose={() => setPicked(null)} /> : null}
       {captured ? (
         <div data-randomize-theme="" className="space-y-1">

@@ -357,6 +357,8 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
         // Its turn has not come: not drawn, but holding its place, so
         // nothing measures a different page while a run is arriving.
         ...(held ? { opacity: 0 } : {}),
+        /* Set hidden (its eye, in the Look panel's layers): not drawn, but holding its place, and faint while picked so it can be found (tests/part-hidden.mjs). */
+        ...(node.hidden ? { opacity: selected ? 0.3 : 0 } : {}),
         /* A part a press shows (sink `behaviours.states`): the board lays out the page as it opens, so it is not drawn here; the press plays in the Preview and on the published page. */
         ...(!shownHere ? { display: "none" } : {}),
         /*

@@ -16,7 +16,7 @@ import { ShapeKind, ShapeRelation, StudioNode } from "./model";
 import type { StudioState } from "./state";
 
 /** The nodes actions of the studio store; spread into `useStudio` by create.ts. */
-export function nodesActions(set: SetStudio, get: GetStudio, push: () => void, pushEdit: (key: string) => void): Pick<StudioState, "addNode" | "updateNode" | "updateNodeQuiet" | "updateNodes" | "fitToWords" | "settleToWords" | "joinSentences" | "fitWrappers" | "sweepDocument" | "raiseNode" | "lowerNode" | "removeNodes" | "duplicateNodes" | "setCubeFace" | "pickFace" | "hold" | "want" | "markQueueSeen" | "setCubeTurn" | "setMeshTurn" | "applyDrawnKind" | "groupSelection" | "ungroup" | "updateGroup"> {
+export function nodesActions(set: SetStudio, get: GetStudio, push: () => void, pushEdit: (key: string) => void): Pick<StudioState, "addNode" | "updateNode" | "updateNodeQuiet" | "updateNodes" | "fitToWords" | "settleToWords" | "joinSentences" | "fitWrappers" | "sweepDocument" | "raiseNode" | "lowerNode" | "stackNode" | "removeNodes" | "duplicateNodes" | "setCubeFace" | "pickFace" | "hold" | "want" | "markQueueSeen" | "setCubeTurn" | "setMeshTurn" | "applyDrawnKind" | "groupSelection" | "ungroup" | "updateGroup"> {
   void pushEdit;
   return {
     /**
@@ -371,6 +371,19 @@ export function nodesActions(set: SetStudio, get: GetStudio, push: () => void, p
         const nodes = [...s.nodes];
         const [n] = nodes.splice(i, 1);
         nodes.splice(toBottom ? 0 : i - 1, 0, n!);
+        return { nodes };
+      });
+    },
+
+    stackNode: (id, other, above) => {
+      if (id === other) return;
+      push();
+      set((s) => {
+        const moving = s.nodes.find((n) => n.id === id);
+        if (!moving || !s.nodes.some((n) => n.id === other)) return {};
+        const nodes = s.nodes.filter((n) => n.id !== id);
+        const at = nodes.findIndex((n) => n.id === other);
+        nodes.splice(above ? at + 1 : at, 0, moving);
         return { nodes };
       });
     },
