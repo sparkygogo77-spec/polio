@@ -21,7 +21,7 @@
  *
  *   node --experimental-strip-types tests/draw-combine-rules.mjs
  */
-import { combine, guideLength, insideOutline, lineFromStroke, pathWordsSize, piecesOf, wornPath, wordsGuide } from "../src/features/studio/wornShape.ts";
+import { combine, guideLength, insideOutline, lineFromStroke, pathWordsSize, piecesOf, wornPath, wordsGuide } from "../src/features/studio/wornModel.ts";
 import { DEFAULT_OFFSITE, explainLink, linkAllowed, offsiteRules } from "../src/features/studio/shelf/parts/offsite.ts";
 
 const results = [];

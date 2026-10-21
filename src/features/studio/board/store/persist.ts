@@ -4,7 +4,7 @@ import { pictureLayersOff } from "../../docTake";
 import { defaultLight, delayMs, emptyLook, speedK } from "../../look";
 import { newMotion, SLEEVES } from "../../motion";
 import { normaliseSketch, type OutlineClip } from "../../pictures";
-import type { Worn } from "../../wornShape";
+import type { Worn } from "../../wornModel";
 import type { PartCode } from "../../snippet";
 import type { Picture } from "../../pictures";
 import type { StudioState } from "./state";
