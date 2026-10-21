@@ -94,8 +94,12 @@ export function ValueProp({ id, content, spans, options, h, theme: t, mode, onNa
   // box of 156) wrapped by a hair and doubled; `Text` holds prose the same way,
   // and like it counts a box within a pixel of two lines (a height the
   // capture rounded to whole pixels) as two.
+  // And a heading the page broke with `<br>`s, in a box shorter than one line
+  // more than its breaks make, had every line on one line: thesolface's
+  // "ROADMAP / TO THE TOP." is 550 wide in a 550 box, wrapped by a hair and
+  // grew a line (tests/broken-lines-held.mjs).
   const lh = t.captured ? t.lineHeight : 1.2;
-  const oneLine = !!t.captured && h > 0 && h < 2 * t.fontPx * 1.6 * lh - 1;
+  const oneLine = !!t.captured && h > 0 && h < (Math.max(1, typedLines.length) + 1) * t.fontPx * 1.6 * lh - 1;
   const turn = opt(options, "turn", "none");
   const parts = splitTurn(line, turn);
   const tone = turn === "last word muted" || turn === "second sentence muted" ? t.muted : t.accent;
