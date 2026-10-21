@@ -42,6 +42,8 @@ export function sniff(path: string, b: Uint8Array): string {
   if (at(0, "RIFF") && at(8, "WEBP")) return "image/webp";
   if (at(4, "ftyp")) return at(8, "avif") || at(8, "avis") ? "image/avif" : "video/mp4";
   if (b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3) return "video/webm";
+  /* An SVG is kept only after `svg.ts` cleaned it, so it starts at its root. */
+  if (/^\s*<svg[\s>]/.test(new TextDecoder().decode(b.subarray(0, 64)))) return "image/svg+xml";
   return "application/octet-stream";
 }
 

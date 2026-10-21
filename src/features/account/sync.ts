@@ -22,6 +22,16 @@
  * and the account never deletes anything this browser holds.
  *
  * Which local site is which account site is kept in `builder.account.links`.
+ *
+ * **A picture the account refuses does not fail its site.** When the server
+ * answers a picture with a refusal (a 4xx that is about that file: a type it
+ * does not keep, a drawing it cannot read, too big), that one picture is
+ * skipped, the site and everything else are saved, and the refusal is
+ * remembered in `builder.account.refused` with the server's own reason. It is
+ * said once, when it first happens; it is not tried again every minute, only
+ * when the picture itself changes or "Save and bring in now" is pressed. A
+ * refusal that is about the key or the moment (401, 403, 408, 429, 5xx) is
+ * not about the file and still stops the sync, as before.
  */
 import { upload } from "@vercel/blob/client";
 import { useBuilds, type Project } from "@/features/builds/store";
@@ -36,6 +46,28 @@ const TEXTURES_KEY = "builder.savedTextures";
 const CAPTURER_KEY = "builder.capturer.v2";
 const PUT_MAX = 4 * 1024 * 1024;
 export const SITE_KIND = "polio-account-site";
+export const REFUSED_KEY = "builder.account.refused";
+
+/** A picture the account refused: what it was, in which site, and the server's reason. `sig` changes when the picture does. */
+export type Refused = Record<string, { sig: string; says: string; site: string }>;
+
+export function readRefused(): Refused {
+  try {
+    const v = JSON.parse(localStorage.getItem(REFUSED_KEY) ?? "{}");
+    return v && typeof v === "object" && !Array.isArray(v) ? (v as Refused) : {};
+  } catch { return {}; }
+}
+const writeRefused = (r: Refused) => { try { localStorage.setItem(REFUSED_KEY, JSON.stringify(r)); } catch { /* said again next sync */ } };
+
+/** A refusal about the file itself, not about the key, the clock or the server. */
+const aboutTheFile = (e: unknown): e is AccountError => e instanceof AccountError && e.status >= 400 && e.status < 500 && ![401, 403, 408, 429].includes(e.status);
+
+/** Type, size and a quick hash of the bytes: the same picture gives the same signature. */
+function sigOf(p: BackupPicture): string {
+  let h = 2166136261;
+  for (let i = 0; i < p.data.length; i++) h = Math.imul(h ^ p.data.charCodeAt(i), 16777619);
+  return `${p.type}:${p.bytes}:${(h >>> 0).toString(16)}`;
+}
 
 /** Local site id → the account's id for it, the version last seen there, and the edit it matched. */
 export type Links = Record<string, { aid: string; etag: string; edited: number }>;
@@ -180,7 +212,7 @@ async function takeInto(localId: string, backup: BoardBackup): Promise<void> {
   }));
 }
 
-export interface SyncReport { up: number; down: number; updated: number; both: number; waiting: string[]; failed: string[] }
+export interface SyncReport { up: number; down: number; updated: number; both: number; waiting: string[]; failed: string[]; /** Pictures refused for the first time in this sync (earlier refusals are not repeated). */ skipped: { id: string; site: string; says: string }[] }
 
 async function pullSites(a: Api, man: Map<string, { etag: string }>, links: Links, report: SyncReport): Promise<void> {
   const { projects } = useBuilds.getState();
@@ -232,6 +264,7 @@ async function pullSites(a: Api, man: Map<string, { etag: string }>, links: Link
 
 async function pushSites(a: Api, man: Map<string, { etag: string }>, links: Links, report: SyncReport): Promise<void> {
   await flushDocs();
+  const refused = readRefused();
   for (const p of useBuilds.getState().projects) {
     const link = links[p.id];
     /* Changed here means its edit stamp is not the one last saved or taken: compared for sameness, never order, so two browsers' clocks never decide. */
@@ -245,8 +278,19 @@ async function pushSites(a: Api, man: Map<string, { etag: string }>, links: Link
       if (!backup) continue;
       for (const pic of backup.pictures) {
         if (!PIC_OK.test(pic.id) || man.has(picPath(pic.id))) continue;
-        const etag = await a.put(picPath(pic.id), blobOf(pic), pic.type);
-        man.set(picPath(pic.id), { etag });
+        const sig = sigOf(pic);
+        const before = refused[pic.id];
+        if (before?.sig === sig) continue;
+        try {
+          const etag = await a.put(picPath(pic.id), blobOf(pic), pic.type);
+          man.set(picPath(pic.id), { etag });
+          if (before) { delete refused[pic.id]; writeRefused(refused); }
+        } catch (err) {
+          if (!aboutTheFile(err)) throw err;
+          refused[pic.id] = { sig, says: err.message, site: p.name };
+          writeRefused(refused);
+          report.skipped.push({ id: pic.id, site: p.name, says: err.message });
+        }
       }
       const site: SavedSite = { ...backup, kind: SITE_KIND, aid, pictures: backup.pictures.map(({ data: _d, ...rest }) => { void _d; return rest; }) };
       const etag = await a.put(sitePath(aid), new Blob([JSON.stringify(site)], { type: "application/json" }), "application/json");
@@ -263,12 +307,13 @@ async function pushSites(a: Api, man: Map<string, { etag: string }>, links: Link
 let running: Promise<SyncReport> | null = null;
 
 /** One whole sync. Two at once never run: the second waits for the first's answer. */
-export function syncAll(key: string): Promise<SyncReport> {
+export function syncAll(key: string, o: { retryRefused?: boolean } = {}): Promise<SyncReport> {
   if (running) return running;
   running = (async () => {
     await useBuilds.persist.rehydrate();
     const a = api(key);
-    const report: SyncReport = { up: 0, down: 0, updated: 0, both: 0, waiting: [], failed: [] };
+    const report: SyncReport = { up: 0, down: 0, updated: 0, both: 0, waiting: [], failed: [], skipped: [] };
+    if (o.retryRefused) writeRefused({});
     const man = await a.manifest();
     await syncPrefs(a, man);
     const links = readLinks();
@@ -288,6 +333,7 @@ export function reportSays(r: SyncReport): string {
   if (r.both) bits.push(`${r.both} changed in two places, so the account's copy is beside yours`);
   let s = bits.length ? `${bits.join(", ")}.` : "Everything here is already in the account.";
   if (r.waiting.length) s += ` ${r.waiting.join(", ")} has a newer copy in the account: open another site to bring it here.`;
+  for (const k of r.skipped) s += ` The picture ${k.id} in ${k.site} was not saved, and the rest was: ${k.says}`;
   if (r.failed.length) s += ` Could not save ${r.failed.join(", ")}; the next sync tries again.`;
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
