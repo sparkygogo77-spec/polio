@@ -30,7 +30,7 @@ interface Node {
   data?: string;
   media?: { file?: unknown } | null;
   x?: number; y?: number; w?: number; h?: number;
-  from?: { selector?: string } | null;
+  from?: { selector?: string; position?: string } | null;
   art?: Rec | null;
   motion?: { animation?: { name?: string; duration?: string; timing?: string; delay?: string; iterations?: string; direction?: string; fill?: string }[] } & Rec;
   link?: { kind?: string; target?: string } | null;
@@ -172,6 +172,8 @@ function fromBehaviours<N extends Node>(nodes: readonly N[], behaviours: unknown
     if (!sel) return [];
     return out.filter((o) => o.pageId === n.pageId && o.id !== n.id && !!o.from?.selector && (o.from.selector.startsWith(`${sel} > `) || o.from.selector.startsWith(`${sel}::`)));
   };
+  /** A part the capture recorded fixed, or one inside such a part: it stays put as the window scrolls. */
+  const inFixedBand = (n: Node): boolean => n.from?.position === "fixed" || out.some((o) => o.from?.position === "fixed" && o.pageId === n.pageId && inside(o).includes(n));
   const own = new Set<string>();
   /** A reveal on a part and, the same way, on every part inside it that has none of its own. */
   const reveal = (id: unknown, inputs: Record<string, string>) => {
@@ -534,8 +536,18 @@ function fromBehaviours<N extends Node>(nodes: readonly N[], behaviours: unknown
       if (!ref) continue;
       const id = `n_frames_${++fk}`;
       if (byId.has(id)) continue;
-      const [x, y, w, h] = box as [number, number, number, number];
+      const [x, filmedY, w, h] = box as [number, number, number, number];
       if (!(w > 0 && h > 0)) continue;
+      /*
+       * A PART IN A FIXED BAND IS FILMED WHERE THE WINDOW HAD SCROLLED TO. The
+       * capture writes a film's box at its page y, the window's top plus the
+       * scroll, and a fixed part does not scroll: thesolface's header button,
+       * at 31, came out filmed at 924, and the header was grown to 954 tall to
+       * hold it. Scrolling moves nothing in a fixed band, so its film is laid
+       * at its part's own height; across, where it was filmed
+       * (`tests/fixed-frames.mjs`).
+       */
+      const y = host && typeof host.y === "number" && typeof host.h === "number" && inFixedBand(host) ? Math.round(host.y + (host.h - h) / 2) : filmedY;
       const kin = host ? inside(host) : [];
       const after = [host, ...kin].filter((n): n is N => !!n).reduce((best, n) => Math.max(best, out.indexOf(n as N)), -1);
       const what = Array.isArray(f.what) && f.what.length ? ` (${(f.what as unknown[]).map(String).join(", ")} changing)` : "";
