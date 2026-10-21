@@ -266,9 +266,23 @@ export function partList(all: readonly ListPart[], opts: { siteName?: string; fe
     else orphans.push(row);
   }
 
+  /*
+   * A MOVING PICTURE (`::frames`, laid by `captured.ts` over the part it was
+   * filmed on) is a row of its own, by the name it was laid with, straight
+   * under its part's row and one step in, never folded into a control's
+   * label. Read as its element, thesolface's hero film was a row called
+   * "Section" at the top level, and J could not find the blur it laid over
+   * the board (tests/films-listed.mjs).
+   */
+  const isFilm = (n: ListPart) => /::frames$/.test((n.from?.selector ?? "").trim());
+  const filmsOf = new Map<string, ListPart[]>();
+  for (const n of base) if (isFilm(n)) { const host = tree.parent.get(n.id) ?? ""; filmsOf.set(host, [...(filmsOf.get(host) ?? []), n]); }
+  const filmRow = (n: ListPart, depth: 0 | 1): ListRow => ({ id: n.id, ids: [n.id], kind: "Moving picture", name: clip(n.label?.trim() || "Moving picture"), where: depth ? null : whereOf(n, ""), depth, after: false, control: null });
+
   const out: ListRow[] = [];
   const seenBase = new Map<string, ListRow>();
   for (const n of base) {
+    if (isFilm(n)) continue;
     const row = make(n, false, null);
     if (row) {
       /* Two parts drawing the same thing in the same place (a capture's twin) are one row. */
@@ -287,7 +301,11 @@ export function partList(all: readonly ListPart[], opts: { siteName?: string; fe
       out.push(...shown);
       under.delete(n.id);
     }
+    for (const f of filmsOf.get(n.id) ?? []) out.push(filmRow(f, row ? 1 : 0));
+    filmsOf.delete(n.id);
   }
+  /* A film whose part is not on this page's base: at the foot, by its name. */
+  for (const fs of filmsOf.values()) for (const f of fs) out.push(filmRow(f, 0));
   /* States whose control is not on this page's base, or not found: at the foot, still once each. */
   for (const rows of under.values()) out.push(...rows);
   out.push(...orphans);
@@ -357,10 +375,12 @@ export interface ComponentRow extends ListRow {
 export function foldComponentRows(rows: readonly ListRow[], comps: readonly ListComponent[]): ComponentRow[] {
   const owner = new Map<string, ListComponent>();
   for (const c of comps) for (const id of c.parts) if (!owner.has(id)) owner.set(id, c);
+  /* A film laid on a component is not one of its layers: it keeps its own row, and the component's row does not pick it (tests/films-listed.mjs). */
+  const films = new Set(rows.filter((r) => r.kind === "Moving picture").flatMap((r) => r.ids));
   const made = new Map<string, ComponentRow>();
   const out: ComponentRow[] = [];
   for (const r of rows) {
-    const c = owner.get(r.id);
+    const c = films.has(r.id) ? undefined : owner.get(r.id);
     if (!c) { out.push(r); continue; }
     const had = made.get(c.id);
     if (had) {
@@ -370,7 +390,7 @@ export function foldComponentRows(rows: readonly ListRow[], comps: readonly List
     /* Its words as the list said them, else the ones the component was named by. */
     const said = r.name.includes(": ") ? r.name.slice(r.name.indexOf(": ") + 2) : "";
     const named = /“(.+)”/.exec(c.name)?.[1] ?? c.hookName ?? "";
-    const row: ComponentRow = { ...r, id: c.id, ids: [...new Set([c.id, ...c.parts, ...r.ids])], kind: c.kindWord, name: rowName(c.kindWord, said || named), component: c.id };
+    const row: ComponentRow = { ...r, id: c.id, ids: [...new Set([c.id, ...c.parts, ...r.ids])].filter((id) => !films.has(id)), kind: c.kindWord, name: rowName(c.kindWord, said || named), component: c.id };
     made.set(c.id, row);
     out.push(row);
   }
