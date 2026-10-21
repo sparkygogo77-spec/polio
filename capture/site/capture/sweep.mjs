@@ -31,3 +31,33 @@ export async function SWEEP(stepMs) {
 
 /** The page scrolled through once (see above); false when it could not be. */
 export const scrollThrough = (page, stepMs = STEP_MS) => page.evaluate(SWEEP, stepMs).then(() => true, () => false);
+
+/**
+ * EVERY PICTURE LOADED AND THE PAGE'S HEIGHT STILL, BEFORE IT IS READ.
+ *
+ * A lazy picture (`loading="lazy"`) that the sweep brought near the window may
+ * not have finished by the time the page is read, and a cached one finishes
+ * between two forced layouts, so a read of thesolface.site's #community saw
+ * the section at y 9106 and its three children at 9011: the page grew under
+ * the walk (95 px; 10268 -> 10382 in all). Every picture is made eager, waited
+ * for (up to `ms`) and decoded, then the page's height has to hold for three
+ * looks 100 ms apart.
+ */
+export async function SETTLE_IMAGES(ms) {
+  const imgs = Array.from(document.images);
+  for (const i of imgs) if (i.loading === "lazy") i.loading = "eager";
+  const loaded = Promise.all(imgs.map((i) => (i.complete ? null : new Promise((r) => { i.addEventListener("load", r, { once: true }); i.addEventListener("error", r, { once: true }); }))));
+  await Promise.race([loaded, new Promise((r) => setTimeout(r, ms))]);
+  await Promise.race([Promise.all(imgs.map((i) => (i.decode ? i.decode().catch(() => {}) : null))), new Promise((r) => setTimeout(r, 2000))]);
+  let last = -1, same = 0;
+  for (let k = 0; k < 30 && same < 3; k++) {
+    const h = document.documentElement.scrollHeight;
+    same = h === last ? same + 1 : 0;
+    last = h;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return last;
+}
+
+/** The pictures loaded and the height still (see above); the page's height, or false when it could not be done. */
+export const settleImages = (page, ms = 8000) => page.evaluate(SETTLE_IMAGES, ms).catch(() => false);

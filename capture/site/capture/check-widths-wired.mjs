@@ -11,7 +11,7 @@
  *   (1) the plan names a widths step after the page captures, on this run's
  *       routes file, with the gate hidden when the run hides it;
  *   (2) `widths: false` (`--no-widths`) leaves it out;
- *   (3) a run against a stand-in site leaves widths/page_home.834.json and
+ *   (3) a Look-only run (no presses) against a stand-in site leaves widths/page_home.834.json and
  *       .390.json, and the document it converts carries `layouts` for both.
  *
  *   node capture/site/capture/check-widths-wired.mjs
@@ -54,6 +54,10 @@ server.kill();
 const widthsDir = join(q.captureDir, "widths");
 check("(3) the run succeeded", failed === 0, `failed ${failed}`);
 check("(3) widths/page_home.834.json and .390.json written", existsSync(join(widthsDir, "page_home.834.json")) && existsSync(join(widthsDir, "page_home.390.json")));
+/* The run above presses nothing (states: false: Look only): the widths are matched to the desktop parts by their paths, so those must be written without the presses pass. */
+const readW = (w) => { try { return JSON.parse(readFileSync(join(widthsDir, `page_home.${w}.json`), "utf8")); } catch { return null; } };
+const w390 = readW(390), w834 = readW(834);
+check("(3) a Look-only run still places parts at 834 and 390 (paths written without --states)", !!w390 && !!w834 && Object.keys(w390.parts).length >= 3 && Object.keys(w834.parts).length >= 3, JSON.stringify({ at390: w390 && Object.keys(w390.parts).length, at834: w834 && Object.keys(w834.parts).length }));
 const docFile = join(q.outDir, "site", "document.json");
 const doc = existsSync(docFile) ? JSON.parse(readFileSync(docFile, "utf8")) : {};
 check("(3) the document carries layouts at 834 and 390", !!doc.layouts && JSON.stringify(doc.capturedWidths ?? []).includes("834") && JSON.stringify(doc.capturedWidths ?? []).includes("390"), JSON.stringify(doc.capturedWidths));
