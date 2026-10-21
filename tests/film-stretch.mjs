@@ -41,6 +41,18 @@ const film = (picW, picH, w, h, kind = "pointer") => renderToStaticMarkup(React.
   picture: { pic: { id: "pic_f", path: "assets/pictures/pic_f.svg", type: "image/svg+xml", w: picW, h: picH, bytes: 0, alt: "", from: "upload", seeThrough: true, moving: { kind } }, src: "data:image/svg+xml,%3Csvg%2F%3E" },
 }));
 const plays = (html) => /data-moving-frames=/.test(html);
+const { filmPic } = await jiti.import(join(parts$, "primitives.tsx"));
+/** A film part as J's board holds it, drawn as `blocks.tsx` draws it: its picture through `filmPic`. */
+const onBoard = (n) => renderToStaticMarkup(React.createElement(Picture, {
+  id: "picture", label: n.label, content: "", options: {}, w: n.w, h: n.h, mode: "board", theme: t,
+  picture: { pic: filmPic(n), src: "data:image/svg+xml,%3Csvg%2F%3E" },
+}));
+const jFilm = (id, selector, w, h, fw, fh, kind, position) => ({ id, label: `Moving picture ${id}`, w, h, from: { selector, ...(position ? { position } : {}) }, picture: { id: `pic_${id}`, path: `assets/pictures/pic_${id}.svg`, type: "image/svg+xml", w: fw, h: fh, bytes: 0, alt: "", from: "upload", seeThrough: true, moving: { kind } } });
+/* J's three, as his board holds them (2026-10-21): the hero, the ticker, and the cursor glow. */
+check("J's n_frames_11, the hero (512×320 over 1440×991), is held back", !plays(onBoard(jFilm("n_frames_11", "body > main > section:nth-of-type(1)::frames", 1440, 991, 512, 320, "pointer"))));
+check("J's n_frames_5, the ticker (512×59 over 1917×124), is held back", !plays(onBoard(jFilm("n_frames_5", "body > main > div > div::frames", 1917, 124, 512, 59, "live"))));
+check("J's n_frames_8, the cursor glow (353×341 over 450×450, only 1.32×), is held back: its part is pinned to the window and draws the glow itself", !plays(onBoard(jFilm("n_frames_8", "body > div:nth-of-type(3)::frames", 450, 450, 353, 341, "live", "fixed"))));
+check("control: the SOL VISION button's film, in the fixed header but not itself pinned, plays", plays(onBoard(jFilm("n_frames_1", "body > header > div > div > button::frames", 98, 44, 98, 44, "live"))));
 
 check("the hero's film, 512×320 frames over a 1440×991 part (2.8×), draws nothing", !plays(film(512, 320, 1440, 991)));
 check("…and leaves no picture of its own over the part", !/<img/.test(film(512, 320, 1440, 991)));
