@@ -79,10 +79,14 @@ function READ({ paths }) {
     if (cs.display === "none" || cs.visibility === "hidden" || Number(cs.opacity) < 0.02) return null;
     if (el.checkVisibility && !el.checkVisibility({ visibilityProperty: true, opacityProperty: false })) return null;
     const r = el.getBoundingClientRect();
-    let x0 = r.left, y0 = r.top + scrollY, x1 = r.right, y1 = r.bottom + scrollY;
+    /* Fixed to the window (itself or what it is in): where the window shows it, with no scroll added; wholly outside the window, not shown (a skip link waiting above it). */
+    let fixed = false;
+    for (let n = el; n && n !== document.documentElement; n = n.parentElement) if (getComputedStyle(n).position === "fixed") { fixed = true; break; }
+    if (fixed && (r.bottom <= 0 || r.top >= innerHeight || r.right <= 0 || r.left >= innerWidth)) return null;
+    const sy = fixed ? 0 : scrollY;
+    let x0 = r.left, y0 = r.top + sy, x1 = r.right, y1 = r.bottom + sy;
     for (let n = el.parentElement; n && n !== document.documentElement; n = n.parentElement) {
       const c = getComputedStyle(n);
-      const fixed = getComputedStyle(el).position === "fixed";
       if (/(hidden|clip|auto|scroll)/.test(`${c.overflowX} ${c.overflowY}`) && n !== document.body) {
         const q = n.getBoundingClientRect(), qy = fixed ? q.top : q.top + scrollY;
         if (/(hidden|clip|auto|scroll)/.test(c.overflowX)) { x0 = Math.max(x0, q.left); x1 = Math.min(x1, q.right); }
@@ -188,6 +192,13 @@ for (const def of routes.pages) {
     if (flag("--hide-gate")) await page.evaluate(HIDE_GATE).catch(() => {});
     /* Scrolled through once, as the desktop capture was: what reveals itself on the way down has. */
     await scrollThrough(page);
+    /* Back at the top before it is read, at once: a page that scrolls smoothly (thesolface) was still on its way up 500 ms later (scrollY 749), and every box was read that far down. */
+    await page.evaluate(async () => {
+      const root = document.documentElement, was = root.style.scrollBehavior;
+      root.style.scrollBehavior = "auto";
+      for (let i = 0; i < 40 && (scrollY !== 0 || i === 0); i++) { scrollTo({ top: 0, left: 0, behavior: "instant" }); await new Promise((r) => setTimeout(r, 50)); }
+      root.style.scrollBehavior = was;
+    }).catch(() => {});
     await page.waitForTimeout(500);
     const read = await page.evaluate(READ, { paths }).catch((e) => ({ error: String(e.message ?? e) }));
     if (read.error) { console.error(`${def.id} at ${W}: not read (${read.error})`); await context.close(); continue; }
