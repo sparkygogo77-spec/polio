@@ -314,6 +314,8 @@ export interface StudioState extends Doc {
   /** Parts draw in list order, so later is on top: one place along is one step forward or back. */
   raiseNode: (id: string, toTop?: boolean) => void;
   lowerNode: (id: string, toBottom?: boolean) => void;
+  /** Put a part just above (`above`) or just below another in the order the board paints: a layer dragged in the Look panel's layer list. One undo step. */
+  stackNode: (id: string, other: string, above: boolean) => void;
   removeNodes: (ids: string[]) => void;
   duplicateNodes: (ids: string[]) => void;
 
