@@ -437,11 +437,11 @@ export async function scrollMotion(page, { loops = [] } = {}) {
         if (!el.isConnected || !p) { seen[i].gone = true; return; }
         const pw = p.clientWidth, ph = p.clientHeight;
         const top = el.getBoundingClientRect().top;
-        seen[i].push({ top: top / innerHeight, w: pw ? el.offsetWidth / pw * 100 : 0, h: ph ? el.offsetHeight / ph * 100 : 0 });
+        seen[i].push({ y: scrollY, top: top / innerHeight, w: pw ? el.offsetWidth / pw * 100 : 0, h: ph ? el.offsetHeight / ph * 100 : 0 });
       });
     }
     scrollTo(0, 0); await frame();
-    const scrollGrow = [];
+    const scrollGrow = [], scrollProgress = [];
     all.forEach((el, i) => {
       const s = seen[i];
       if (s.gone || !el.isConnected) return;
@@ -457,14 +457,29 @@ export async function scrollMotion(page, { loops = [] } = {}) {
         const n = mid.length, mt = mid.reduce((a, q) => a + q.top, 0) / n, mv = mid.reduce((a, q) => a + q[prop], 0) / n;
         let num = 0, den = 0; for (const q of mid) { num += (q.top - mt) * (q[prop] - mv); den += (q.top - mt) ** 2; }
         const slope = num / den;
-        if (!Number.isFinite(slope) || !slope) continue;
         const r3 = (v) => Math.round(v * 1000) / 1000;
+        /*
+         * A FIXED BAR (a scroll-progress line: its track stays put, its fill
+         * widens): its own top never moves, so there is no slope against the
+         * top. It is fitted against the scroll itself, as the scrollY it starts
+         * growing at and the scrollY it is whole at (`scrollProgress`).
+         */
+        if (Math.max(...s.map((q) => q.top)) - Math.min(...s.map((q) => q.top)) < 0.01) {
+          const my = mid.reduce((a, q) => a + q.y, 0) / n;
+          let ny = 0, dy = 0; for (const q of mid) { ny += (q.y - my) * (q[prop] - mv); dy += (q.y - my) ** 2; }
+          const per = ny / dy;
+          if (!Number.isFinite(per) || !per) continue;
+          const p = el.parentElement.getBoundingClientRect();
+          scrollProgress.push({ el: B.idOf(el), prop: prop === "w" ? "width" : "height", from: Math.round(lo * 10) / 10, to: Math.round(hi * 10) / 10, startY: Math.max(0, Math.round(my + (lo - mv) / per)), endY: Math.min(H, Math.round(my + (hi - mv) / per)), holder: [Math.round(p.width), Math.round(p.height)], full: [el.parentElement.clientWidth, el.parentElement.clientHeight] });
+          break;
+        }
+        if (!Number.isFinite(slope) || !slope) continue;
         const p = el.parentElement.getBoundingClientRect();
         scrollGrow.push({ el: B.idOf(el), prop: prop === "w" ? "width" : "height", from: Math.round(lo * 10) / 10, to: Math.round(hi * 10) / 10, start: r3(mt + (lo - mv) / slope), end: r3(mt + (hi - mv) / slope), holder: [Math.round(p.width), Math.round(p.height)], full: [el.parentElement.clientWidth, el.parentElement.clientHeight] });
         (window.__sinkScrollGrow ??= []).push({ el, prop: prop === "w" ? "width" : "height" });
         break;
       }
     });
-    return { scrollSpeed, scrollGrow };
+    return { scrollSpeed, scrollGrow, scrollProgress };
   }, { loops });
 }

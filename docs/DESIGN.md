@@ -593,6 +593,18 @@ guess at:
     is always on the piece. `tests/light-placer.mjs` grabs the sun by its
     label for this reason, and the scratchpad suites press every piece
     through one helper that does the same.
+11. **A captured film only records pixels its own element paints (J, 2026-10-21:
+    "an image plastered over the screen").** The capture filmed the whole hero
+    section, the cursor glow and the ticker as pictures (frames 512 px on a
+    side drawn at 1440), so a blurry copy of the page lay over the crisp real
+    parts. Now `frames-drive.mjs` leaves a film out for: an element over 40% of
+    the window, a landmark (section, header, nav...) holding parts of its own,
+    anything blended with or blurring what is behind it (`mix-blend-mode`,
+    `backdrop-filter`: a pointer glow is a paint, not a screenshot), anything
+    with a looping transform move inside it (a marquee: its parts carry the
+    motion), and anything a fixed part with parts of its own lies over. What is
+    kept is cut at about its own size. `capture/site/capture/check-film-own-pixels.mjs`
+    holds this to it.
 
 ## 5. Training an agent on this — what actually works
 

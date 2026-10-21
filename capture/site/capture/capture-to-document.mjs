@@ -538,6 +538,7 @@ function fontOf(el, featureId, exact = false) {
    * on a 68px line, its words 7px low. One line of its own words (`tb`, one
    * line tall) gives the face's normal line as it was drawn.
    */
+  else if (el.nlh > 0 && el.fs > 0) f.leading = round2(el.nlh / el.fs);
   else if (el.fs > 0 && el.tb && el.tb[3] > 0 && el.tb[3] < el.fs * 1.9) f.leading = round2(el.tb[3] / el.fs);
   return f;
 }
@@ -2358,6 +2359,9 @@ for (const g of generics) note("(faces)", g, "nowhere", `a generic keyword: the 
     /* Its own size where the sentence's is not it (a <small>, a <sup>): in px, as the chip below keeps its. */
     if (k.font?.px && p.font?.px && k.font.px !== p.font.px) s.size = k.font.px;
     if (k.link) s.link = k.link;
+    /* Words with no ink of their own: outlined (-webkit-text-stroke) or a gradient clipped to them (background-clip: text). Their colour stays the transparent ink the page set. */
+    if (k.art?.textStroke) s.textStroke = k.art.textStroke;
+    if (k.art?.backgroundClip === "text" && k.art.background) s.fill = { image: k.art.background, clip: "text" };
     /* A chip in the sentence (parasiteonsol.fun's dark "HOST" tag) keeps its fill, padding and rounding: white words on nothing were gone (check-chips.mjs). */
     if (k.colour?.bg && k.colour.bg !== p.colour?.bg) {
       s.bg = k.colour.bg;
@@ -2694,12 +2698,14 @@ const behavioursSection = (() => {
     /* Motion sampled as drawn (motion-drive.mjs): spins, floats, hovers, the scroll's own, canvases repainted. */
     if (b.motion) {
       const m = (out.motion ??= { spin: [], float: [], hover: [], scrollSpeed: [], scrollGrow: [], canvases: [] });
+      /* Only a page with a fixed progress bar has the key, so every other document is as it was. */
       const on = (list, what, extra = () => ({})) => (list ?? []).map((x) => { const { el, ...r } = x; return { ...place(el, `motion.${what}`), ...r, ...extra(x) }; });
       m.spin.push(...on(b.motion.spin, "spin"));
       m.float.push(...on(b.motion.float, "float"));
       m.hover.push(...on(b.motion.hover, "hover", (h) => { const p = at(h.host); return { host: p.part ?? null }; }));
       m.scrollSpeed.push(...on(b.motion.scrollSpeed, "scrollSpeed"));
       m.scrollGrow.push(...on(b.motion.scrollGrow, "scrollGrow"));
+      if (b.motion.scrollProgress?.length) (m.scrollProgress ??= []).push(...on(b.motion.scrollProgress, "scrollProgress"));
       /* A canvas is no part: its box, and the parts painted either side of it, where polio puts a layer of its own. */
       for (const c of b.motion.canvases ?? []) {
         const { el, host, below, above, ...r } = c;

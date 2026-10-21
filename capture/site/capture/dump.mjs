@@ -783,14 +783,38 @@ export const DUMP = ({ sheets = [], paths = false } = {}) => {
     if (!inSvg) { const a = pseudoOf(el, "::after", kidCtx.cb, acc); if (a) kids.push(a); }
     const leaf = !Array.from(el.children).length;
     /* Where its own words are, when it also holds elements: the box round its own text, which a button sets its words in. */
-    if (text && !leaf) {
-      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    /* The same for a leaf (its words are its only content: no `tb` is kept for it): the pitch of its lines at `line-height: normal`. */
+    if (text && leaf && getComputedStyle(el).lineHeight === "normal") {
+      const tops = [], hs = [];
       for (const n of Array.from(el.childNodes)) {
         if (n.nodeType !== 3 || !n.textContent.trim()) continue;
         const rg = document.createRange(); rg.selectNodeContents(n);
-        for (const q of Array.from(rg.getClientRects())) if (q.width && q.height) { x0 = Math.min(x0, q.left); y0 = Math.min(y0, q.top); x1 = Math.max(x1, q.right); y1 = Math.max(y1, q.bottom); }
+        for (const q of Array.from(rg.getClientRects())) if (q.width && q.height) { tops.push(Math.round(q.top * 100) / 100); hs.push(q.height); }
+      }
+      const rows = [...new Set(tops)].sort((p, q) => p - q);
+      const gaps = rows.slice(1).map((v, i) => v - rows[i]).filter((g) => g > 1).sort((p, q) => p - q);
+      const pitch = gaps.length ? gaps[Math.floor(gaps.length / 2)] : hs.length ? Math.max(...hs) : 0;
+      if (pitch > 0) e.nlh = Math.round(pitch * 100) / 100;
+    }
+    if (text && !leaf) {
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      const lineTops = [];
+      for (const n of Array.from(el.childNodes)) {
+        if (n.nodeType !== 3 || !n.textContent.trim()) continue;
+        const rg = document.createRange(); rg.selectNodeContents(n);
+        for (const q of Array.from(rg.getClientRects())) if (q.width && q.height) { x0 = Math.min(x0, q.left); y0 = Math.min(y0, q.top); x1 = Math.max(x1, q.right); y1 = Math.max(y1, q.bottom); lineTops.push(q.top); }
       }
       if (x1 > x0) { const b = edges(x0 + scrollX, y0 + scrollY, x1 - x0, y1 - y0); e.tb = [b.x, b.y, b.w, b.h]; }
+      /*
+       * A LINE SET AT `line-height: normal` has no number to read: its real line height is the pitch of the
+       * lines the browser drew (the distance between two lines of its own words), else the height of its one line.
+       */
+      if (x1 > x0 && getComputedStyle(el).lineHeight === "normal") {
+        const tops = [...new Set(lineTops.map((v) => Math.round(v * 100) / 100))].sort((a, b) => a - b);
+        const gaps = tops.slice(1).map((v, i) => v - tops[i]).filter((g) => g > 1).sort((a, b) => a - b);
+        const pitch = gaps.length ? gaps[Math.floor(gaps.length / 2)] : y1 - y0;
+        if (pitch > 0) e.nlh = Math.round(pitch * 100) / 100;
+      }
       /*
        * EACH RUN OF ITS OWN WORDS, WHERE IT IS. "Match: <code>…</code> Round:
        * <b>0</b>" and a nav's "Play | Leaderboard | …" bars are words between

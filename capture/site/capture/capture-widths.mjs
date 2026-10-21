@@ -45,6 +45,7 @@ import { dirname, join, resolve } from "node:path";
 import { HIDE_GATE, WRITES, ACCOUNT } from "./held.mjs";
 import { SPENDS } from "./worlds.mjs";
 import { guardWrites } from "./network.mjs";
+import { scrollThrough } from "./sweep.mjs";
 
 const req = createRequire(import.meta.url);
 const { chromium } = (() => {
@@ -186,7 +187,7 @@ for (const def of routes.pages) {
     }
     if (flag("--hide-gate")) await page.evaluate(HIDE_GATE).catch(() => {});
     /* Scrolled through once, as the desktop capture was: what reveals itself on the way down has. */
-    await page.evaluate(async () => { const h = document.documentElement.scrollHeight; for (let y = 0; y < h; y += Math.max(100, innerHeight / 6)) { scrollTo(0, y); await new Promise((r) => setTimeout(r, 40)); } scrollTo(0, 0); }).catch(() => {});
+    await scrollThrough(page);
     await page.waitForTimeout(500);
     const read = await page.evaluate(READ, { paths }).catch((e) => ({ error: String(e.message ?? e) }));
     if (read.error) { console.error(`${def.id} at ${W}: not read (${read.error})`); await context.close(); continue; }
