@@ -841,7 +841,8 @@ await restPointer(page);
 /* The presses held back (held.mjs): a form's own button, words that spend, sign, connect or write. Marked for the dump. */
 const heldHere = await scanHeld(page);
 if (heldHere.length) console.error(`held: ${heldHere.length} controls not pressed (${[...new Set(heldHere.map((h) => h.held))].map((w) => `${heldHere.filter((h) => h.held === w).length} ${w}`).join(", ")})`);
-const cap = await page.evaluate(DUMP, { sheets, paths: withStates });
+/* Every part's path is written when the presses pass runs, and when `--paths` asks for it (capture-widths.mjs matches the tablet and the phone to the desktop parts by path, in a Look-only run too). */
+const cap = await page.evaluate(DUMP, { sheets, paths: withStates || flag("--paths") });
 lap("dump");
 if (built) cap.built = built;
 /*

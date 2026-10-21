@@ -258,6 +258,8 @@ export function plan({ url, name, pages, root, viewport = [1440, 900], wallet = 
       ...(states && !heldStill(p) ? ["--states"] : []),
       /* Every data request the page makes on its own, as an API map with samples (network.mjs), unless `--no-network`. */
       ...(network ? ["--network"] : []),
+      /* The widths step matches the tablet and the phone to the parts by path, which a run without presses would not otherwise write. */
+      ...(widths ? ["--paths"] : []),
       /* The run's deadline (`--budget`): past it each page leaves out what only adds, and is still written. */
       ...(deadline ? ["--deadline", String(deadline)] : []),
     ],
