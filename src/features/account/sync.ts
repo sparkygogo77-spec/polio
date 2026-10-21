@@ -61,11 +61,19 @@ export class AccountError extends Error {
   constructor(message: string, status: number, code: string | null = null) { super(message); this.status = status; this.code = code; }
 }
 
+/** What the server said went wrong, and what to do; when it said nothing (a crash page), what the status means. */
+export function reasonOf(b: { says?: string; todo?: string } | null | undefined, status: number): string {
+  if (b?.says) return b.todo ? `${b.says} ${b.todo}` : b.says;
+  if (status >= 500) return "The server had a problem and did not say why. Try again in a moment.";
+  if (status === 404) return "The server has no such place. This page may be newer or older than the server.";
+  return `The server refused this (${status}). Try again in a moment.`;
+}
+
 export function api(key: string) {
   const auth = { authorization: `Bearer ${key}` };
   const fail = async (res: Response) => {
-    const b = (await res.json().catch(() => ({}))) as { says?: string; code?: string };
-    return new AccountError(b.says ?? `The server answered ${res.status}.`, res.status, b.code ?? null);
+    const b = (await res.json().catch(() => ({}))) as { says?: string; todo?: string; code?: string };
+    return new AccountError(reasonOf(b, res.status), res.status, b.code ?? null);
   };
   return {
     async manifest(): Promise<Map<string, { etag: string; size: number }>> {

@@ -17,13 +17,9 @@
  */
 import { createHash } from "node:crypto";
 import type { Backend, Got, Item } from "./core";
+import { Explained } from "./explain.ts";
 
 const API = "https://api.github.com";
-
-export class GithubStoreError extends Error {
-  status: number;
-  constructor(message: string, status: number) { super(message); this.status = status; }
-}
 
 /** The repository the account is kept in, for this login. */
 export function savesRepo(env: Record<string, string | undefined>, login: string): string {
@@ -60,9 +56,12 @@ export function githubBackend(o: { token: string; repo: string; fetch?: typeof f
   const call = (url: string, init: RequestInit = {}, accept?: string) =>
     f(url, { ...init, cache: "no-store", headers: { ...headers(accept), ...(init.body ? { "content-type": "application/json" } : {}) } } as RequestInit);
   const fail = async (res: Response, doing: string) => {
-    if (res.status === 401) return new GithubStoreError("GitHub does not know this key: it is expired, revoked or pasted wrong. Put a fresh one in Keys.", 401);
-    if (res.status === 403 || res.status === 404) return new GithubStoreError(`Your GitHub key cannot ${doing} ${o.repo}. Give it Contents: Read and write on that repository (and Administration: Read and write, so it can make it the first time).`, 403);
-    return new GithubStoreError(`GitHub answered ${res.status} when asked to ${doing} ${o.repo}.`, 502);
+    const limited = res.status === 429 || (res.status === 403 && (res.headers.get("x-ratelimit-remaining") === "0" || res.headers.has("retry-after")));
+    if (limited) return new Explained({ status: 429, code: "github-rate-limit", says: "GitHub says this key has made too many requests for now.", todo: "Wait a few minutes and save again." });
+    if (res.status === 401) return new Explained({ status: 401, code: "github-key", says: "GitHub does not know this key: it is expired, revoked or pasted wrong.", todo: "Put a fresh GitHub key in Keys." });
+    if (res.status === 403 || res.status === 404) return new Explained({ status: 403, code: "github-permission", says: `Your GitHub key cannot ${doing} ${o.repo}.`, todo: "Give the key Contents: Read and write on that repository (and Administration: Read and write, so it can make it the first time)." });
+    if (res.status === 413 || res.status === 422) return new Explained({ status: 413, code: "github-too-big", says: `GitHub would not take this item for ${o.repo}.`, todo: "Pictures and videos over 25 MB cannot be kept there." });
+    return new Explained({ status: 502, code: "github-down", says: `GitHub could not ${doing} ${o.repo} just now (it answered ${res.status}).`, todo: "Try again in a moment." });
   };
 
   /* The branch, found once per request; the repository is made the first time it is missing. */
