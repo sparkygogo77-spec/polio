@@ -4,12 +4,10 @@
  * The Element tab listed a page's parts flat and in the order they were
  * made, so on trumpmorty.fun the second section ("THE LORE") came last. A
  * person reads a page top to bottom and a section as the things inside it,
- * so the list is a tree: each part under the part that holds it, and each
- * level in the order the page's own code has it (J, 2026-10-21: "in order
- * by order of what contains what"). A captured page is read in document
- * order, so a captured part's place in the list is its place in the page;
- * a part placed by hand has none and goes in by where it sits, top to
- * bottom, then left to right.
+ * so the list is a tree: each part under the part that holds it, exactly
+ * as the page holds it, starting from the outermost container (J,
+ * 2026-10-21), and each level sorted by where it sits, top to bottom, then
+ * left to right.
  *
  * What holds what is read the way the rest of the Builder reads it
  * (`owner.ts`): the page path the capture recorded, else the box. A part
@@ -58,26 +56,6 @@ const byPlace = (all: Map<string, TreePart>) => (a: string, b: string) => {
   return p.y - q.y || p.x - q.x || area(q) - area(p);
 };
 
-/**
- * One level in page order: the captured parts as the capture met them (the
- * document's order, which a sticky header or a grid reordered by CSS does not
- * change), and the hand-placed ones merged in by place.
- */
-function inPageOrder(ids: string[], all: Map<string, TreePart>, at: Map<string, number>): string[] {
-  const place = byPlace(all);
-  const caught = ids.filter((id) => pathOf(all.get(id)!)).sort((a, b) => at.get(a)! - at.get(b)!);
-  const placed = ids.filter((id) => !pathOf(all.get(id)!)).sort(place);
-  if (!placed.length) return caught;
-  if (!caught.length) return placed;
-  const out: string[] = [];
-  let i = 0, j = 0;
-  while (i < caught.length || j < placed.length) {
-    if (j >= placed.length || (i < caught.length && place(caught[i]!, placed[j]!) <= 0)) out.push(caught[i++]!);
-    else out.push(placed[j++]!);
-  }
-  return out;
-}
-
 export function partTree(nodes: readonly TreePart[]): PartTree {
   const all = new Map(nodes.map((n) => [n.id, n]));
   const bySel = new Map<string, string>();
@@ -119,9 +97,10 @@ export function partTree(nodes: readonly TreePart[]): PartTree {
     if (p) kids.set(p, [...(kids.get(p) ?? []), n.id]);
     else roots.push(n.id);
   }
-  const at = new Map(nodes.map((n, i) => [n.id, i]));
-  for (const [id, list] of kids) kids.set(id, inPageOrder(list, all, at));
-  return { roots: inPageOrder(roots, all, at), kids, parent };
+  const order = byPlace(all);
+  roots.sort(order);
+  for (const list of kids.values()) list.sort(order);
+  return { roots, kids, parent };
 }
 
 /** The part's holders, outermost first, not including itself. */
