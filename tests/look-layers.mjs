@@ -58,11 +58,14 @@ const nodes = [
   part("bodyFilm", "picture", "body::frames", 32, 1880, 656, 112, { position: "absolute", picture: pic(512, 87, "once"), label: "Moving picture of the page" }),
 ];
 
+/* A copy of a layer that only a press shows (`state`) is not drawn as the page opens: it is not a layer (J's board read Fade 2 and Picture 2 from them). */
+nodes.push({ ...nodes[0], id: "artPressed", state: { group: "page_home:g0", option: 0 } }, { ...nodes[1], id: "fadePressed", state: { group: "page_home:g0", option: 0 } });
 const hero = layersOf(nodes, "hero");
 const names = (ls) => ls.map((l) => l.name).join(" | ");
 check("the hero's stack, bottom to top: Fill, Picture, Fade, Lines, Glow, Moving picture", names(hero) === "Fill | Picture | Fade | Lines | Glow | Moving picture", names(hero));
 check("…each layer the part that draws it", hero.map((l) => l.id).join(",") === "hero,art,fade,grid,glows,heroFilm", hero.map((l) => l.id).join(","));
 check("not the frog picture or the VISION badge inside the hero's content, nor the strip holding words", !hero.some((l) => ["frog", "badge", "strip", "wrap"].includes(l.id)));
+check("nor a copy that only a press shows", !hero.some((l) => ["artPressed", "fadePressed"].includes(l.id)), hero.map((l) => l.id).join(","));
 check("the fill stays at the foot: it is not one that moves", hero[0].fixed === true && hero.slice(1).every((l) => !l.fixed));
 check("every eye is open, except the film the stretch guard holds back (2.81×)", hero.filter((l) => !l.on).map((l) => l.id).join(",") === "heroFilm", JSON.stringify(hero.map((l) => [l.id, l.on])));
 check("…and that one says why", /blur|stretch/i.test(hero.find((l) => l.id === "heroFilm").why ?? ""), hero.find((l) => l.id === "heroFilm").why);

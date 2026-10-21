@@ -29,6 +29,8 @@ export interface LayerPart {
   w: number;
   h: number;
   hidden?: boolean;
+  /** A copy only a press shows (`state`): not drawn as the page opens. */
+  state?: unknown;
   colour?: { bg?: string | null } | Record<string, unknown> | null;
   art?: { background?: string; mask?: string } & Record<string, unknown> | null;
   picture?: { w?: number; h?: number; moving?: { kind: string } | null } | null;
@@ -124,7 +126,8 @@ function numbered(layers: Layer[]): Layer[] {
 export function layersOf(all: readonly LayerPart[], holder: string | null, pageId?: string): Layer[] {
   const owner = holder ? all.find((n) => n.id === holder) ?? null : null;
   const page = owner?.pageId ?? pageId;
-  const nodes = all.filter((n) => !page || n.pageId === page);
+  /* The page as it opens: a copy a press shows is drawn only after the press, and is no layer of the background (J's board read "Fade 2" and "Picture 2" from them). */
+  const nodes = all.filter((n) => (!page || n.pageId === page) && !n.state);
   const subtreeHasWords = (n: LayerPart) => !!wordsOf(n) || nodes.some((m) => inside(pathOf(n), pathOf(m)) && !!wordsOf(m));
   const outOfFlow = (n: LayerPart) => n.from?.position === "absolute" || n.from?.position === "fixed";
 

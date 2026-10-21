@@ -18,7 +18,6 @@ import { Eye, EyeOff, Film, GripVertical, Image as ImageIcon } from "lucide-reac
 import { useHeldStudio, useStudio } from "../board/store";
 import { BACKGROUND_ID } from "../board/store/model";
 import { pointAt } from "../SiteColours";
-import { partName } from "../partNames";
 import { layersOf, type Layer, type LayerPart } from "./layers";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
@@ -33,7 +32,7 @@ export function LayerList() {
     if (picked) {
       const own = layersOf(parts, picked);
       /* A part with nothing laid behind it has no stack to show: its fill is its Colour. */
-      if (own.length > 1) { const n = nodes.find((m) => m.id === picked); return { layers: own, title: n ? partName(n, nodes) : "This part" }; }
+      if (own.length > 1) return { layers: own, title: "This section" };
       return { layers: [] as Layer[], title: "" };
     }
     return { layers: layersOf(parts, null, pageId), title: "The page" };
