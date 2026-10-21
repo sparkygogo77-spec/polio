@@ -141,13 +141,26 @@ export function Placeholder({ t, label, mode = "board" }: { t: Theme; label?: st
  * happening, or a path relative to the page once published. Undefined means
  * the bytes could not be found.
  */
-export function PictureSlot({ t, pic, src, label, mode = "board" }: {
+/** How far past its frames' own size a film may be stretched before it is held back. */
+export const FILM_STRETCH = 1.5;
+
+export function PictureSlot({ t, pic, src, label, mode = "board", box }: {
   t: Theme;
   pic?: { alt?: string; w?: number; h?: number; pixelated?: boolean; seeThrough?: boolean; depths?: { bands: number; band: number } | null; moving?: { kind: string } | null } | null;
   src?: string;
   label?: string;
   mode?: PartMode;
+  /** The part's own box, where the caller knows it: a film is held back when stretched far past its frames. */
+  box?: { w: number; h: number };
 }) {
+  /*
+   * A FILM IS NEVER STRETCHED FAR PAST THE FRAMES IT WAS FILMED AT. thesolface's
+   * hero was filmed at 512×320 and laid over its 1440×991 part, 2.8 times its
+   * size: a blurry copy of the whole hero over the board, which J could not
+   * find (2026-10-21). Past 1.5 times its frames either way a film draws
+   * nothing, and the part it was filmed over shows through (tests/film-stretch.mjs).
+   */
+  if (pic?.moving && box && pic.w && pic.h && (box.w > pic.w * FILM_STRETCH + 0.5 || box.h > pic.h * FILM_STRETCH + 0.5)) return null;
   if (pic && src && pic.depths && pic.depths.bands > 1) {
     /*
      * A STRIP OF DEPTHS (`Picture.depths`): the picture is `bands` stills one

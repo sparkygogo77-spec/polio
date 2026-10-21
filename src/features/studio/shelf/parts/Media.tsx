@@ -88,7 +88,7 @@ export function Picture({ id, label, theme: t, picture, media, world, mode, w, h
   if (picture?.pic && picture.src && mode === "live" && isWorld(world)) {
     return (
       <Fill t={t} data-part={id} data-part-picture="" data-part-worldhost="" style={{ padding: 0, overflow: "hidden", borderRadius: t.radius, position: "relative" }}>
-        <PictureSlot t={t} pic={picture.pic} src={picture.src} label={label || "Picture"} mode={mode} />
+        <PictureSlot t={t} pic={picture.pic} src={picture.src} label={label || "Picture"} mode={mode} box={{ w, h }} />
         <WorldLayer world={world} part={`${id}-${hash(JSON.stringify(world.chars))}`} w={picture.pic.w ?? w} h={picture.pic.h ?? h} offsite={t.offsite} />
       </Fill>
     );
@@ -98,7 +98,7 @@ export function Picture({ id, label, theme: t, picture, media, world, mode, w, h
     const clear = !!picture.pic.seeThrough;
     return (
       <Fill t={clear ? { ...t, sheen: undefined } : t} data-part={id} data-part-picture="" data-see-through={clear ? "" : undefined} style={{ padding: 0, overflow: "hidden", borderRadius: clear ? 0 : t.radius, ...(clear ? { background: "transparent" } : null) }}>
-        <PictureSlot t={t} pic={picture.pic} src={picture.src} label={label || "Picture"} mode={mode} />
+        <PictureSlot t={t} pic={picture.pic} src={picture.src} label={label || "Picture"} mode={mode} box={{ w, h }} />
       </Fill>
     );
   }
