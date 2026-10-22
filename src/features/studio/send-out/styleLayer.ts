@@ -53,8 +53,8 @@ export interface CssLook {
   fontSize?: number;
   fontWeight?: number;
   fontFamily?: string;
-  /** As a multiple of the size. */
-  lineHeight?: number;
+  /** As a multiple of the size, or `normal`: the reader's own face's line (`font.leadingNormal`). */
+  lineHeight?: number | "normal";
   letterSpacing?: number;
   opacity?: number;
   align?: string;
@@ -205,7 +205,7 @@ export interface LayerNode {
   x: number; y: number; w: number; h: number;
   content?: unknown;
   colour?: Record<string, string | undefined> | null;
-  font?: { size?: number; px?: number; weight?: number; stack?: string; face?: string; family?: string; leading?: number; spacing?: number } | null;
+  font?: { size?: number; px?: number; weight?: number; stack?: string; face?: string; family?: string; leading?: number; leadingNormal?: boolean; spacing?: number } | null;
   pad?: { top?: number; right?: number; bottom?: number; left?: number } | null;
   edge?: { width?: number; style?: string; colour?: string; shadow?: string } | null;
   radius?: number | null;
@@ -491,7 +491,8 @@ export function lookOf(n: LayerNode, palette?: Record<string, string> | null, op
   if (f?.weight) look.fontWeight = f.weight;
   if (fam) look.fontFamily = fam;
   /* As a share of the size: a bigger size at the same leading is the page's own line height, grown with it. */
-  if (f?.leading) look.lineHeight = n2(f.leading);
+  if (f?.leadingNormal) look.lineHeight = "normal";
+  else if (f?.leading) look.lineHeight = n2(f.leading);
   if (typeof f?.spacing === "number" && f.spacing) look.letterSpacing = f.spacing;
   if (typeof n.opacity === "number" && n.opacity < 1) look.opacity = n.opacity;
   if (n.text?.align) look.align = n.text.align;

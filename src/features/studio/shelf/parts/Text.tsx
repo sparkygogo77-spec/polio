@@ -6,7 +6,7 @@
 import * as React from "react";
 import { Fill, useTicker } from "./primitives";
 import { hash, rng, sample, unwritten } from "./sample";
-import { boxStyles, cardStyle, FAMILY, items, titled, tint } from "./theme";
+import { boxStyles, cardStyle, FAMILY, items, lineOf, titled, tint } from "./theme";
 import { num, opt, type PartProps } from "./types";
 import { Runs } from "./Runs";
 import { lines } from "./spans";
@@ -74,7 +74,9 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, w, h }: 
   const pad0 = boxStyles(t).padding;
   const roomY = h - ((typeof pad0 === "number" ? pad0 * 2 : 0) + (t.padY ?? 0));
   const heldToOne = !!t.said?.nowrap || (!t.said?.wrap && paras.length === 1 && (runParas?.length ?? 1) === 1 && h > 0 && roomY < 2 * t.fontPx * t.lineHeight - 1);
-  useKeepLines(wordsRef, quote || heldToOne ? 0 : linesRoom(roomY, t.fontPx * t.lineHeight), `${w}|${content}|${t.fontPx}|${t.lineHeight}|${t.bodyFamily}`);
+  /* A line at `normal` is the reader's face's: its lines are kept by count (`lineOf`). */
+  const pitch = t.fontPx * t.lineHeight;
+  useKeepLines(wordsRef, quote || heldToOne ? 0 : linesRoom(roomY, pitch), `${w}|${content}|${t.fontPx}|${t.lineHeight}|${t.bodyFamily}|${t.lineNormal ? "n" : ""}`, t.lineNormal && pitch > 0 ? Math.max(1, Math.round(roomY / pitch)) : undefined);
 
   if (quote) {
     return (
@@ -219,12 +221,12 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, w, h }: 
           carries runs, so nothing hand-typed goes down this path.
         */}
         {runParas ? runParas.map((line, i) => (
-          <p key={i} style={{ margin: 0, color: i === 0 || t.captured ? t.text : t.muted, fontSize: t.fontPx, lineHeight: t.lineHeight, ...capsOnly(t, nudge) }}>
+          <p key={i} style={{ margin: 0, color: i === 0 || t.captured ? t.text : t.muted, fontSize: t.fontPx, lineHeight: lineOf(t), ...capsOnly(t, nudge) }}>
             <Runs spans={line} t={t} mode={mode} onNavigate={onNavigate} />
           </p>
         )) : null}
         {runParas ? null : paras.map((p, i) => (
-          <p key={i} style={{ margin: 0, color: i === 0 || t.captured ? t.text : t.muted, fontSize: t.fontPx, lineHeight: t.lineHeight, ...capsOnly(t, nudge) }}>
+          <p key={i} style={{ margin: 0, color: i === 0 || t.captured ? t.text : t.muted, fontSize: t.fontPx, lineHeight: lineOf(t), ...capsOnly(t, nudge) }}>
             {dropCap && i === 0 ? (
               <>
                 <span style={{ float: "left", fontFamily: t.headingFamily, fontWeight: 800, fontSize: t.fontPx * 3.2, lineHeight: 0.82, paddingRight: 8, color: t.accent }}>{p.charAt(0)}</span>

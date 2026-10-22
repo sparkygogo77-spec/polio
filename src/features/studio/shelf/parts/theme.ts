@@ -70,6 +70,8 @@ export interface Theme {
   /** Body size in px from the type settings. */
   fontPx: number;
   lineHeight: number;
+  /** The line is drawn at `normal` (`NodeFont.leadingNormal`); `lineHeight` is its measured share, for arithmetic only. */
+  lineNormal?: boolean;
   measurePx: number;
   textAlign: "left" | "center" | "right" | "justify";
   /**
@@ -165,6 +167,8 @@ export interface NodeFont {
   spacing?: number;
   /** Line height, 1..2. */
   leading?: number;
+  /** The page set the line at `line-height: normal`: drawn so, in the reader's own face (`leading` is the line it measured, for arithmetic). */
+  leadingNormal?: boolean;
 }
 
 /**
@@ -216,6 +220,7 @@ export function applyFont(t: Theme, font: NodeFont | null | undefined, opts: { c
     next.letterSpacing = opts.captured && typeof font.px === "number" && font.px > 0 && !font.fluid ? `${Math.round(em * font.px * 1000) / 1000}px` : `${em.toFixed(3)}em`;
   }
   if (typeof font.leading === "number" && Number.isFinite(font.leading)) next.lineHeight = Math.max(leadMin, Math.min(leadMax, font.leading));
+  if (font.leadingNormal === true) next.lineNormal = true;
   return next;
 }
 
@@ -394,6 +399,18 @@ export function boxPicture(picture: { pic: { w?: number; h?: number }; src?: str
   };
 }
 
+/**
+ * THE LINE A PART'S WORDS ARE DRAWN ON. A line the page set at
+ * `line-height: normal` is drawn at `normal`, as a browser does: its height is
+ * the reader's own face's, and differs by machine (the same Archivo Black
+ * draws "100%" at 30px in a 40px line on Windows and 32 on the capture's
+ * Linux). Written as a number, the capture's machine's line was frozen into
+ * every board (tests/leading-normal.mjs).
+ */
+export function lineOf(t: Pick<Theme, "lineHeight" | "lineNormal">): number | "normal" {
+  return t.lineNormal ? "normal" : t.lineHeight;
+}
+
 /** Does this node say anything about its box? Nothing said, nothing wrapped. */
 export function hasBox(n: NodeBox): boolean {
   const art = !!n.art && Object.values(n.art).some((v) => v !== undefined && v !== null && v !== "");
@@ -490,7 +507,7 @@ const INLINE = new Set(["span", "a", "b", "i", "em", "strong", "small", "code", 
  * (The third, a heading's own padding, is `ValueProp`'s to drop.) A part
  * with no `from` is never passed through here: a hand-built part is untouched.
  */
-export function applyCaptured(t: Theme, node: { from?: { selector?: string } | null; h: number; font?: { leading?: number; px?: number } | null; pad?: { top?: number; bottom?: number } | null }): Theme {
+export function applyCaptured(t: Theme, node: { from?: { selector?: string } | null; h: number; font?: { leading?: number; leadingNormal?: boolean; px?: number } | null; pad?: { top?: number; bottom?: number } | null }): Theme {
   const selector = node.from?.selector?.trim();
   if (!selector) return t;
   // No reading measure: the box is the measure. Not `node.w` itself —
@@ -521,7 +538,8 @@ export function applyCaptured(t: Theme, node: { from?: { selector?: string } | n
    * its box's size, and a line-height multiplies the size they are drawn at.
    */
   const drawnPx = typeof node.font?.px === "number" && node.font.px > 0 ? node.font.px : t.fontPx;
-  if (typeof node.font?.leading !== "number" && node.h > 0 && drawnPx > 0) {
+  /* Only where the capture said nothing: a line it read at `normal` is drawn at `normal` (`lineOf`). */
+  if (typeof node.font?.leading !== "number" && !node.font?.leadingNormal && node.h > 0 && drawnPx > 0) {
     const room = node.h - (node.pad?.top ?? 0) - (node.pad?.bottom ?? 0);
     if (room > 0) {
       const lines = Math.max(1, Math.round(room / (drawnPx * 1.25)));

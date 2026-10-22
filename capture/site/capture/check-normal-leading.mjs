@@ -75,6 +75,9 @@ check("(0) the stand-in paragraph is drawn on several lines", drawn.lines >= 4, 
 check("(1) the five-line paragraph at `normal` has font.leading = its line pitch / its size", para && near(para.font?.leading, drawn.pitch / 20, 0.02), J({ leading: para?.font?.leading, font: para?.font, expect: drawn.pitch / 20, found: !!para }));
 check("(2) the one-line label at `normal` has font.leading = its line / its size", label && near(label.font?.leading, drawn.label / 13, 0.06), J({ leading: label?.font?.leading, expect: drawn.label / 13 }));
 check("(3) the explicit line-height 1.1 stays 1.1", head && near(head.font?.leading, 1.1, 0.005), J(head?.font));
+/* (4) And `normal` is said so: a normal line is the reader's own face's, and the number alone froze this machine's into every board (theme.ts#lineOf). */
+check("(4) a line at `normal` is marked font.leadingNormal, the number kept beside it", para?.font?.leadingNormal === true && label?.font?.leadingNormal === true && typeof para?.font?.leading === "number", J({ para: para?.font, label: label?.font }));
+check("…and an explicit number is not", head && head.font?.leadingNormal === undefined, J(head?.font));
 
 let failed = 0;
 for (const r of results) { if (!r.ok) failed++; console.log(`${r.ok ? "  ok  " : " FAIL "} ${r.name}${r.ok ? "" : ` — ${String(r.detail).slice(0, 400)}`}`); }

@@ -628,16 +628,23 @@ export function linesRoom(room: number, pitch: number): number {
   return Math.max(room, Math.max(1, Math.round(room / pitch)) * pitch);
 }
 
-export function useKeepLines(ref: React.RefObject<HTMLElement | null>, room: number, key: string): void {
+/**
+ * `lines`: keep this many lines, counted as drawn, rather than a height. For
+ * words set at `line-height: normal` (`theme.ts#lineOf`), whose line is the
+ * reader's face's and not known before it is drawn: their room in pixels is
+ * the capture machine's line, and against it every tightening failed for
+ * nothing (tests/leading-normal.mjs).
+ */
+export function useKeepLines(ref: React.RefObject<HTMLElement | null>, room: number, key: string, lines?: number): void {
   React.useLayoutEffect(() => {
     const el = ref.current;
     if (!el || !(room > 0) || typeof document === "undefined") return;
     let gone = false;
-    const fit = () => { if (!gone) keepLinesSoon(el, room); };
+    const fit = () => { if (!gone) keepLinesSoon(el, { room, lines }); };
     fit();
     (document as Document & { fonts?: { ready?: Promise<unknown> } }).fonts?.ready?.then(fit);
     return () => { gone = true; keepLines.delete(el); el.style.letterSpacing = ""; };
-  }, [ref, room, key]);
+  }, [ref, room, key, lines]);
 }
 
 /*
@@ -650,10 +657,11 @@ export function useKeepLines(ref: React.RefObject<HTMLElement | null>, room: num
  * layout), then only the blocks still too tall tightened a step at a time,
  * all of them per step, five steps at most.
  */
-const keepLines = new Map<HTMLElement, number>();
+type Keep = { room: number; lines?: number };
+const keepLines = new Map<HTMLElement, Keep>();
 let keepLinesQueued = false;
-function keepLinesSoon(el: HTMLElement, room: number): void {
-  keepLines.set(el, room);
+function keepLinesSoon(el: HTMLElement, keep: Keep): void {
+  keepLines.set(el, keep);
   if (keepLinesQueued) return;
   keepLinesQueued = true;
   queueMicrotask(() => {
@@ -663,15 +671,26 @@ function keepLinesSoon(el: HTMLElement, room: number): void {
     if (asked.length) keepLinesNow(asked);
   });
 }
-function keepLinesNow(asked: [HTMLElement, number][]): void {
+/** The rows an element's words take, as drawn: the distinct tops of their lines. */
+function rowsOf(el: HTMLElement): number {
+  const tops: number[] = [], r = document.createRange(), walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  for (let x = walk.nextNode(); x; x = walk.nextNode()) {
+    if (!(x.textContent ?? "").trim()) continue;
+    r.selectNodeContents(x);
+    for (const q of r.getClientRects()) if (q.width > 0 && !tops.some((t) => Math.abs(t - q.top) < Math.max(2, q.height / 2))) tops.push(q.top);
+  }
+  return tops.length;
+}
+const over = (el: HTMLElement, k: Keep) => (k.lines ? rowsOf(el) > k.lines : el.getBoundingClientRect().height > k.room + 1);
+function keepLinesNow(asked: [HTMLElement, Keep][]): void {
   atFullSize(() => {
     for (const [el] of asked) el.style.letterSpacing = "";
-    let tall = asked.filter(([el, room]) => el.getBoundingClientRect().height > room + 1);
+    let tall = asked.filter(([el, k]) => over(el, k));
     if (!tall.length) return;
     const from = new Map(tall.map(([el]) => { const cs = getComputedStyle(el); return [el, { px: parseFloat(cs.fontSize) || 16, was: parseFloat(cs.letterSpacing) || 0 }]; }));
     for (let s = 1; s <= 5 && tall.length; s++) {
       for (const [el] of tall) { const f = from.get(el)!; el.style.letterSpacing = `${(f.was - s * 0.01 * f.px).toFixed(2)}px`; }
-      tall = tall.filter(([el, room]) => el.getBoundingClientRect().height > room + 1);
+      tall = tall.filter(([el, k]) => over(el, k));
     }
     for (const [el] of tall) el.style.letterSpacing = "";
   });
