@@ -611,6 +611,23 @@ export function useSettleToWords(
  * spacing is the drawing's alone: nothing is stored, and the next draw
  * measures again (a resize, new words, a face that loads late).
  */
+/**
+ * THE ROOM A BOX OF WORDS KEEPS: ITS WHOLE LINES.
+ *
+ * A captured box is as tall as its words' own rectangle on the page, which
+ * can fall short of the lines that hold them: thesolface's "NO CRYSTAL
+ * BALL. / JUST A BETTER PAIR OF GOGGLES." is 32 tall for two lines of 11px
+ * at 1.6 (35.2). Read as the room, two lines were already too tall, every
+ * tightening failed, the spacing was put back, and in J's browser the second
+ * line wrapped to a third: 53 tall, and lore 19px long. The room is the
+ * number of lines the box holds (its height over the line's pitch, rounded),
+ * at full lines, and never less than the box (tests/keep-lines-room.mjs).
+ */
+export function linesRoom(room: number, pitch: number): number {
+  if (!(room > 0) || !(pitch > 0)) return room;
+  return Math.max(room, Math.max(1, Math.round(room / pitch)) * pitch);
+}
+
 export function useKeepLines(ref: React.RefObject<HTMLElement | null>, room: number, key: string): void {
   React.useLayoutEffect(() => {
     const el = ref.current;
