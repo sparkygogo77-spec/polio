@@ -90,7 +90,7 @@ export function EdgeField({ node }: { node: StudioNode }) {
 export function PartMotions({ node }: { node: StudioNode }) {
   const nodes = useSteady(useHeldStudio((s) => s.nodes));
   const crates = useHeldStudio((s) => s.motion);
-  const rows = React.useMemo(() => movingParts(nodes, crates, node.pageId).filter((r) => r.nodeId === node.id), [nodes, crates, node.pageId, node.id]);
+  const rows = React.useMemo(() => movingParts(nodes, crates, node.pageId, node.id), [nodes, crates, node.pageId, node.id]);
   const [note, setNote] = React.useState<{ key: string; says: string } | null>(null);
   if (!rows.length) {
     return <p className="text-small leading-snug text-fg-muted">This part does not move. Motions from the shelf&apos;s Motion category, or the wheel&apos;s Animation piece, put one on it.</p>;
