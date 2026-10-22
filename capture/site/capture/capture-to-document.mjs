@@ -540,6 +540,15 @@ function fontOf(el, featureId, exact = false) {
    */
   else if (el.nlh > 0 && el.fs > 0) f.leading = round2(el.nlh / el.fs);
   else if (el.fs > 0 && el.tb && el.tb[3] > 0 && el.tb[3] < el.fs * 1.9) f.leading = round2(el.tb[3] / el.fs);
+  /*
+   * AND IT IS SAID TO BE `normal`, the number kept beside it as the line this
+   * machine drew. A normal line is the reader's own face's: the same Archivo
+   * Black draws "100%" at 30px in a 40px line on Windows and 32 on the
+   * capture's Linux, so the number alone froze the capture machine's line
+   * into every board (thesolface's sections 6px short each on J's). The
+   * Builder draws these at `normal` (theme.ts#lineOf).
+   */
+  if (!(el.lh > 0) && el.fs > 0) f.leadingNormal = true;
   return f;
 }
 

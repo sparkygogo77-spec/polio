@@ -5,7 +5,7 @@
  */
 import * as React from "react";
 import type { PartMode } from "./types";
-import { radiusFor, withAlpha, type Theme } from "./theme";
+import { lineOf, radiusFor, withAlpha, type Theme } from "./theme";
 import { FILM_STRETCH } from "./film";
 /* Kept here too for what already reads them from this file. */
 export { FILM_STRETCH, filmPic } from "./film";
@@ -39,7 +39,7 @@ export function Fill({
          */
         flex: "1 0 auto",
         overflow, boxSizing: "border-box", position: "relative",
-        color: t.text, fontFamily: t.bodyFamily, fontSize: t.fontPx, lineHeight: t.lineHeight,
+        color: t.text, fontFamily: t.bodyFamily, fontSize: t.fontPx, lineHeight: lineOf(t),
         fontWeight: t.fontWeight, letterSpacing: t.letterSpacing,
         // The part's own background if it was given one, otherwise the floor
         // that keeps a page texture behind the site rather than through it.

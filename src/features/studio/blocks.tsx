@@ -115,7 +115,8 @@ function wordsSet(node: StudioNode): NodeText | null | undefined {
 function pageWrapped(node: StudioNode): boolean {
   if (node.featureId !== "prose" || (node.text?.wrap && node.text.wrap !== "nowrap")) return false;
   const was = node.source?.was;
-  const lh = (was?.fontSize ?? 0) * (was?.lineHeight ?? 0);
+  /* A line set at `normal` is about 1.2 of its size, as a browser draws it. */
+  const lh = (was?.fontSize ?? 0) * (was?.lineHeight === "normal" ? 1.2 : was?.lineHeight ?? 0);
   if (!was?.box || !(lh > 0)) return false;
   const pad = was.pad ? was.pad[0] + was.pad[2] : 0;
   const edge = 2 * (was.borderWidth ?? 0);

@@ -6,7 +6,7 @@ import * as React from "react";
 import { Btn, Fill } from "./primitives";
 import { splitTurn } from "./Hero";
 import { simplify, vectorMarkup } from "../../vector";
-import { cardStyle, items, radiusFor, saidRole, titled, tint } from "./theme";
+import { cardStyle, items, lineOf, radiusFor, saidRole, titled, tint } from "./theme";
 import { opt, type PartProps } from "./types";
 
 export function Cta({ id, content, options, theme: t, mode, link, vector, onNavigate, emit }: PartProps) {
@@ -199,7 +199,7 @@ export function InvitePanel({ id, content, options, theme: t, mode, link, onNavi
           {split.tail ? <span style={{ color: turn.endsWith("muted") ? t.muted : t.accent }}>{split.tail}</span> : null}
         </p>
         {rest.map((line, i) => (
-          <p key={i} style={{ margin: `${t.fontPx * 0.45}px 0 0`, color: t.muted, fontSize: t.fontPx, lineHeight: t.lineHeight }}>
+          <p key={i} style={{ margin: `${t.fontPx * 0.45}px 0 0`, color: t.muted, fontSize: t.fontPx, lineHeight: lineOf(t) }}>
             {line}
           </p>
         ))}
