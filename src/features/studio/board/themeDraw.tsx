@@ -297,13 +297,28 @@ export function pinsOf(nodes: readonly Pinnable[], pageH: number): Map<string, s
   return out;
 }
 
-/** Keeps `--view-top` and `--view-h` (page pixels) on `host` as the scroller moves: the window's top and height over the page. */
-export function useViewTop(host: React.RefObject<HTMLElement | null>, page: React.RefObject<HTMLElement | null>, scroller: () => HTMLElement | null, zoom: number, on: boolean) {
+/**
+ * Keeps `--view-top` and `--view-h` (page pixels) as the scroller moves: the
+ * window's top and height over the page.
+ *
+ * ON THE ELEMENTS THAT READ THEM, NOT ON `host`. A custom property set on an
+ * element is inherited by everything inside it, so writing these on the
+ * board restyled the whole board at every scroll frame: on sol face's board
+ * 172,000 elements over twenty wheel steps, against 18,000 with them held
+ * (`tests/board-view-top.mjs`). Only a pinned part (`stacksOf`) and a pinned
+ * ground layer read them, each in its own inline style, so each of those
+ * carries them and nothing else does. `readers` names that set: when it
+ * changes, they are found again.
+ */
+export function useViewTop(host: React.RefObject<HTMLElement | null>, page: React.RefObject<HTMLElement | null>, scroller: () => HTMLElement | null, zoom: number, on: boolean, readers = "") {
   React.useEffect(() => {
     const el = host.current;
     const pane = scroller();
-    if (!el || !on) { el?.style.removeProperty("--view-top"); el?.style.removeProperty("--view-h"); return; }
+    if (!el || !on) return;
     let raf = 0;
+    let found: HTMLElement[] = [];
+    const find = () => { found = [...el.querySelectorAll<HTMLElement>('[style*="--view-"]')]; };
+    find();
     const put = () => {
       raf = 0;
       const p = page.current;
@@ -311,15 +326,25 @@ export function useViewTop(host: React.RefObject<HTMLElement | null>, page: Reac
       const top = pane ? pane.getBoundingClientRect().top : 0;
       const h = pane ? pane.clientHeight : window.innerHeight;
       const z = zoom > 0 ? zoom : 1;
-      el.style.setProperty("--view-top", `${Math.max(0, Math.round((top - p.getBoundingClientRect().top) / z))}px`);
-      el.style.setProperty("--view-h", `${Math.round(h / z)}px`);
+      const viewTop = `${Math.max(0, Math.round((top - p.getBoundingClientRect().top) / z))}px`, viewH = `${Math.round(h / z)}px`;
+      /* A reader drawn anew (a part's element replaced) is found again. */
+      if (found.some((r) => !r.isConnected)) find();
+      for (const r of found) {
+        if (r.style.getPropertyValue("--view-top") !== viewTop) r.style.setProperty("--view-top", viewTop);
+        if (r.style.getPropertyValue("--view-h") !== viewH) r.style.setProperty("--view-h", viewH);
+      }
     };
     const ask = () => { if (!raf) raf = requestAnimationFrame(put); };
     put();
     (pane ?? window).addEventListener("scroll", ask, { passive: true });
     window.addEventListener("resize", ask);
-    return () => { (pane ?? window).removeEventListener("scroll", ask); window.removeEventListener("resize", ask); if (raf) cancelAnimationFrame(raf); };
-  }, [host, page, scroller, zoom, on]);
+    return () => {
+      (pane ?? window).removeEventListener("scroll", ask);
+      window.removeEventListener("resize", ask);
+      if (raf) cancelAnimationFrame(raf);
+      for (const r of found) { r.style.removeProperty("--view-top"); r.style.removeProperty("--view-h"); }
+    };
+  }, [host, page, scroller, zoom, on, readers]);
 }
 
 /* ------------------------------------------------------------ motion */
