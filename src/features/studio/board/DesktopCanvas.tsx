@@ -60,7 +60,7 @@ import { HOT, useHoverHot } from "./hoverHot";
 import { useRestFar } from "./restFar";
 import { useSkipFar } from "./skipFar";
 import { useDrawNear } from "./drawNear";
-import { BOARD_MOTION_CSS, groundLayersOf, PageGroundLayers, stacksOf, useBoardMotion, useViewTop } from "./themeDraw";
+import { BOARD_MOTION_CSS, groundLayersOf, PageGroundLayers, stacksOf, useBoardMotion, useViewTop, type Stack } from "./themeDraw";
 import { runWorks } from "../live/runWorks";
 import { followsOf, placeFollowers } from "../live/follow";
 
@@ -1613,7 +1613,23 @@ export function DesktopCanvas() {
     return { motionSheet: css, atOf: codesWorn(pageAll, pathCode, used) };
   }, [pageAll, look.keyframes]);
   const groundLayers = React.useMemo(() => groundLayersOf(page), [page]);
-  const stacks = React.useMemo(() => stacksOf(nodes, pageH), [nodes, pageH]);
+  /*
+   * Each part's stack kept as the same object while it stands the same.
+   * `stacksOf` makes every one anew, and a new object is a new `stack` for
+   * the part's `NodeView`, which drew it again: on sol face, 536 parts redrawn
+   * for words typed into one (`tests/board-few-redraw.mjs`). A stack is its
+   * `translate` and its `z`; equal ones are kept.
+   */
+  const stackKept = React.useRef(new Map<string, Stack>());
+  const stacks = React.useMemo(() => {
+    const out = new Map<string, Stack>();
+    for (const [id, s] of stacksOf(nodes, pageH)) {
+      const had = stackKept.current.get(id);
+      out.set(id, had && had.translate === s.translate && had.z === s.z ? had : s);
+    }
+    stackKept.current = out;
+    return out;
+  }, [nodes, pageH]);
   /* A drawing's own hooked shapes the page painted under it (a dial's face, a clock's rim) are drawn before it, so its ticks and hands stay over them, as the Preview draws them (`live/svgUnder.ts`). */
   const under = React.useMemo(() => svgUnder(nodes as unknown as Parameters<typeof svgUnder>[0]), [nodes]);
   const drawOrder = React.useMemo(() => {
