@@ -1,7 +1,10 @@
 import { useShowcase } from "./store";
 import { LayoutGrid, Palette } from "lucide-react";
-import { defineFeature } from "@/core/types";
-import { ShowcasePage } from "./ShowcasePage";
+import { defineFeature, type RouteProps } from "@/core/types";
+import dynamic from "next/dynamic";
+
+/* The route's page loads with its route: a static import here put every page of the Builder in every route's script (`tests/route-split.mjs`). */
+const ShowcasePage = dynamic<RouteProps>(() => import("./ShowcasePage").then((m) => m.ShowcasePage));
 
 /**
  * Kitchen sink: every primitive, every subsystem, live. Also an example of a
