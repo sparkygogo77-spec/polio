@@ -54,7 +54,7 @@ import { useSettingValue } from "@/core/settings/useSetting";
 import { pulledBox,scaleHeld } from "../groupScale";
 import { pageFeatures } from "../shelf";
 import { ON_BOARD } from "../shelf";
-import { motionCss } from "../shelf/parts/capturedMotion";
+import { codesWorn, motionCss, pathCodes } from "../shelf/parts/capturedMotion";
 import { svgUnder } from "../live/svgUnder";
 import { BOARD_MOTION_CSS, groundLayersOf, PageGroundLayers, stacksOf, useBoardMotion, useViewTop } from "./themeDraw";
 import { runWorks } from "../live/runWorks";
@@ -1596,7 +1596,21 @@ export function DesktopCanvas() {
   const pageBox = React.useMemo(() => ({ w: frameWidth, h: frameH }), [frameWidth, frameH]);
   /* The site's theme on the board (`themeDraw.tsx`): its motion, played or held still by the toolbar's switch; its background layers; its fixed and sticky parts riding down with the view. */
   const motion = useBoardMotion();
-  const motionSheet = React.useMemo(() => motionCss(pageAll, look.keyframes, (id) => `[data-node-id="${id}"]`), [pageAll, look.keyframes]);
+  /*
+   * A group's hover, press and focus rules name its host and the path its
+   * parts stand under, as the published page's do (`motionCss#trigger`),
+   * not every part of the group by id. Said by id, sol face's board sheet was
+   * 1.6 MB with 35,546 `:hover`s inside 1,076 `:root:has(…)`, and every style
+   * pass of the board matched all of it: a drag move went from 83 ms to
+   * 217 ms with the sheet on (`tests/board-motion-light.mjs`). The parts
+   * under a named path wear its code (`data-at`), as on the published page.
+   */
+  const { motionSheet, atOf } = React.useMemo(() => {
+    const pathCode = pathCodes(pageAll);
+    const used = new Set<string>();
+    const css = motionCss(pageAll, look.keyframes, (id) => `[data-node-id="${id}"]`, undefined, pathCode, used);
+    return { motionSheet: css, atOf: codesWorn(pageAll, pathCode, used) };
+  }, [pageAll, look.keyframes]);
   const groundLayers = React.useMemo(() => groundLayersOf(page), [page]);
   const stacks = React.useMemo(() => stacksOf(nodes, pageH), [nodes, pageH]);
   /* A drawing's own hooked shapes the page painted under it (a dial's face, a clock's rim) are drawn before it, so its ticks and hands stay over them, as the Preview draws them (`live/svgUnder.ts`). */
@@ -1940,6 +1954,7 @@ export function DesktopCanvas() {
             decide={decideAll || (mode !== "preview" && selection.includes(n.id)) ? decide.get(n.id) ?? null : null}
             name={names.get(n.id) ?? n.label}
             stack={stacks.get(n.id)}
+            at={atOf.get(n.id)}
           />
         ))}
         <PageGroundLayers layers={groundLayers} width={frameWidth} height={pageH} over />

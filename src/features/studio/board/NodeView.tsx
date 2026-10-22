@@ -190,7 +190,7 @@ export function holeMask(holes: string): React.CSSProperties {
     maskComposite: Array(boxes.length + 1).fill("exclude").join(","),
   } as React.CSSProperties;
 }
-export const NodeView = React.memo(function NodeView({ node, name, selected, inHeldGroup, theme, palette, zoom, light, page, layers, flash, decide, stack }: { node: StudioNode; name: string; selected: boolean; inHeldGroup?: boolean; theme: ReturnType<typeof themeFrom>; palette: Palette; zoom: number; light?: Light; page: { w: number; h: number }; layers?: TextureLayer[]; flash?: boolean; decide?: Decision["why"] | null; /** How it stands: the ride a pinned part (or one inside it) takes with the view, and its level over the flow (`themeDraw.tsx#stacksOf`). */ stack?: { translate?: string; z: number } }) {
+export const NodeView = React.memo(function NodeView({ node, name, selected, inHeldGroup, theme, palette, zoom, light, page, layers, flash, decide, stack, at }: { node: StudioNode; name: string; selected: boolean; inHeldGroup?: boolean; theme: ReturnType<typeof themeFrom>; palette: Palette; zoom: number; light?: Light; page: { w: number; h: number }; layers?: TextureLayer[]; flash?: boolean; decide?: Decision["why"] | null; /** How it stands: the ride a pinned part (or one inside it) takes with the view, and its level over the flow (`themeDraw.tsx#stacksOf`). */ stack?: { translate?: string; z: number }; /** Its element path's code, when a motion rule names a path it stands under (`capturedMotion.ts#codesWorn`). */ at?: string }) {
   // What a picked part is marked in: the far side of its own aura or fill.
   // Not the app's accent, which was the loudest thing on the board and sat
   // on top of the aura you were editing.
@@ -320,6 +320,7 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
     <div
       ref={body}
       data-node-id={node.id}
+      data-at={at}
       data-point-mark={pointed ? node.id : undefined}
       /* Picked, for a check to ask without reading the store. */
       data-picked={selected ? "" : undefined}

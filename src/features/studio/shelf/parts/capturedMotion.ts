@@ -278,6 +278,18 @@ export function pathCodes(nodes: readonly MotionNode[]): (id: string) => string 
   return (id) => codes.get(id) ?? null;
 }
 
+/** Which parts wear their path code (`data-at`): only those under a path a rule names (`usedCodes` from `motionCss`). The export and the board both draw from this. */
+export function codesWorn(nodes: readonly MotionNode[], pathCode: (id: string) => string | null, usedCodes: ReadonlySet<string>): Map<string, string> {
+  const atOf = new Map<string, string>();
+  if (!usedCodes.size) return atOf;
+  for (const n of nodes) {
+    const code = pathCode(n.id);
+    if (!code) continue;
+    for (let i = code.indexOf("."); i > 0 && i < code.length - 1; i = code.indexOf(".", i + 1)) if (usedCodes.has(code.slice(0, i + 1))) { atOf.set(n.id, code); break; }
+  }
+  return atOf;
+}
+
 /** A selector list's selectors, split at its own commas and never at one inside `:has(…)` or `:not(…)`. */
 function topLevel(list: string): string[] {
   const out: string[] = [];

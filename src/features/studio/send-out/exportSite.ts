@@ -58,7 +58,7 @@
  * arrived.
  */
 import * as React from "react";
-import { keyframesCss, motionCss, pathCodes } from "../shelf";
+import { codesWorn, keyframesCss, motionCss, pathCodes } from "../shelf";
 import { shareRules } from "../cssMerge";
 import { carryOwned, pointing } from "../carry";
 import { LiveSite, resolvePageLink } from "../live/LiveSite";
@@ -1021,12 +1021,7 @@ export async function exportSite(only?: readonly string[], opts: { pictures?: bo
     for (const [box, names] of folded.classes) shared.set(box, [...(shared.get(box) ?? []), ...names]);
   }
   /* The parts under a path a rule names wear their code (`motionCss#trigger`); no other part needs it. */
-  const atOf = new Map<string, string>();
-  if (usedCodes.size) for (const n of s.nodes) {
-    const code = pathCode(n.id);
-    if (!code) continue;
-    for (let i = code.indexOf("."); i > 0 && i < code.length - 1; i = code.indexOf(".", i + 1)) if (usedCodes.has(code.slice(0, i + 1))) { atOf.set(n.id, code); break; }
-  }
+  const atOf = codesWorn(s.nodes, pathCode, usedCodes);
   const sheetFile = (key: string) => `assets/motion/${key.replace(/[^\w-]/g, "_")}.css`;
 
   /*
