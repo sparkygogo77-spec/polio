@@ -56,8 +56,11 @@ check("and how old the build is", /\b(just now|\d+\s?(s|m|h|d|min|hour|day)|ago|
 
 await page.goto(`${URL_BASE}/builder`, { waitUntil: "networkidle" });
 await page.waitForTimeout(1200);
+/* The Updates key sits in the bar's "..." menu (toolbar.tsx), not on the bar itself. */
+await page.locator("[data-toolbar-more]").first().click();
+await page.waitForTimeout(300);
 const updates = page.getByRole("button", { name: "Updates" }).first();
-check("the Updates key is in the bar at this width", await updates.isVisible());
+check("the Updates key is in the bar's more menu at this width", await updates.isVisible());
 await updates.click();
 await page.waitForTimeout(700);
 /* The Updates panel leads with the live version and how old its build is (tests/updates-current.mjs): the same age as the mark. */

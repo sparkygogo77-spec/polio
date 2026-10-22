@@ -20,7 +20,9 @@ check("models are not all 4 cents", pictureEstimate("prunaai/p-image-ideogram", 
 const flat = estimateLine("openai/gpt-image-2", "high", "");
 const solid = estimateLine("openai/gpt-image-2", "high", "solid");
 check("a flat picture says one price", /^About \$0\.25 a picture, on your own Replicate key\.$/.test(flat), flat);
-check("a real 3D model adds the modeller's run", solid.includes(`about $${SOLID_GUIDE.toFixed(2)} for the 3D model`) && solid.includes("about $0.35 in all"), solid);
+/* A 3D model is the picture, its back and sides, and the modeller's run (now said apart: "plus about $0.75 for the back and sides and $0.10 for the 3D model"), summed. */
+const sum = /\$(\d+\.\d\d) a picture, plus about \$(\d+\.\d\d) for the back and sides and \$(\d+\.\d\d) for the 3D model: about \$(\d+\.\d\d) in all/.exec(solid);
+check("a real 3D model adds the modeller's run", !!sum && Number(sum[3]) === SOLID_GUIDE && Math.abs(Number(sum[1]) + Number(sum[2]) + Number(sum[3]) - Number(sum[4])) < 0.005, solid);
 check("a shape adds nothing", estimateLine("openai/gpt-image-2", "high", "sphere") === flat);
 const past = [{ model: "openai/gpt-image-2", quality: "high", cost: 0.2 }, { model: "openai/gpt-image-2", quality: "high", cost: 0.3 }, { model: "openai/gpt-image-2", quality: "low", cost: 0.01 }];
 const mine = pictureEstimate("openai/gpt-image-2", "high", past);

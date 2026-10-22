@@ -166,7 +166,8 @@ check(
    just a savable file". So the pictures section, its + box, the way to take a
    picture back out, and Copy are his too. Named one at a time, deliberately:
    the guard's whole job is that a control has to be asked for by name. */
-const MINE = ["render-image", "render-tweak", "render-ratio", "render-quality", "render-effort", "render-model", "render-go", "render-price", "render-reference", "render-reference-clear", "render-format", "render-inputs", "render-add", "render-input", "render-input-drop", "render-copy", "render-cursor", "render-3d", "render-count", "render-input-3d"];
+/* …and "Model sheet (all sides)" (c8f5731f, 2026-10-12, tests/model-sheet.mjs): a checkbox. */
+const MINE = ["render-sheet", "render-image", "render-tweak", "render-ratio", "render-quality", "render-effort", "render-model", "render-go", "render-price", "render-reference", "render-reference-clear", "render-format", "render-inputs", "render-add", "render-input", "render-input-drop", "render-copy", "render-cursor", "render-3d", "render-count", "render-input-3d"];
 /* …and "i should be able to request multiple" (2026-10-12, tests/pictures-many.mjs): How many. */
 /* …and "a dedicated generate cursor option" (2026-10-09), and generated images that "become 3d" (2026-10-10, tests/generate-3d.mjs). */
 const strays = await panel.evaluate((el, mine) => {
