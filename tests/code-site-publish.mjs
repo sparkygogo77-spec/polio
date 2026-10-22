@@ -62,7 +62,7 @@ const pc = readFileSync(join(here, "..", "src", "features", "studio", "PublishCh
 const fa = ["FromASite.tsx", ...["bring.tsx", "FromASite.tsx", "bits.tsx"].map((f) => `fromasite/${f}`)].map((f) => `src/features/studio/bring-in/${f}`).map((f) => readFileSync(join(here, "..", f), "utf8")).join("\n");
 check("a site from code shows Refresh and Publish in Go live's place (source read)", /if \(fromCode\) return <CodeSiteButtons source=\{fromCode\} \/>/.test(go));
 check("the check list sends its lines to a code branch (source read)", /data-check-to-branch/.test(pc) && /pushBranch\(code\.repo/.test(pc));
-check("an import keeps the commit it read, and reads at his window's width (source read)", /styleSource\.commit = await headOf/.test(fa) && /width: String\(readAt\)/.test(fa));
+check("an import keeps the commit it read, and reads at his window's width (source read)", /styleSource\.commit = (at \?\? )?await headOf/.test(fa) && /width: String\(readAt\)/.test(fa));
 
 const failed = results.filter((r) => !r).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);

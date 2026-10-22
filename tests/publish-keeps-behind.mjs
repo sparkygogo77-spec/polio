@@ -57,7 +57,7 @@ check("a commit with no parents has none", (await C.parentOf("him/site", "cccccc
 const cs = readFileSync(join(here, "..", "src", "features", "studio", "CodeSiteButtons.tsx"), "utf8");
 const pub = cs.slice(cs.indexOf("const publishNow"), cs.indexOf("const green"));
 check("Publish no longer records the merge commit outright (source read)", !/commit: merged\.sha/.test(cs));
-check("Publish reads the merge's parent and records commitAfterPublish (source read)", /parentOf\(source\.repo, merged\.sha/.test(pub) && /commitAfterPublish\(/.test(pub) && /styleSource: \{ \.\.\.now, sent: sent\.print, commit \}/.test(pub));
+check("Publish reads the merge's parent and records commitAfterPublish (source read)", /parentOf\(source\.repo, merged\.sha/.test(pub) && /commitAfterPublish\(/.test(pub) && /styleSource: \{ \.\.\.now, sent: sent\.print, (sentBlocks: sent\.blocks, )?commit \}/.test(pub));
 check("Refresh is set green only when the board moved up to the merge (source read)", /if \(commit === merged\.sha\) setHead\(merged\.sha\); else void read\(\);/.test(pub));
 check("the Publish dialog says when the code has moved on (source read)", /status\?\.at === "behind" \? <p data-code-publish-behind=""/.test(cs));
 
