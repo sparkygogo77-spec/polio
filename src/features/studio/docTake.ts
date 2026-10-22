@@ -89,6 +89,20 @@ function briefOf(prev: object, doc: DocIn): object {
   return { ...brief, head, ...(!typed && typeof head.description === "string" && head.description.trim() ? { description: head.description.trim() } : {}) };
 }
 
+/**
+ * EVERY PART HAS OPTIONS. A part with none (the phone-width menu button a
+ * widths import brought, `n_ctaprimary_small_1`, on one saved board) took
+ * the whole board down on reopen: every shelf part reads `opt(options, …)`.
+ * Each part is given `{}` where it has none; a list that needs nothing is
+ * handed back as it was. Used on every document taken in and every board
+ * read back (`persist.ts#mergeDoc`), so a board saved without them is
+ * repaired as it opens (tests/options-missing.mjs).
+ */
+export function withOptions<T>(nodes: T[]): T[] {
+  const missing = (n: T) => { const o = (n as { options?: unknown } | null)?.options; return !!n && typeof n === "object" && (!o || typeof o !== "object" || Array.isArray(o)); };
+  return nodes.some(missing) ? nodes.map((n) => (missing(n) ? { ...n, options: {} } : n)) : nodes;
+}
+
 export function takeDoc<P extends DocPrev>(
   s: P,
   doc: DocIn,
@@ -103,7 +117,7 @@ export function takeDoc<P extends DocPrev>(
     // A copy button nothing was decided for copies what it sits beside (library/copyButton.ts).
     nodes: (() => {
       const nodes = doc.nodes && doc.behaviours ? attachCaptured(doc.nodes as Parameters<typeof attachCaptured>[0], doc.behaviours, doc.keyframes) : doc.nodes ?? s.nodes;
-      return giveCopies(nodes as Parameters<typeof giveCopies>[0]) as typeof nodes;
+      return withOptions(giveCopies(nodes as Parameters<typeof giveCopies>[0]) as typeof nodes);
     })(),
     groups: doc.groups ?? s.groups,
     shapes: doc.shapes ?? s.shapes,
