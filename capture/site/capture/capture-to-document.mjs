@@ -531,6 +531,8 @@ function fontOf(el, featureId, exact = false) {
     if (Math.abs(em) > 0.005) f.spacing = em;
   }
   if (el.lh > 0 && el.fs > 0) f.leading = round2(el.lh / el.fs);
+  /* Its face's axes as the page set them (`font-variation-settings`, check-font-variation.mjs). */
+  if (el.fvs) f.variation = el.fvs;
   /*
    * A LINE SET AT `line-height: normal` IS AS TALL AS THE PAGE DREW IT. The
    * dump reads no number for `normal`, so the part fell to the theme's own

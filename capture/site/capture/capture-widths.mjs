@@ -154,6 +154,9 @@ function MENU_BUTTON({ never }) {
   return { label: words(pick).replace(/\s+/g, " ").slice(0, 60) || "menu", labelled: !!labelled };
 }
 
+/* The desktop capture's list cut, run again at each width with the desktop's own counts (`window.__sinkKeep`). */
+const LIST_TRIM = readFileSync(new URL("./list-trim.js", import.meta.url), "utf8");
+
 const proxy = process.env.HTTPS_PROXY || process.env.https_proxy;
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM ?? "/opt/pw-browsers/chromium",
@@ -171,9 +174,15 @@ for (const def of routes.pages) {
   if (!existsSync(capFile)) { console.error(`${def.id}: no desktop capture, not read`); continue; }
   const cap = JSON.parse(readFileSync(capFile, "utf8"));
   const paths = [];
-  (function walk(e) { if (e?.p && !e.p.includes("::")) paths.push(e.p); for (const k of e?.kids ?? []) walk(k); })(cap.tree);
+  /* Each list the desktop cut (list-trim.js, `rows.trimmed`), by path, with how many items it kept: cut the same here, and nothing else. */
+  const keep = {};
+  (function walk(e) { if (e?.p && !e.p.includes("::")) paths.push(e.p); if (e?.p && e.rows?.trimmed && e.rows.kept >= 0) keep[e.p] = e.rows.kept; for (const k of e?.kids ?? []) walk(k); })(cap.tree);
   for (const [W, H] of FRAMES) {
     const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, ...(W < 600 ? { isMobile: true, hasTouch: true } : {}) });
+    if (Object.keys(keep).length) {
+      await context.addInitScript((k) => { window.__sinkKeep = k; }, keep);
+      await context.addInitScript(LIST_TRIM);
+    }
     const page = await context.newPage();
     const url = def.path?.startsWith("http") ? def.path : `${site}${def.path ?? "/"}`;
     const t0 = Date.now();

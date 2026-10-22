@@ -11,7 +11,7 @@ import { captureNotes, sourceNote } from "./polioMd.ts";
 import { attachCaptured, giveCopies } from "./shelf/index.ts";
 import { learnFromDoc, type LearnState } from "./learn.ts";
 import { standInFromDoc, type StandIn } from "./standIn.ts";
-import { isTaken } from "./bring-in/index.ts";
+import { isTaken } from "./bring-in/reimport.ts";
 export interface DocIn {
   pages?: { id: string }[];
   nodes?: unknown[];
