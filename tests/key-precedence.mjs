@@ -176,7 +176,7 @@ for (const [name, file, body] of [
 const routes = [];
 const walk = (d) => {
   for (const f of readdirSync(join(ROOT, d))) {
-    const p = join(d, f);
+    const p = join(d, f).replaceAll("\\", "/"); /* repo-relative with forward slashes, as the lists below spell them */
     if (statSync(join(ROOT, p)).isDirectory()) walk(p);
     else if (f === "route.ts") routes.push(p);
   }

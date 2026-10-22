@@ -40,7 +40,7 @@ check("a range option's pick sound is not played every frame of a drag", /if \(!
 
 /* No slider that writes the board is a plain range any more: the ones left keep local state (a picture's tolerance, the import scrubber, a shelf part's own control on the page). */
 const walk = (d) => readdirSync(d).flatMap((f) => { const p = join(d, f); return statSync(p).isDirectory() ? walk(p) : /\.tsx$/.test(f) ? [p] : []; });
-const plain = walk(studio).filter((p) => /type="range"/.test(readFileSync(p, "utf8")) && !/HandSlider\.tsx$/.test(p)).map((p) => p.slice(studio.length + 1));
+const plain = walk(studio).filter((p) => /type="range"/.test(readFileSync(p, "utf8")) && !/HandSlider\.tsx$/.test(p)).map((p) => p.slice(studio.length + 1).replaceAll("\\", "/"));
 const allowed = new Set(["ClearBackground.tsx", "ImportFlow.tsx", "shelf/parts/Interact.tsx"]);
 check("the only plain ranges left keep local state, not the board", plain.every((p) => allowed.has(p)), plain.join(", "));
 
