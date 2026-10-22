@@ -1,9 +1,12 @@
 import { UserRound } from "lucide-react";
-import { defineFeature } from "@/core/types";
+import { defineFeature, type RouteProps } from "@/core/types";
 import { AccountButton } from "./AccountButton";
-import { AccountPage } from "./AccountPage";
 import { useKeys } from "@/features/keys/store";
 import { ACCOUNT_KEY, githubKey, useAccount } from "./store";
+import dynamic from "next/dynamic";
+
+/* The route's page loads with its route: a static import here put every page of the Builder in every route's script (`tests/route-split.mjs`). */
+const AccountPage = dynamic<RouteProps>(() => import("./AccountPage").then((m) => m.AccountPage));
 
 /**
  * Account keys (J, 2026-10-10): one owner key kept only as a Vercel setting,
