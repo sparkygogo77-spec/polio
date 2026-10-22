@@ -39,7 +39,7 @@ export interface Named {
   font?: { size?: number } | null;
   picture?: { alt?: string } | null;
   link?: unknown;
-  from?: { host?: string; url?: string; selector?: string } | null;
+  from?: { host?: string; url?: string; selector?: string; id?: string } | null;
 }
 
 /** The capture's own names for its boxes, and ids: never a name to show. */
@@ -224,12 +224,32 @@ function firstHeading(box: Named, all: readonly Named[]): string | null {
 /* A button's words name the button, never what holds it (the header was "Header “JOIN THE WAVE”"). */
 const isControl = (n: Named) => /^cta-/.test(n.featureId ?? "");
 
-/** A part's own title when it holds others: its first heading, else its first words. */
+/* Ids a framework gives its own wrappers, which say nothing about the page. */
+const FRAMEWORK_IDS = new Set(["root", "app", "__next", "__nuxt", "__layout", "svelte", "main-content", "content", "wrapper", "page"]);
+
+/**
+ * The page's own name for an element, as words: `community` is "Community",
+ * `lore-section` is "Lore section", `howToBuy` is "How to buy". An id a
+ * machine made (`radix-:r1:`, `w-node-4f2a`, digits in it) or a framework's
+ * wrapper (`__next`) says nothing and is no name.
+ */
+export function idWords(id: string | undefined | null): string | null {
+  const raw = typeof id === "string" ? id.trim() : "";
+  if (!raw || raw.length > 32 || FRAMEWORK_IDS.has(raw.toLowerCase()) || !/^[A-Za-z][A-Za-z_-]*$/.test(raw)) return null;
+  const words = raw.replace(/([a-z])([A-Z])/g, "$1 $2").split(/[-_\s]+/).filter(Boolean).map((w) => w.toLowerCase());
+  if (!words.length || words.some((w) => w.length === 1 && words.length > 1)) return null;
+  const s = words.join(" ");
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** A part's own title: its first heading, else the page's id for it (`#community`), else its first words. */
 function ownTitle(box: Named, all: readonly Named[]): string | null {
   const inside = within(box, all);
-  if (!inside.length) return null;
-  const heading = headingIn(box, all);
+  const heading = inside.length ? headingIn(box, all) : null;
   if (heading) return heading;
+  const named = idWords(box.from?.id);
+  if (named) return named;
+  if (!inside.length) return null;
   const controls = inside.filter(isControl).map(pathOf).filter(Boolean);
   const h = inside.find((m) => !!wordsOf(m) && !isControl(m) && !controls.some((c) => under(c, pathOf(m))));
   return h ? clip(wordsOf(h)) : null;

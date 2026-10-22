@@ -17,12 +17,13 @@ import { createServer } from "node:http";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
 const run = (args, stdio) => new Promise((ok, no) => { const c = execFile("node", args, { env, maxBuffer: 1 << 26 }, (e) => (e ? no(e) : ok())); c.stderr.pipe(process.stderr); if (stdio) c.stdout.pipe(process.stdout); });
 import { imageSize } from "./image-size.mjs";
 import { assetFile } from "./asset-name.mjs";
 
-const here = new URL(".", import.meta.url).pathname;
+const here = fileURLToPath(new URL(".", import.meta.url));
 const env = { ...process.env, HTTPS_PROXY: "", https_proxy: "" };
 const dir = mkdtempSync(join(tmpdir(), "check-art-"));
 /* A 1×1 PNG, a 1×1 lossless WebP, and a font file of stand-in bytes (the rule is what is read; the bytes are only fetched). */
@@ -113,6 +114,9 @@ must(planetAt >= 0 && titleAt > planetAt, "a title under a `z-index: 3` ancestor
 must(!els.some((e) => e.pos === "fixed" && e.bg === "rgb(0, 0, 0)" && e.w >= 1200), "the loader is gone before the dump");
 const late = els.find((e) => e.text === "Late words");
 must(late && late.op === undefined, "the reveal-on-scroll section was revealed before the dump");
+/* (8) The page's own ids: thesolface's sections are `#top`, `#lore`, `#community`, and one with no heading is named by it. */
+must(late?.eid === "late", "the element's id is recorded");
+must(doc.nodes.some((n) => n.from?.id === "late" && /Late words/.test(String(n.content ?? ""))), "the converter keeps it on the part's `from`");
 
 if (fails.length) { console.error("FAIL\n  " + fails.join("\n  ")); process.exit(1); }
 console.log("ok: an artistic page keeps its clothes");
