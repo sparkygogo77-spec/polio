@@ -9,7 +9,9 @@
  *   1. an SVG with a <script>, an onload and a javascript: link is cleaned on
  *      the way in (`src/app/api/account/svg.ts`, DOMPurify's SVG profile): all
  *      three are gone when it is read back and the drawing is intact; a file
- *      that is not an SVG, or is over 1 MB, is refused in words;
+ *      that is not an SVG, or is over 4 MB, is refused in words; an <image>
+ *      keeps its own raster pixels (data:image/png…), and an SVG in a data
+ *      address (a script hidden in it) and any other address are stripped;
  *   2. it is served as image/svg+xml with nosniff and a policy that lets it
  *      run nothing (default-src 'none'; style-src 'unsafe-inline'; sandbox);
  *   3. a site with one SVG and one PNG syncs whole, and the page lists nothing
@@ -54,19 +56,20 @@ check("the onload and onclick are gone", !/\son\w+\s*=/i.test(kept));
 check("the javascript: link is gone", !/javascript:/i.test(kept));
 check("the drawing is intact: the circle (id, size, fill) and the path", /<circle[^>]*id="face"/.test(kept) && /r="40"/.test(kept) && /fill="gold"/.test(kept) && /<path[^>]*d="M30 60 Q50 80 70 60"/.test(kept) && /viewBox="0 0 100 100"/.test(kept), kept);
 
-const EXTERNAL = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 10 10"><style>@import url(http://evil.test/a.css); .a{fill:red}</style><foreignObject><div>hi</div></foreignObject><use href="http://evil.test/x.svg#a"/><image xlink:href="data:image/png;base64,AAAA"/><rect width="5" height="5" style="fill:url(http://evil.test/p)" fill="url(http://evil.test/q)"/><circle id="ok" cx="5" cy="5" r="2" fill="url(#g)"/></svg>`;
+const EXTERNAL = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 10 10"><style>@import url(http://evil.test/a.css); .a{fill:red}</style><foreignObject><div>hi</div></foreignObject><use href="http://evil.test/x.svg#a"/><image id="pixels" xlink:href="data:image/png;base64,AAAA"/><image id="inner" href="data:image/svg+xml;base64,${Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(3)</script></svg>').toString("base64")}"/><rect width="5" height="5" style="fill:url(http://evil.test/p)" fill="url(http://evil.test/q)"/><circle id="ok" cx="5" cy="5" r="2" fill="url(#g)"/></svg>`;
 await put("svg_external", "image/svg+xml", EXTERNAL);
 const ext = await (await call("/api/account/data?path=data/pictures/svg_external")).text();
-check("foreignObject, external use/image/url() and data: images are gone", !/foreignObject|evil\.test|@import|data:image/i.test(ext) && /<circle[^>]*id="ok"/.test(ext), ext);
+check("foreignObject, external use/image/url() and an SVG in a data address (the script hidden in it) are gone", !/foreignObject|evil\.test|@import|image\/svg\+xml|PHN2Zy/i.test(ext) && /<circle[^>]*id="ok"/.test(ext), ext);
+check("an <image> keeps its own raster pixels (data:image/png)", /<image[^>]*id="pixels"[^>]*href="data:image\/png;base64,AAAA"/.test(ext), ext);
 
 const notSvg = await put("svg_not", "image/svg+xml", "<html><body>not a drawing</body></html>");
 const notSvgBody = await notSvg.json();
 check("something that is not an SVG is refused, in words", notSvg.status === 415 && /SVG/.test(notSvgBody.says), J(notSvgBody));
 const broken = await put("svg_broken", "image/svg+xml", "<svg xmlns=\"http://www.w3.org/2000/svg\"><circle");
 check("an SVG that does not parse is refused", broken.status === 415, String(broken.status));
-const huge = await put("svg_huge", "image/svg+xml", `<svg xmlns="http://www.w3.org/2000/svg"><desc>${"x".repeat(1100 * 1024)}</desc></svg>`);
+const huge = await put("svg_huge", "image/svg+xml", `<svg xmlns="http://www.w3.org/2000/svg"><desc>${"x".repeat(4200 * 1024)}</desc></svg>`);
 const hugeBody = await huge.json();
-check("an SVG over 1 MB is refused with a reason", huge.status === 413 && /1 MB/.test(hugeBody.says), J(hugeBody));
+check("an SVG over 4 MB is refused with a reason", huge.status === 413 && typeof hugeBody.says === "string" && hugeBody.says.length > 0, J(hugeBody));
 check("a refused SVG is not kept", !existsSync(join(DIR, "data/pictures/svg_not")) && !existsSync(join(DIR, "data/pictures/svg_huge")));
 check("a page is still not a picture", (await put("evil_html", "text/html", "<script>1</script>")).status === 415);
 

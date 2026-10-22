@@ -14,13 +14,23 @@
 import createDOMPurify from "dompurify";
 import { JSDOM } from "jsdom";
 
-/** The largest SVG kept. Bigger ones are refused, not trimmed. */
-export const SVG_MAX = 1024 * 1024;
+/**
+ * The largest SVG kept: the plain save's own limit. Bigger ones are refused,
+ * not trimmed. It was 1 MB, and thesolface's two animated SVGs (16 JPEG
+ * frames each, 1.1 and 1.5 MB) were refused 413 (tests/account-svg-big.mjs).
+ */
+export const SVG_MAX = 4 * 1024 * 1024;
 
 export type Cleaned = { ok: true; text: string } | { ok: false; says: string };
 
 const NOT_SVG = "That does not read as an SVG picture, so it was not kept.";
-const TOO_BIG = "That SVG is over 1 MB. Save it as a PNG or simplify it.";
+const TOO_BIG = "That SVG is over 4 MB. Save it as a PNG or simplify it.";
+/**
+ * The one address an SVG may carry that is not inside itself: an `<image>`'s
+ * own pixels, as a raster data address. Pixels run nothing. An SVG in a data
+ * address is a document of its own, and is stripped like any other address.
+ */
+const RASTER_DATA = /^\s*data:image\/(?:png|jpeg|gif|webp|avif);base64,[A-Za-z0-9+/=\s]*$/i;
 
 /** Moving or scripted parts of a picture, and the one element that embeds a whole web page. */
 const FORBID_TAGS = ["script", "foreignObject", "handler", "listener", "animate", "set", "animateMotion", "animateTransform", "animateColor", "iframe", "embed", "object", "audio", "video"];
@@ -32,10 +42,11 @@ function cleaner() {
   if (purify) return purify;
   const p = createDOMPurify(new JSDOM("").window as unknown as Window & typeof globalThis);
   p.addHook("afterSanitizeAttributes", (node) => {
-    /* A link or reference may only point at something inside this same picture: `#id`. */
+    /* A link or reference may only point at something inside this same picture: `#id`; an <image> may also carry its own raster pixels. */
+    const image = node.nodeName?.toLowerCase() === "image";
     for (const name of ["href", "xlink:href"]) {
       const v = node.getAttribute?.(name);
-      if (v !== null && v !== undefined && !/^\s*#/.test(v)) node.removeAttribute(name);
+      if (v !== null && v !== undefined && !/^\s*#/.test(v) && !(image && RASTER_DATA.test(v))) node.removeAttribute(name);
     }
     const style = node.getAttribute?.("style");
     if (style && BAD_CSS.test(style)) node.removeAttribute("style");

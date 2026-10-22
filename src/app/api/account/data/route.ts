@@ -48,7 +48,7 @@ export const PUT = said(async (request: Request) => {
   if (bytes.byteLength > PUT_MAX) return answer({ ok: false, says: "Too big for one plain save." }, 413);
   if (type === "image/svg+xml") {
     const c = cleanSvg(bytes);
-    if (!c.ok) return answer({ ok: false, says: c.says }, c.says.includes("over 1 MB") ? 413 : 415);
+    if (!c.ok) return answer({ ok: false, says: c.says }, c.says.includes("over 4 MB") ? 413 : 415);
     bytes = new TextEncoder().encode(c.text);
   }
   if (type === "application/json") {
