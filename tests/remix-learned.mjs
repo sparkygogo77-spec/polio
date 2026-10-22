@@ -144,6 +144,8 @@ for (const [site, from] of PAIRS) {
 
   /* The Styles row: learned styles too. */
   await s.pick(button.id);
+  const openFold = async (id) => { const d = page.locator(`[data-fold="${id}"]`); if (!(await d.evaluate((e) => e.open).catch(() => true))) await d.locator("summary").first().click(); }; /* the rest of the look sits in folds, shut until opened (Panel.tsx) */
+  await openFold("look-styles");
   const styles = page.locator("[data-kit-styles-learned] [data-kit-style]");
   await styles.first().scrollIntoViewIfNeeded().catch(() => {});
   const paint = () => page.evaluate(PAINT, `[data-node-id="${button.id}"] [data-part-box]`);
@@ -163,7 +165,8 @@ for (const [site, from] of PAIRS) {
   }
 
   /* A saved component, back through the same window. */
-  /* Its section is folded until opened. */
+  /* Its section is folded until opened, inside More, which is folded too. */
+  if (!(await page.getByText("Save as a component").count())) await page.locator("button", { hasText: /^More$/ }).first().click().catch(() => {});
   if (!(await page.locator(`[data-save-component="${button.id}"]`).count())) await page.getByRole("button", { name: /Save as a component/ }).first().click().catch(() => {});
   await page.waitForTimeout(300);
   const save = page.locator(`[data-save-component="${button.id}"] [data-save-component-go]`).first();

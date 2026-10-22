@@ -71,6 +71,8 @@ for (const site of SITES) {
   const want = sameKind(doc0.nodes, src.n).filter((m) => lookDiffers(m, src.look, chosen).length).map((m) => m.id);
 
   await s.pick(src.n.id);
+  const openFold = async (id) => { const d = page.locator(`[data-fold="${id}"]`); if (!(await d.evaluate((e) => e.open).catch(() => true))) await d.locator("summary").first().click(); }; /* the rest of the look sits in folds, shut until opened (Panel.tsx) */
+  await openFold("look-make-all");
   const btn = page.locator("[data-make-all-button]");
   await btn.scrollIntoViewIfNeeded();
   const count = Number(await btn.getAttribute("data-make-all-count"));
