@@ -292,15 +292,26 @@ export function useGround(
       paintDarkMatter(c, { field: embersField.current, t: clock });
     };
 
-    fit();
-    embers();
-
+    /*
+     * THE CLOUDS COME A FRAME AFTER THE PAGE.
+     *
+     * Generating the field is a third of a second at 4× CPU (`nebulaField`),
+     * and done here it ran before the board's first frame: opening sol face,
+     * its parts waited on the sky behind them. The sky's gradient is there at
+     * once; the clouds are generated, and the box watched, in the task after
+     * the first frame is painted (`tests/ground-after-page.mjs`).
+     */
     const ro = new ResizeObserver(() => { if (fit()) embers(); });
-    ro.observe(box);
+    let afterTask = 0;
+    const afterFrame = requestAnimationFrame(() => {
+      afterTask = window.setTimeout(() => { fit(); embers(); ro.observe(box); }, 0);
+    });
+    const unstart = () => { cancelAnimationFrame(afterFrame); window.clearTimeout(afterTask); };
 
     if (still) {
       // One frame, and then the weather holds.
       return () => {
+        unstart();
         ro.disconnect();
         holder.replaceChildren();
       };
@@ -324,6 +335,7 @@ export function useGround(
     raf = requestAnimationFrame(tick);
 
     return () => {
+      unstart();
       cancelAnimationFrame(raf);
       ro.disconnect();
       holder.replaceChildren();
