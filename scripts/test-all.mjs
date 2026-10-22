@@ -127,6 +127,8 @@ const OUTSIDE = [
   ["fonts-carried", "/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf", "needs the Liberation Serif font file (Linux path)"],
 ];
 for (const [name, at, why] of OUTSIDE) if (!existsSync(at)) SKIP[name] = why;
+/* Runs the packed Linux Chromium (@sparticuz/chromium) the serverless functions carry. */
+if (process.platform === "win32") SKIP["serverless-browser"] = "needs Linux: it launches the packed serverless Chromium";
 /* Arguments a header names in words the rules below do not read. */
 const ARGS = {
   "sticky-in-section": (url) => [url, join(SINK, "sites", "gotchi-gg")],
