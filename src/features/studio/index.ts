@@ -1,8 +1,7 @@
 import { DEFAULT_REMAKE_MODEL, REMAKE_MODEL_SETTING, REMAKE_MODELS } from "./pictures";
 import { Brush, CircleDashed, ClipboardPaste, Copy, Download, Eraser, Eye, EyeOff, Frame, GitBranch, Group, Layers, LayoutTemplate, Lightbulb, Link, Link2, Link2Off, Lock, MousePointer2, Palette as PaletteIcon, Pencil, Plus, Redo2, Rocket, RotateCcw, Send, Sparkles, Trash2, Undo2, Ungroup, Unlock, Upload, Wand2, ZoomIn } from "lucide-react";
 import { openLearned } from "./LearnedPanel";
-import { defineFeature, type ActionContext, type ContextTarget, type MenuEntry } from "@/core/types";
-import { StudioPage } from "./StudioPage";
+import { defineFeature, type RouteProps, type ActionContext, type ContextTarget, type MenuEntry } from "@/core/types";
 import { GithubButton } from "./GithubButton";
 import { LiveSiteLink } from "./LiveSiteLink";
 import { GoLiveButton } from "./GoLiveButton";
@@ -12,8 +11,6 @@ import { QueueStrip } from "./QueueStrip";
 import { SaveLine } from "./SaveLine";
 import { PublishCheckDialog } from "./PublishCheck";
 import { LaunchKitKey } from "./LaunchKit";
-import { PreviewPage } from "./live/PreviewPage";
-import { PublishedPage } from "./live/PublishedPage";
 import { isLinkable } from "./shelf/ui";
 import { CATEGORIES, categoryOf, featuresByCategory, getFeature, type FeatureDef } from "./shelf";
 import { FORMAT_FIELDS } from "./format";
@@ -26,6 +23,12 @@ import { emptyWrappers, saysWhat, slimSays } from "./reassemble";
 import { ridersOf } from "./owner";
 import { resolvePalette } from "./shelf/run";
 import { play } from "@/core/audio/engine";
+import dynamic from "next/dynamic";
+
+/* The route's page loads with its route: a static import here put every page of the Builder in every route's script (`tests/route-split.mjs`). */
+const StudioPage = dynamic<RouteProps>(() => import("./StudioPage").then((m) => m.StudioPage));
+const PreviewPage = dynamic<RouteProps>(() => import("./live/PreviewPage").then((m) => m.PreviewPage));
+const PublishedPage = dynamic<RouteProps>(() => import("./live/PublishedPage").then((m) => m.PublishedPage));
 
 /** The Builder answers on /builder and keeps the old /studio addresses working. */
 const onSiteRoutes = ["/builder", "/builder/*", "/studio", "/studio/*"];
