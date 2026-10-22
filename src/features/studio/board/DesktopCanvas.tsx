@@ -122,7 +122,21 @@ export function DesktopCanvas() {
   /* A part whose held presses have all been learned loses its ! (`learn.ts`); every other ! is as it was. */
   const learnState = useStudio((s) => s.learn);
   /* The names the side panel prints, worked out once for the page: the tag over a part says the same. */
-  const names = React.useMemo(() => new Map(steadyNodes.map((n) => [n.id, partName(n, steadyNodes, (id) => getFeature(id)?.name)])), [steadyNodes]);
+  /*
+   * After an edit, after its frame. Every part's name looks at every other
+   * part (its holders, the heading above it), so the whole map is 0.4 s at 4×
+   * CPU on sol face's 800 parts, and it was worked out inside the frame that
+   * answers the edit (Enter on typed words, a drag let go). The map follows
+   * the parts as a deferred value: React draws the edit first and the names
+   * the moment after. The picked parts' names, the tags in view, are worked
+   * out with the edit (`pickedNames`, below). `tests/names-after-edit.mjs`.
+   */
+  const namedNodes = React.useDeferredValue(steadyNodes);
+  const names = React.useMemo(() => {
+    /* When the map was last worked out, for the test to see it come after the edit's own task. */
+    if (typeof performance !== "undefined") performance.mark("studio:names");
+    return new Map(namedNodes.map((n) => [n.id, partName(n, namedNodes, (id) => getFeature(id)?.name)]));
+  }, [namedNodes]);
   /* Only the picked part wears its ! unless the top bar's count says show them all (`decideShown.ts`).
      Never in Preview: there the board is the site, and a published page cannot carry a ! (`NodeView.tsx`,
      `DecideBadge`). Preview clears the selection, which used to be enough; the count's "all" setting
@@ -160,6 +174,12 @@ export function DesktopCanvas() {
   const groups = useStudio(useShallow(pageGroups));
   const page = useStudio(activePage);
   const selection = useStudio((s) => s.selection);
+  /* The picked parts' names now, from the parts as they are: theirs are the tags shown while the map above catches up. */
+  const pickedNames = React.useMemo(() => {
+    if (namedNodes === steadyNodes || !selection.length) return null;
+    const picked = new Set(selection);
+    return new Map(steadyNodes.filter((n) => picked.has(n.id)).map((n) => [n.id, partName(n, steadyNodes, (id) => getFeature(id)?.name)]));
+  }, [namedNodes, steadyNodes, selection]);
   const tool = useStudio((s) => s.tool);
   /* The select tool's option (`toolOptions.tsx`): a locked group's icons and words scale with it. */
   const scaleContents = useSettingValue<boolean>("studio.groupScaleContents") !== false;
@@ -1987,7 +2007,7 @@ export function DesktopCanvas() {
             layers={look.texture}
             flash={!!fresh && fresh.nodes.includes(n.id)}
             decide={decideAll || (mode !== "preview" && selection.includes(n.id)) ? decide.get(n.id) ?? null : null}
-            name={names.get(n.id) ?? n.label}
+            name={pickedNames?.get(n.id) ?? names.get(n.id) ?? n.label}
             stack={stacks.get(n.id)}
             at={atOf.get(n.id)}
           />
