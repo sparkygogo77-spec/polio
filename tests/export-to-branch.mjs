@@ -86,6 +86,7 @@ if (PST) {
 } else {
   const root = join(here, "fixtures", "design-repo");
   const walk = (d) => readdirSync(d).flatMap((x) => (statSync(join(d, x)).isDirectory() ? walk(join(d, x)) : [relative(root, join(d, x))]));
+  /* Entry names with / (path.relative gives  on Windows, which the zip reader refuses as a path that climbs out). */
   names = walk(root);
   read = (f) => readFileSync(join(root, f));
 }
