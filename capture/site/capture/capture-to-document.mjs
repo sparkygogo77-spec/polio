@@ -761,9 +761,14 @@ function animationBaseOf(el) {
   return `matrix(${r4(A)}, ${r4(B)}, ${r4(C)}, ${r4(D)}, ${tx}, ${ty})`;
 }
 /* A background taken as the box's picture still travels whole when gradients are layered with it (thesolface's hero laid a dark fade over its splash): the Builder draws the stack with the picture's own file in place of its address (theme.ts#layeredPicture). */
+/* The layer taken as the box's picture names the stored file, never the page's address: a published copy draws its own picture, and nothing fetches from the site it came from (the first url() that is not data, as the picture was chosen). */
+function storedStack(bgi, picture) {
+  let done = false;
+  return bgi.replace(/url\((["']?)([^)"']+)\1\)/g, (m, _q, u) => (done || /^data:/.test(u) ? m : ((done = true), `url("${picture.path}")`)));
+}
 function artOf(el, picture, untransformed = false) {
   const tf = transformOf(el, untransformed);
-  const art = { ...(el.blend ? { blend: el.blend } : {}), ...(el.filter ? { filter: el.filter } : {}), ...(el.bfilter ? { backdrop: el.bfilter } : {}), ...(el.clip ? { clipPath: el.clip } : el.clipIn ? { clipPath: el.clipIn } : {}), ...(tf ? { transform: tf } : {}), ...(el.turnsWith && untransformed ? { turnsWith: el.turnsWith } : {}), ...(el.pivot && untransformed ? { origin: `${round2(el.pivot[0])}px ${round2(el.pivot[1])}px` } : {}), ...(el.anim ? { animation: el.anim } : {}), ...(el.mask ? { mask: el.mask[0], maskOptions: el.mask.slice(1) } : {}), ...(el.ov && el.kind === "box" ? { overflow: el.ov.x === el.ov.y ? el.ov.x : `${el.ov.x} ${el.ov.y}` } : {}), ...(el.tsh ? { textShadow: el.tsh } : {}), ...(el.tstroke ? { textStroke: el.tstroke } : {}), ...(el.porder ? { paintOrder: el.porder } : {}), ...(el.bgi && (!picture || /gradient\(/.test(el.bgi)) ? { background: el.bgi, ...(el.bgo ? { backgroundOptions: el.bgo } : {}), ...(el.bgclip ? { backgroundClip: el.bgclip } : {}) } : {}), ...(el.letterTf ? { letterTransform: el.letterTf } : {}) };
+  const art = { ...(el.blend ? { blend: el.blend } : {}), ...(el.filter ? { filter: el.filter } : {}), ...(el.bfilter ? { backdrop: el.bfilter } : {}), ...(el.clip ? { clipPath: el.clip } : el.clipIn ? { clipPath: el.clipIn } : {}), ...(tf ? { transform: tf } : {}), ...(el.turnsWith && untransformed ? { turnsWith: el.turnsWith } : {}), ...(el.pivot && untransformed ? { origin: `${round2(el.pivot[0])}px ${round2(el.pivot[1])}px` } : {}), ...(el.anim ? { animation: el.anim } : {}), ...(el.mask ? { mask: el.mask[0], maskOptions: el.mask.slice(1) } : {}), ...(el.ov && el.kind === "box" ? { overflow: el.ov.x === el.ov.y ? el.ov.x : `${el.ov.x} ${el.ov.y}` } : {}), ...(el.tsh ? { textShadow: el.tsh } : {}), ...(el.tstroke ? { textStroke: el.tstroke } : {}), ...(el.porder ? { paintOrder: el.porder } : {}), ...(el.bgi && (!picture || /gradient\(/.test(el.bgi)) ? { background: picture ? storedStack(el.bgi, picture) : el.bgi, ...(el.bgo ? { backgroundOptions: el.bgo } : {}), ...(el.bgclip ? { backgroundClip: el.bgclip } : {}) } : {}), ...(el.letterTf ? { letterTransform: el.letterTf } : {}) };
   return Object.keys(art).length ? { art } : {};
 }
 

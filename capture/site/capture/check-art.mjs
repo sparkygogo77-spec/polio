@@ -91,6 +91,8 @@ must(!!bgFile && imageSize(readFileSync(bgFile))?.w === 1, "the background pictu
 must(doc.nodes.some((n) => n.picture && /\.png$/.test(n.picture.path) && /section$/.test(n.from?.selector ?? "")), "the converter carries the background picture as the box's picture");
 /* And the gradient layered with it, the whole stack in the page's order: thesolface's hero laid a dark fade over its splash, and a box carrying only its picture drew the splash brighter than the page did. */
 const heroNode = doc.nodes.find((n) => n.picture && /section$/.test(n.from?.selector ?? ""));
+/* …its picture's layer naming the stored file, never the page's address: a published copy would break if the site moved its picture. */
+must(new RegExp(`url\\("${heroNode?.picture?.path ?? "-"}"\\)`).test(heroNode?.art?.background ?? "") && !/127\.0\.0\.1|bg\.png/.test(heroNode?.art?.background ?? ""), `the stack's picture layer names the stored file (${heroNode?.art?.background})`);
 must(/url\(/.test(heroNode?.art?.background ?? "") && /linear-gradient/.test(heroNode?.art?.background ?? "") && (heroNode?.art?.background ?? "").indexOf("url(") < (heroNode?.art?.background ?? "").indexOf("linear-gradient"), "the converter keeps a gradient layered with the picture as the box's background, in the page's order");
 /* (3) WebP decoded. */
 must(imageSize(WEBP)?.type === "image/webp" && imageSize(WEBP).w === 1, "imageSize reads a WebP");
