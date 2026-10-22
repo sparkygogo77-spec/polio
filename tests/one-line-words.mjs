@@ -79,7 +79,9 @@ for (const id of PRICE) {
   const c = byId.get(id), r = read[id];
   check(`${id} ${JSON.stringify(c.content)} draws on one line`, r.lines === 1, `${r.lines} lines`);
   check(`…and is drawn at its captured height, not grown`, r.drawnH === c.h && r.stored?.[3] === c.h, `drawn ${r.drawnH}, stored ${r.stored?.[3]}, captured ${c.h}`);
-  check(`…with its stored width and place untouched`, r.stored?.[0] === c.x && r.stored?.[1] === c.y && r.stored?.[2] === c.w, `${r.stored?.slice(0, 3)} against ${[c.x, c.y, c.w]}`);
+  /* Its place is untouched. Its width is the captured one, or the line as this machine's face draws it: a box held to one line is widened to the line it drew
+     (lineWidth), by up to a quarter (Text.tsx ONE_LINE_SLACK; past that the words wrap and grow down). Segoe UI on Windows sets "$ 118.00" 62 wide against the 59 captured. Never narrower. */
+  check(`…with its stored place untouched, its width the captured one or the face's own, within a quarter`, r.stored?.[0] === c.x && r.stored?.[1] === c.y && r.stored?.[2] >= c.w && r.stored?.[2] <= c.w * 1.25, `${r.stored?.slice(0, 3)} against ${[c.x, c.y, c.w]}`);
 }
 check("the group round them keeps its captured heights",
   GROUP.every((id) => read[id].stored?.[3] === byId.get(id).h),
