@@ -81,7 +81,7 @@ export function inlineLines(nodes, elOf, skip = new Set()) {
      */
     const flexed = /(flex|grid)$/.test(el.disp ?? "") && !oneLine;
     const words = ot.map((r) => r[0]).join("");
-    const own = ot.map(([text, x, y, w, h], i) => ({ text, x, y, w, h, i }));
+    const own = ot.map(([text, x, y, w, h, lines], i) => ({ text, x, y, w, h, i, lines: lines || 1 }));
     /* Every element it holds is one of these children: nothing else on the line sits between the words. */
     /* Only words and links on the line: a line with an icon or a dot in it (a LIVE badge) is the converter's own to set (its words after the icon). */
     const dumpKids = (el.kids ?? []).filter((k) => !k.pseudo);
@@ -95,7 +95,7 @@ export function inlineLines(nodes, elOf, skip = new Set()) {
       const x0 = Math.min(...lines.map((o) => o.x)), y0 = Math.min(...lines.map((o) => o.y));
       const x1 = Math.max(...lines.map((o) => o.x + o.w)), y1 = Math.max(...lines.map((o) => o.y + o.h));
       const text = own.map((o) => o.text).join("").replace(/[ \t]*\n[ \t]*/g, NL);
-      out.push({ p, kids, mode: "split", own: [{ text, x: x0, y: y0, w: x1 - x0, h: y1 - y0, i: lines[0].i }] });
+      out.push({ p, kids, mode: "split", own: [{ text, x: x0, y: y0, w: x1 - x0, h: y1 - y0, i: lines[0].i, lines: lines.reduce((m, o) => m + o.lines, 0), block: true }] });
     } else if (!SEPARATORS.test(words)) {
       let pieces;
       if (ordered) {
@@ -171,7 +171,28 @@ export function foldRuns(pieces, run, flex = null) {
   return runs.filter((r) => r.text);
 }
 
-/** A run of a part's own words as a part of its own, at its box: the part's words and type, none of its box's dress. */
+/**
+ * THE BOX OF A RUN OF WORDS IS ITS LINES, NOT ITS LETTERS. A text node's
+ * rectangles are its letters' height on each line, so a run's box falls short
+ * of its lines by the room the line leaves above and below them:
+ * thesolface's "NO CRYSTAL BALL. / JUST A BETTER PAIR OF GOGGLES." is 32
+ * tall for two lines of 11px at 1.6 (35.2). Drawn at its lines, the part grew
+ * by 3 and pushed the page down. So the words of a flex or grid item (a
+ * block, whose box is its lines) stand at their lines, centred where their
+ * letters were. Letters taller than their line keep their own box, and so
+ * does a run on a line of inline links (a nav's bars): the links beside it
+ * are their letters too (check-text-run-lines.mjs).
+ */
+export function linesBox(o, font) {
+  const pitch = (font?.px ?? 0) * (font?.leading ?? 0);
+  const want = (o.lines ?? 1) * pitch;
+  if (!o.block || !(pitch > 0) || !(want > o.h + 0.5)) return { y: o.y, h: o.h };
+  const top = o.y - (want - o.h) / 2;
+  const y = Math.round(top);
+  return { y, h: Math.round(top + want) - y };
+}
+
+/** A run of a part's own words as a part of its own, at its lines: the part's words and type, none of its box's dress. */
 export function wordsPart(p, o, id) {
   const { layout, pad, edge, radius, radii, radiiY, vh, units, motion, embed, picture, art, rows, world, media, maxw, link, colour, ...rest } = p;
   const text = o.text.trim();
@@ -182,7 +203,7 @@ export function wordsPart(p, o, id) {
     label: text,
     content: text,
     data: "",
-    x: o.x, y: o.y, w: o.w, h: o.h,
+    x: o.x, ...linesBox(o, p.font), w: o.w,
     link: null,
     colour: colour?.text ? { text: colour.text } : null,
     from: { ...p.from, selector: `${p.from.selector}::text(${o.i + 1})` },
