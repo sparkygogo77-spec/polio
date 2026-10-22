@@ -54,7 +54,8 @@ const node = (id, f, content, x, y, w, h, extra = {}) => ({
    three bullets under it at the y the capture recorded — his shape. (One
    line tall, it is drawn on one line and never grows: parts/Text.tsx,
    the one-line rule, docs/HANDOVER-HEALING.md.) */
-const PARA = "Playwright is built to enable cross-browser web automation that is ever-green, capable, reliable and fast, across every modern rendering engine including Chromium, WebKit and Firefox.";
+/* Long enough to need more than the 50px captured whatever face the machine draws it in: Segoe UI (Windows) sets about a third more words to the line than the Linux fallback did, and the first, shorter sentence fitted in two lines there. */
+const PARA = "Playwright is built to enable cross-browser web automation that is ever-green, capable, reliable and fast, across every modern rendering engine including Chromium, WebKit and Firefox. One API runs the same test against all three, on Linux, macOS and Windows, locally or in CI, with auto-waiting, web-first assertions and traces that show what happened when a run goes red.";
 const page = (from) => [
   node("para", "prose", PARA, 40, 100, 684, 50, from),
   node("b1", "prose", "Install the library", 40, 152, 684, 28, from),

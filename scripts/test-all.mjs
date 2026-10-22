@@ -406,18 +406,27 @@ const beat = setInterval(() => {
   if (long.length) process.stdout.write(`   ...  still running: ${long.join(", ")}\n`);
 }, 60000);
 beat.unref();
+/* Windows: npm and npx are .cmd shims (a shell finds them), there are no process groups to signal (taskkill takes the whole tree), and a detached child would open a console window. */
+const WIN = process.platform === "win32";
+function launch(cmd, args, opts) {
+  return spawn(cmd, args, WIN ? { ...opts, detached: false, windowsHide: true, shell: /^np[mx]$/.test(cmd) } : { ...opts, detached: true });
+}
+function killTree(child, signal) {
+  if (!WIN) { process.kill(-child.pid, signal); return; }
+  execFileSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+}
 function run(cmd, args, { env, timeout, cwd = ROOT, name } = {}) {
   return new Promise((done) => {
     const started = Date.now();
     if (name) running.set(name, started);
-    const child = spawn(cmd, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"], detached: true });
+    const child = launch(cmd, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
     let out = "";
     child.stdout.on("data", (d) => { out += d; });
     child.stderr.on("data", (d) => { out += d; });
     const timer = setTimeout(() => {
       out += `\n[stopped after ${timeout / 1000}s]`;
       if (name) process.stdout.write(` TIMEOUT  ${name} stopped after ${timeout / 1000}s; its last line: ${clean(out).trim().split("\n").filter(Boolean).slice(-2, -1)[0]?.slice(0, 140) ?? "(none)"}\n`);
-      try { process.kill(-child.pid, "SIGKILL"); } catch { /* gone */ } }, timeout);
+      try { killTree(child, "SIGKILL"); } catch { /* gone */ } }, timeout);
     child.on("close", (code, signal) => { clearTimeout(timer); if (name) running.delete(name); done({ code: signal ? 124 : code, out: clean(out), ms: Date.now() - started }); });
   });
 }
@@ -439,17 +448,17 @@ function baseEnv() {
 
 async function startServer(port, extra) {
   const env = { ...baseEnv(), ...extra, PORT: String(port) };
-  const child = spawn("npx", ["next", "start", "-p", String(port)], { cwd: ROOT, env, stdio: ["ignore", "pipe", "pipe"], detached: true });
+  const child = launch("npx", ["next", "start", "-p", String(port)], { cwd: ROOT, env, stdio: ["ignore", "pipe", "pipe"] });
   let log = "";
   child.stdout.on("data", (d) => { log += d; });
   child.stderr.on("data", (d) => { log += d; });
   const url = `http://127.0.0.1:${port}`;
   for (let i = 0; i < 120; i++) {
-    try { if ((await fetch(`${url}/builder`, { signal: AbortSignal.timeout(5000) })).ok) return { url, stop: () => { try { process.kill(-child.pid, "SIGTERM"); } catch { /* gone */ } } }; } catch { /* not yet */ }
+    try { if ((await fetch(`${url}/builder`, { signal: AbortSignal.timeout(5000) })).ok) return { url, stop: () => { try { killTree(child, "SIGTERM"); } catch { /* gone */ } } }; } catch { /* not yet */ }
     if (child.exitCode !== null) break;
     await new Promise((r) => setTimeout(r, 500));
   }
-  try { process.kill(-child.pid, "SIGKILL"); } catch { /* gone */ }
+  try { killTree(child, "SIGKILL"); } catch { /* gone */ }
   throw new Error(`the server on ${port} did not answer:\n${log.slice(-2000)}`);
 }
 
