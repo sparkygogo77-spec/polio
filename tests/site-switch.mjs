@@ -49,6 +49,7 @@ const check = (name, ok, detail = "") => {
 const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
 const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+await page.addInitScript(() => { try { localStorage.setItem("builder.shelf.folded", "0"); } catch { /* none */ } }); /* the shelf starts folded since 2026-10-05; this test works in the open one */
 
 /** What is on the board, and what every site has on disk, by part name. */
 const state = () => page.evaluate(() => {
