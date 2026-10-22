@@ -541,21 +541,6 @@ function fontOf(el, featureId, exact = false) {
   else if (el.nlh > 0 && el.fs > 0) f.leading = round2(el.nlh / el.fs);
   else if (el.fs > 0 && el.tb && el.tb[3] > 0 && el.tb[3] < el.fs * 1.9) f.leading = round2(el.tb[3] / el.fs);
   /*
-   * A LINE TALLER THAN THE BOX THE PAGE SET IT IN. thesolface's ✳ is a 38px
-   * square (grid, centred, a 1px border) holding a 39.1px line: the page fixed
-   * the square and let the line run past it. A flex or grid box laid out by
-   * its contents is never shorter inside than its line, so one that is was
-   * sized by the page. Drawn at its own line, the square grew to 41 and moved
-   * the page down by 3. Its words go on a line as tall as its inside, centred
-   * as before (check-line-in-box.mjs). A transformed box's height is its
-   * turned outline, so it is left alone.
-   */
-  if (f.leading && el.lh > 0 && el.fs > 0 && el.h > 0 && /^(flex|grid)$/.test(el.disp ?? "") && !el.tf && !el.ptf) {
-    const edge = borderOf(el.border)?.width ?? 0;
-    const inside = el.h - (el.pad?.[0] ?? 0) - (el.pad?.[2] ?? 0) - 2 * edge;
-    if (inside > 0 && el.lh > inside + 0.5) f.leading = Math.floor((inside / el.fs) * 100) / 100;
-  }
-  /*
    * AND IT IS SAID TO BE `normal`, the number kept beside it as the line this
    * machine drew. A normal line is the reader's own face's: the same Archivo
    * Black draws "100%" at 30px in a 40px line on Windows and 32 on the
@@ -564,6 +549,24 @@ function fontOf(el, featureId, exact = false) {
    * Builder draws these at `normal` (theme.ts#lineOf).
    */
   if (!(el.lh > 0) && el.fs > 0) f.leadingNormal = true;
+  /*
+   * A LINE TALLER THAN THE BOX THE PAGE SET IT IN. thesolface's ✳ is a 38px
+   * square (grid, centred, a 1px border) holding a 39.1px line: the page fixed
+   * the square and let the line run past it. A flex or grid box laid out by
+   * its contents is never shorter inside than its line, so one that is was
+   * sized by the page. Drawn at its own line, the square grew to 41 and moved
+   * the page down by 3. Its words go on a line as tall as its inside, centred
+   * as before (check-line-in-box.mjs). A transformed box's height is its
+   * turned outline, so it is left alone. A line at `normal` is the line this
+   * machine drew (#community's 𝕏, 36 in a 25px inside, drew 39 at `normal`):
+   * fitted, it is set as a number, since the reader's face would overflow too.
+   */
+  const drawn = el.lh > 0 ? el.lh : (f.leading ?? 0) * (el.fs ?? 0);
+  if (f.leading && drawn > 0 && el.fs > 0 && el.h > 0 && /^(flex|grid)$/.test(el.disp ?? "") && !el.tf && !el.ptf) {
+    const edge = borderOf(el.border)?.width ?? 0;
+    const inside = el.h - (el.pad?.[0] ?? 0) - (el.pad?.[2] ?? 0) - 2 * edge;
+    if (inside > 0 && drawn > inside + 0.5) { f.leading = Math.floor((inside / el.fs) * 100) / 100; delete f.leadingNormal; }
+  }
   return f;
 }
 
