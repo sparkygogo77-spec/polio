@@ -278,6 +278,11 @@ export function pathCodes(nodes: readonly MotionNode[]): (id: string) => string 
   return (id) => codes.get(id) ?? null;
 }
 
+/** The attribute a group's state is written in, on the board (`board/hoverHot.ts`): `data-hot` for the pointer, `data-hot-focus` and so on. */
+export function hotAttr(hot: string, pseudo: string): string | null {
+  return pseudo === ":hover" ? hot : pseudo === ":focus-within" ? `${hot}-focus` : pseudo === ":focus-visible" ? `${hot}-focus-visible` : pseudo === ":active" ? `${hot}-active` : null;
+}
+
 /** Which parts wear their path code (`data-at`): only those under a path a rule names (`usedCodes` from `motionCss`). The export and the board both draw from this. */
 export function codesWorn(nodes: readonly MotionNode[], pathCode: (id: string) => string | null, usedCodes: ReadonlySet<string>): Map<string, string> {
   const atOf = new Map<string, string>();
@@ -325,7 +330,7 @@ export function movesItself(n: MotionNode): boolean {
  * made by the parts inside as well, about the element's own centre, with
  * the element's transition, so they travel together as they did.
  */
-export function motionCss(nodes: readonly MotionNode[], keyframes: readonly CapturedKeyframes[] | undefined, at: (id: string) => string, nested?: ReadonlySet<string>, pathCode?: (id: string) => string | null, usedCodes?: Set<string>): string {
+export function motionCss(nodes: readonly MotionNode[], keyframes: readonly CapturedKeyframes[] | undefined, at: (id: string) => string, nested?: ReadonlySet<string>, pathCode?: (id: string) => string | null, usedCodes?: Set<string>, hot?: string): string {
   const rules: string[] = [];
   const within = insideIndex(nodes);
   /*
@@ -339,8 +344,24 @@ export function motionCss(nodes: readonly MotionNode[], keyframes: readonly Capt
    * not under it, as `inside` has it), one selector long. `usedCodes` hears
    * which paths a rule names, so only the parts under them need the code.
    */
+  /*
+   * GIVEN `hot`, A GROUP'S STATE IS AN ATTRIBUTE, NOT `:root:has(…)`. With
+   * any `:root:has` rule on the board, every element the browser restyled
+   * cost about twice as much: on sol face's board, 12–13 µs an element while
+   * scrolling against 7 without them (`tests/board-hover-hot.mjs`). The
+   * board writes, on an ancestor of every part, the id of the part the state
+   * is on and `@` + each path its code stands under (`board/hoverHot.ts`),
+   * one attribute a state (`hotAttr`), and the rule names those tokens: the
+   * same parts fire it.
+   */
   const trigger = (host: MotionNode, group: readonly MotionNode[], pseudo: string) => {
     const code = pathCode?.(host.id);
+    const attr = hot ? hotAttr(hot, pseudo) : null;
+    if (attr) {
+      if (code) usedCodes?.add(code);
+      const tokens = code ? [host.id, `@${code}`] : group.map((x) => x.id);
+      return `:is(${tokens.map((t) => `[${attr}~="${t}"]`).join(", ")})`;
+    }
     if (!code) return `:root:has(${group.map((x) => `${at(x.id)}${pseudo}`).join(", ")})`;
     usedCodes?.add(code);
     return `:root:has(${at(host.id)}${pseudo}, [data-at^="${code}"]:not([data-at="${code}"])${pseudo})`;
