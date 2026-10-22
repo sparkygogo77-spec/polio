@@ -43,7 +43,8 @@ const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
 await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
 await page.waitForTimeout(1000);
 const panels = () => page.locator("aside[data-side-panel]").count();
-const shelf = () => page.locator("[data-shelf]").count();
+/* The shelf is the drawer under the board (folded to "+ Add" or open); there is no [data-shelf]. */
+const shelf = () => page.locator("[data-drawer]").count();
 check("the side panel and the shelf both start on screen", (await panels()) === 1 && (await shelf()) === 1);
 const key = page.locator('[aria-label="Toggle the side panel"]');
 check("the key is there under its new name", (await key.count()) === 1);

@@ -195,6 +195,7 @@ console.log(`measuring ${URL_} — serving ${served}\n`);
 const browser = await chromium.launch({ headless: true });
 const seat = async (view, parts, drawnOn = true) => {
   const p = await browser.newPage({ viewport: view });
+  await p.addInitScript(() => { try { localStorage.setItem("builder.shelf.folded", "0"); } catch { /* none */ } }); /* the shelf starts folded; this test looks at the open one */
   await p.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
   await p.evaluate((d) => localStorage.setItem("builder.studio", JSON.stringify(d)), page_(parts, drawnOn));
   await p.goto(`${URL_}/builder`, { waitUntil: "networkidle" });

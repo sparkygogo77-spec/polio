@@ -272,8 +272,11 @@ await page.keyboard.press("Home");
 await page.keyboard.press("End");
 await page.waitForTimeout(300);
 const r = await page.evaluate((id) => window.__studioPublishDoc().nodes.find((n) => n.id === id)?.radius, cornersId);
-/* The kind's smallest copy is the 40px corner box: past 20px nothing rounds further, so the slider ends there. */
-check("its Corners set every part of the kind's own radius, up to half its smallest copy's side", r === 20 && (await corners.getAttribute("aria-valuemax")) === "20", `${r}, max ${await corners.getAttribute("aria-valuemax")}`);
+/* The slider ends at half the smallest copy of the kind, past which nothing rounds further, and End sets every part of the kind to it. Which parts are
+   of the kind is the board's call (the 40px corner box was one once and now is not: it kept its own 24), so the kind is read off what moved. */
+const maxC = Number(await corners.getAttribute("aria-valuemax"));
+const wearing = await page.evaluate((r) => window.__studioPublishDoc().nodes.filter((n) => n.colour?.bg && /241, 224, 126|242, 226, 129|240, 223, 123/.test(n.colour.bg) && n.radius === r).map((n) => Math.min(n.w, n.h)), r);
+check("its Corners set every part of the kind's own radius, up to half its smallest copy's side", wearing.length >= 2 && r === maxC && maxC === Math.min(...wearing) / 2, `${r}, max ${maxC}, ${wearing.length} parts at it, smallest side ${Math.min(...wearing)}`);
 await page.evaluate(() => document.activeElement?.blur());
 await page.keyboard.press("Control+z");
 await page.waitForTimeout(300);

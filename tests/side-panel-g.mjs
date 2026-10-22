@@ -193,7 +193,8 @@ await wait(300);
 check("…editing them writes the label's own words", (await stored()).nodes.find((n) => n.id === "n_prose_184").content === "BUY ON PUMP.FUN NOW");
 await page.keyboard.press("Control+z");
 const num = async (l) => Number(await panel.getByLabel(l, { exact: true }).inputValue());
-check("3 position and size as numbers", (await num("X")) === 100 && (await num("Y")) === 559 && (await num("Width")) === 372 && (await num("Height")) === 85, `${await num("X")},${await num("Y")},${await num("Width")},${await num("Height")}`);
+/* Y is 559 where the page was laid out with the Linux face and 558 here: the part sits under words whose height the face decides, by a pixel. */
+check("3 position and size as numbers", (await num("X")) === 100 && Math.abs((await num("Y")) - 559) <= 1 && (await num("Width")) === 372 && (await num("Height")) === 85, `${await num("X")},${await num("Y")},${await num("Width")},${await num("Height")}`);
 check("3 Look has the part's colour, font, border and shadow", (await panel.locator('[data-part-section="look"] [data-part-font], [data-part-section="look"] [data-part-border], [data-part-section="look"] [data-part-shadow]').count()) >= 2);
 check("3 no jargon line", !(await panel.innerText()).includes("Row order comes"));
 await panel.locator('[data-part-section="more"] > [data-section-head]').click();
@@ -222,8 +223,9 @@ await page.keyboard.press("Escape");
 await page.keyboard.press("Escape");
 await wait(500);
 
-/* 5 decisions */
-if (!(await side.locator("[data-page-summary]").count())) { await page.locator("[data-frame]").first().click({ position: { x: 5, y: 5 }, force: true }); await wait(300); await page.keyboard.press("Escape"); await wait(400); }
+/* 5 decisions (the page summary is in the Element tab) */
+await page.evaluate(() => window.__studioSetLeftPanel("element")); await wait(300);
+if (!(await side.locator("[data-page-summary]").count())) { await page.locator("[data-frame]").first().click({ position: { x: 5, y: 5 }, force: true }); await wait(300); await page.keyboard.press("Escape"); await wait(300); await page.keyboard.press("Escape"); await wait(400); }
 const badges = async () => page.locator("[data-decide-for]").evaluateAll((els) => els.map((e) => e.getAttribute("data-decide-for")));
 const onBoard = await badges();
 const openStat = side.locator('[data-summary="open"]');
@@ -278,9 +280,10 @@ await tab("Motion");
 const kinds = side.locator("[data-move-fold=kind]");
 const kindRows = await kinds.evaluateAll((els) => els.map((e) => ({ h: e.getBoundingClientRect().height, icons: e.querySelectorAll("[data-move-open] svg").length, controls: e.querySelectorAll("button[aria-pressed], [role=slider]").length })));
 check("4 each kind of motion is one compact row: its icon, count and one switch", kindRows.length > 0 && kindRows.every((k) => k.h <= 34 && k.icons >= 2 && k.controls === 1), JSON.stringify(kindRows));
-await kinds.first().locator("[data-move-open]").click();
+/* Opened, the kinds that have speeds keep their all-at-once controls. Not every kind has any (the first listed is now one without), so each is opened. */
+for (let i = 0; i < await kinds.count(); i++) { await kinds.nth(i).locator("[data-move-open]").click(); await wait(200); }
 await wait(300);
-check("4 …opened, the all-at-once controls are still there", (await side.locator("[data-move-kind]").first().locator("[data-move-speed-all], [data-move-bunch], [data-move-row]").count()) > 0);
+check("4 …opened, the all-at-once controls are still there", (await side.locator("[data-move-kind]").locator("[data-move-speed-all], [data-move-bunch], [data-move-row]").count()) > 0);
 const crates = side.locator("[data-motion-crates]");
 const lastIsCrates = await side.locator("[data-motion-panel]").evaluate((p) => { const kids = [...p.children].filter((e) => e.tagName !== "DIALOG"); return kids.at(-1)?.hasAttribute("data-motion-crates") || kids.at(-2)?.hasAttribute("data-motion-crates"); });
 check("4 Frame interpolation is its own folded section at the foot", (await crates.count()) === 1 && !(await crates.evaluate((d) => d.open)) && lastIsCrates);
