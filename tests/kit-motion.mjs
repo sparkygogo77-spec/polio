@@ -51,7 +51,7 @@ check("A motion switched off is not named", !/--builder-motion/.test(layer(give(
 check("A motion CSS carries stays CSS, not named", !/--builder-motion/.test(layer(give("wallet-panel", { id: "hover-lift", inputs: {} })).css));
 const whole = layer(site(["back-to-top", "parallax", "hover-tilt", "smooth-scroll"], doc.nodes, { parallax: { strength: "strong" } }));
 const root = whole.rules.filter((r) => r.selector === ":root").flatMap((r) => r.declarations);
-check("Whole-site back to top, parallax and leaning cards are named on :root", root.includes('--builder-site-motion: "back-to-top parallax?strength=0.32 hover-tilt"'), root.join("; "));
+check("Whole-site back to top, parallax and leaning cards are named on :root", root.includes('--builder-site-motion: "back-to-top parallax?strength=0.32 hover-tilt smooth-scroll"'), root.join("; "));
 check("…with the accent and the surface they draw in", root.includes("--builder-motion-accent: #e8ff6a") && root.includes("--builder-motion-surface: #101010"));
 check("…and smooth scrolling still as CSS", root.includes("scroll-behavior: smooth"));
 
