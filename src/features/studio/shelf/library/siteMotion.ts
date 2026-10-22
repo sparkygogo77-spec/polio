@@ -152,18 +152,23 @@ export const SITE_MOTION_JS = `/* The whole site's motion: its settings are in #
     /* A tilted part comes up over the parts around it while it leans, and goes back once it has settled. */
     ${RAISE_JS}
     parts.forEach(function (p) {
-      var lower = null, settle = 0;
+      var lower = null, settle = 0, resting = false;
+      function rest() {
+        if (resting) return;
+        resting = true;
+        p.style.transform = "";
+        clearTimeout(settle); settle = setTimeout(function () { if (lower) { lower(); lower = null; } resting = false; }, 160);
+      }
       p.addEventListener("pointermove", function (e) {
         var r = p.getBoundingClientRect(); if (!r.width || !r.height) return;
-        clearTimeout(settle); if (!lower) lower = raiseOver([p]);
+        clearTimeout(settle); resting = false; if (!lower) lower = raiseOver([p]);
         var dx = (e.clientX - r.left) / r.width - 0.5, dy = (e.clientY - r.top) / r.height - 0.5;
         p.style.transition = "transform 120ms ease-out";
         p.style.transform = "perspective(900px) rotateX(" + (-dy * 7).toFixed(2) + "deg) rotateY(" + (dx * 9).toFixed(2) + "deg)";
       });
-      p.addEventListener("pointerleave", function () {
-        p.style.transform = "";
-        clearTimeout(settle); settle = setTimeout(function () { if (lower) { lower(); lower = null; } }, 160);
-      });
+      p.addEventListener("pointerleave", rest);
+      /* A browser does not always send the part its pointerleave (a part turned in 3D under the pointer, the pointer jumping off it): the pointer moving anywhere that is not in the part ends the lean all the same, so the lift and its rim never stay on. */
+      document.addEventListener("pointermove", function (e) { if (lower && !resting && !p.contains(e.target)) rest(); }, true);
     });
   }
   if (c.cursor === "picture" && c.cursorPicture && /^data:image\\//.test(c.cursorPicture)) {
