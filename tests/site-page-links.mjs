@@ -46,6 +46,7 @@ const PAGES = [
 /* 1. */
 const here = dirname(fileURLToPath(import.meta.url));
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
+await jiti.import("@/features/studio/board/store"); // the store door first: through jiti on Windows its create/builds/heldView cycle only forms when this loads first
 const { livePath, useStudio } = await jiti.import(join(here, "..", "src/features/studio/board/store.ts"));
 useStudio.setState({ pages: PAGES, activePageId: "p0" });
 const paths = [livePath("p0"), livePath("p1"), livePath("p0", "/site"), livePath("p1", "/site")];
