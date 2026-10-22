@@ -105,8 +105,11 @@ await page.locator("[data-repo-bring]").fill(REPO);
 await page.locator("[data-repo-pull]").click();
 await page.waitForTimeout(300);
 if (await page.locator("[data-repo-bring-go]").count()) await page.locator("[data-repo-bring-go]").click();
+/* The board's parts, as the app holds them. A board over ~2.5 MB is not in localStorage: docStore leaves a pointer there and keeps the document in
+   IndexedDB (builder.docs), so reading localStorage alone finds nothing. The live store is what docStore fills, whatever the size; localStorage is the fallback before the studio is up. */
+const boardNodes = () => { const live = window.__studioNodes?.(); if (live && live.length) return live; const raw = localStorage.getItem("builder.studio"); return JSON.parse(raw).state.nodes; };
 let landed = 0;
-for (let i = 0; i < 120 && landed < doc.nodes.length * 0.9; i++) { await page.waitForTimeout(1000); landed = await page.evaluate(() => { try { return JSON.parse(localStorage.getItem("builder.studio")).state.nodes.length; } catch { return 0; } }).catch(() => 0); }
+for (let i = 0; i < 120 && landed < doc.nodes.length * 0.9; i++) { await page.waitForTimeout(1000); landed = await page.evaluate(boardNodes).then((n) => n.length).catch(() => 0); }
 check("the capture is brought in as a site, its parts on the board", landed >= doc.nodes.length * 0.9, `${landed} of ${doc.nodes.length} parts`);
 await page.waitForTimeout(1500);
 await page.waitForSelector("[data-device-switch]", { timeout: 60000 }).catch(async (e) => {
@@ -115,7 +118,7 @@ await page.waitForSelector("[data-device-switch]", { timeout: 60000 }).catch(asy
   process.exit(1);
 });
 await page.waitForTimeout(1500);
-const kept = await page.evaluate((dev) => { try { const st = JSON.parse(localStorage.getItem("builder.studio")).state; return st.nodes.filter((n) => n.widths?.[dev]).length; } catch { return -1; } }, DEVICE);
+const kept = await page.evaluate(boardNodes).then((ns) => ns.filter((n) => n.widths?.[DEVICE]).length).catch(() => -1);
 check(`the board keeps each part's ${DEVICE} box`, kept === doc.nodes.filter((n) => n.widths?.[DEVICE]).length && kept > 0, `${kept} of ${doc.nodes.filter((n) => n.widths?.[DEVICE]).length}`);
 
 await page.locator(`[data-device="${DEVICE}"]`).click();
