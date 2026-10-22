@@ -138,6 +138,27 @@ const apart = (a: Frag, b: Frag): boolean => grounded(a) || grounded(b) || setAp
   return !!x && !!y && x !== y;
 });
 
+/**
+ * A LINE OF A STACKED BLOCK IS NOT A LINE WITH WHAT STANDS BESIDE THE BLOCK.
+ * mochi.trade's leaderboard rows are flex rows of a rank, a picture, a column
+ * of two lines (the name over "$0.00 · no closed trades") and a score: the
+ * name and the score sit 12px apart on one band, and were joined, the name
+ * widened 225 → 260 and the score deleted. Where the paths part, a piece that
+ * lies inside a block standing more than half a line taller than itself is a
+ * line of that block (`tests/stack-apart.mjs`). An inline wrapper its own
+ * height ("p > span > em") is no such block, and its words still join.
+ */
+function stacked(a: Frag, b: Frag, byPath: ReadonlyMap<string, Frag>): boolean {
+  const x = (a.from?.selector ?? "").split(" > ").map((s) => s.trim()), y = (b.from?.selector ?? "").split(" > ").map((s) => s.trim());
+  let i = 0;
+  while (i < x.length && i < y.length && x[i] === y[i]) i++;
+  return ([[x, a], [y, b]] as const).some(([steps, f]) => {
+    if (i >= steps.length - 1) return false;
+    const block = byPath.get(`${f.pageId}|${steps.slice(0, i + 1).join(" > ")}`);
+    return !!block && block.h > f.h * 1.5;
+  });
+}
+
 export interface Reassembly {
   /** The part that stays, with the sentence in it. */
   keep: string;
@@ -237,6 +258,8 @@ function runOf(f: Frag): Span {
 export function sentences(frags: readonly Frag[], gapMax = 1.8): Reassembly[] {
   const out: Reassembly[] = [];
   const pages = new Set(frags.map((f) => f.pageId));
+  const byPath = new Map<string, Frag>();
+  for (const f of frags) { const p = f.from?.selector?.trim(); if (p && !byPath.has(`${f.pageId}|${p}`)) byPath.set(`${f.pageId}|${p}`, f); }
   for (const pageId of pages) {
     const here = frags
       .filter((f) => f.pageId === pageId && WORDY.has(f.featureId) && wordsOf(f).trim() && !wordsOf(f).includes("\n"))
@@ -256,7 +279,7 @@ export function sentences(frags: readonly Frag[], gapMax = 1.8): Reassembly[] {
         if (!next) break;
         const gap = next.x - (last.x + last.w);
         if (gap > joinLimit(last, next) * gapMax) break;
-        if (apart(last, next)) break;
+        if (apart(last, next) || stacked(last, next, byPath)) break;
         run.push(next);
         taken.add(next.id);
       }
