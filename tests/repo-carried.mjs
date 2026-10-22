@@ -57,7 +57,8 @@ const seed = () => {
 const held = () => page.evaluate(() => {
   const v = JSON.parse(localStorage.getItem("builder.builds") || "null");
   const out = {};
-  for (const p of v?.state?.projects ?? []) out[p.name] = p.repo ? `${p.repo.owner}/${p.repo.name}@${p.repo.branch}` : null;
+  /* By id: connecting a site names it for its repository, so "Site 1" is "one" once it is recovered. */
+  for (const p of v?.state?.projects ?? []) out[p.id] = p.repo ? `${p.repo.owner}/${p.repo.name}@${p.repo.branch}` : null;
   return out;
 });
 
@@ -67,17 +68,17 @@ await page.reload({ waitUntil: "networkidle" });
 await page.waitForTimeout(1500);
 
 const after = await held();
-check("a site connected then left recovers its repository from its own slot", after["Site 1"] === "him/one@main", after["Site 1"] ?? "none");
-check("the open site recovers its repository from the live document", after["Site 2"] === "him/two@main", after["Site 2"] ?? "none");
-check("a site that never stored one does not invent one", after["Site 3"] === null, after["Site 3"] ?? "none");
-check("a published site keeps what it had", after["Site 4"] === "him/four@main", after["Site 4"] ?? "none");
+check("a site connected then left recovers its repository from its own slot", after.s1 === "him/one@main", after.s1 ?? "none");
+check("the open site recovers its repository from the live document", after.s2 === "him/two@main", after.s2 ?? "none");
+check("a site that never stored one does not invent one", after.s3 === null, after.s3 ?? "none");
+check("a published site keeps what it had", after.s4 === "him/four@main", after.s4 ?? "none");
 
 /* What the switcher says, which is what he reads. */
 await page.locator("[data-builds-switch]").first().click();
 await page.waitForTimeout(400);
 const rows = await page.evaluate(() => Array.from(document.querySelectorAll("[role=dialog] li, [data-radix-popper-content-wrapper] li")).map((li) => li.innerText.replace(/\s+/g, " ").trim()));
 check("the switcher names the repository on each site that has one",
-  rows.some((r) => /Site 1/.test(r) && /him\/one/.test(r)) && rows.some((r) => /Site 2/.test(r) && /him\/two/.test(r)) && rows.some((r) => /Site 4/.test(r) && /him\/four/.test(r)),
+  rows.some((r) => /^one /.test(r) && /him\/one/.test(r)) && rows.some((r) => /^two /.test(r) && /him\/two/.test(r)) && rows.some((r) => /^four /.test(r) && /him\/four/.test(r)),
   rows.join(" | ") || "no rows");
 check("and says in words that the one without has none", rows.some((r) => /Site 3/.test(r) && /no repository/.test(r)), rows.find((r) => /Site 3/.test(r)) ?? "-");
 await page.keyboard.press("Escape");
@@ -111,7 +112,7 @@ check("a site with none says so in a sentence rather than a blank or a borrowed 
 await page.reload({ waitUntil: "networkidle" });
 await page.waitForTimeout(1000);
 const again = await held();
-check("and it all survives a reload", again["Site 1"] === "him/one@main" && again["Site 2"] === "him/two@main" && again["Site 3"] === null && again["Site 4"] === "him/four@main");
+check("and it all survives a reload", again.s1 === "him/one@main" && again.s2 === "him/two@main" && again.s3 === null && again.s4 === "him/four@main");
 
 await browser.close();
 const failed = results.filter((r) => !r).length;
