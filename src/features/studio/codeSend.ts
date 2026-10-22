@@ -6,7 +6,6 @@
  * which then merges it (`codePublish.ts#mergePull`).
  */
 import { readHookMap } from "./send-out";
-import { boardRecord } from "./exportForCode";
 import { fileAt } from "./kitRun";
 import { layerPrint } from "./send-out";
 import { layerBlocks, prepareLayer, publishLayer } from "./styleLayerRun";
@@ -27,6 +26,8 @@ export async function sendDesign(nodes: LayerNode[], palette: Record<string, str
   if (prepared.files.length) {
     const mapPath = source.kit?.hooks ?? null;
     const map = mapPath ? readHookMap(await fileAt(fetch, token, source.repo, prepared.base, mapPath).catch(() => null)) : {};
+    /* Fetched here, not imported above: `exportForCode` brings the code kit's file texts (`kitFiles.ts`, 174 KB), and this file is on every Builder page through the Publish buttons. */
+    const { boardRecord } = await import("./exportForCode");
     prepared.files.push({ path: "design/record.json", content: boardRecord(map, undefined, o.fresh) });
   }
   /* Pictures he put on parts (the Contents plate, `partPicture.ts`): each file and design/pictures.json, for the code to apply under the same hook.
