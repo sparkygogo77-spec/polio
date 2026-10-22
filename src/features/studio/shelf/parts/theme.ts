@@ -169,6 +169,8 @@ export interface NodeFont {
   leading?: number;
   /** The page set the line at `line-height: normal`: drawn so, in the reader's own face (`leading` is the line it measured, for arithmetic). */
   leadingNormal?: boolean;
+  /** A variable face's axes as the page set them (`"opsz" 144`): drawn on the part's box, so everything it holds inherits them. */
+  variation?: string;
 }
 
 /**

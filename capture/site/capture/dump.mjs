@@ -863,6 +863,8 @@ export const DUMP = ({ sheets = [], paths = false } = {}) => {
       e.ls = cs.letterSpacing;
       e.ta = cs.textAlign;
       e.tt = cs.textTransform;
+      /* A variable face's axes as the page set them (sunkcoin's Fraunces at "opsz" 144): drawn without them its lines ran a tenth wider (check-font-variation.mjs). */
+      if (cs.fontVariationSettings && cs.fontVariationSettings !== "normal") e.fvs = cs.fontVariationSettings;
       /* Its lines evened out (`text-wrap: balance`) or kept from ending on one word (`pretty`): where it wraps is part of the design (check-line-breaks.mjs). */
       { const tw = String(cs.textWrapStyle || cs.textWrap || ""); if (/balance|pretty/.test(tw)) e.tw = /balance/.test(tw) ? "balance" : "pretty"; }
       /* Outlined and offset-shadowed type: the sticker look. */
