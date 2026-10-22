@@ -266,22 +266,33 @@ export type Progress = { done: false; status: string; step: string; htmlUrl: str
 export type Ended = { done: true; ok: true; ref: string; path: string; htmlUrl: string } | { done: true; ok: false; says: string; htmlUrl: string };
 
 /** Watch a run to its end, saying the step it is on as it goes. */
-export async function watchCapture(o: { repo: CaptureRepo; token: string; runId: number; name: string; onProgress: (p: Progress) => void; everyMs?: number;
+export async function watchCapture(o: { repo: CaptureRepo;
+  /**
+   * The key, or how to read the one held now. A run found still going after
+   * a reload is followed before this browser's keys have opened, so a key
+   * read once at the start was none, and every poll was a 401 (run
+   * 39707081826). Read at each poll, and no poll goes out without one.
+   */
+  token: string | (() => string); runId: number; name: string; onProgress: (p: Progress) => void; everyMs?: number;
   /** The branch the run was started on: asked first for the site, since a workflow may commit to the branch it runs on. */
   ranOn?: string } & Pipes): Promise<Ended> {
   const sleep = o.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const every = o.everyMs ?? 5_000;
+  const keyNow = () => (typeof o.token === "function" ? o.token() : o.token);
   let htmlUrl = "";
   let run: RunState;
+  let token = "";
   for (;;) {
-    try { run = await readRun(o); } catch { await sleep(every); continue; }
+    token = keyNow();
+    if (!token) { await sleep(every); continue; }
+    try { run = await readRun({ ...o, token }); } catch { await sleep(every); continue; }
     htmlUrl = run.htmlUrl;
     if (run.status === "completed") break;
-    o.onProgress({ done: false, status: run.status, step: await stepOf(o), htmlUrl });
+    o.onProgress({ done: false, status: run.status, step: await stepOf({ ...o, token }), htmlUrl });
     await sleep(every);
   }
   /* The read that saw it complete is the answer: asking again straight away was a second read inside the same breath. */
-  if (run.conclusion === "success") return { done: true, ok: true, ...(await landedOn(o)), htmlUrl };
+  if (run.conclusion === "success") return { done: true, ok: true, ...(await landedOn({ ...o, token })), htmlUrl };
   return { done: true, ok: false, says: `The capture failed (${run.conclusion ?? "no conclusion"}). Its log says why.`, htmlUrl };
 }
 
