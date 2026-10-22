@@ -210,7 +210,14 @@ function fitTree(boxes: readonly Drawn[], grows?: (id: string) => boolean, frame
         }
       }
       const moved = mayMove ? base + rel : 0;
-      const own = mayMove && b.words ? Math.max(0, Math.round(b.drew) - b.h) : 0;
+      /*
+       * A pixel over is rounding, not words that need room: the capture
+       * snaps a box's edges to whole pixels and the board reads its drawn
+       * height as one, so thesolface's 364.95 heading came in 364 and drew
+       * 365, and moved every section under it by 1 (tests/snap-not-growth.mjs).
+       */
+      const over = Math.round(b.drew) - b.h;
+      const own = mayMove && b.words && over > 1 ? over : 0;
       const held = place(b.id, moved);
       const grew = mayMove ? Math.max(own, held) : 0;
       put.set(b.id, { y: b.y + moved, h: b.h + grew, moved, grew });
