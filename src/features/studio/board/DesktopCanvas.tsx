@@ -557,7 +557,9 @@ export function DesktopCanvas() {
   /* The width alone: the fit is across only (`fitZoom`). The height was in
      the key, so the shelf lowering under a carried card (`cardCarry.ts`) or
      its grip re-fitted the board and threw the page back to its top. */
-  const fitKey = (pane: Element) => `${pane.clientWidth}`;
+  /* The pane's width as last read where reading it is cheap: after a fit, in the observer, the window's resize and the clock below. The render-time check compares this, never the live width (`tests/drag-no-reflow.mjs`). */
+  const paneSeen = React.useRef<string | null>(null);
+  const fitKey = (pane: Element) => (paneSeen.current = `${pane.clientWidth}`);
 
   const fitTo = React.useCallback((pane: Element) => {
     const vw = pane.clientWidth;
@@ -636,7 +638,8 @@ export function DesktopCanvas() {
      * notifier.
      */
     /* Under Preview the board is kept, hidden (`StudioPage`), and the pane is wider without the side panel: no fit for a width it is not shown at, so coming back needs none either. */
-    const again = () => { if (useStudio.getState().mode === "design" && fitKey(pane) !== fittedFor.current) apply(); };
+    /* The width is read first, whatever the view, so the render-time check below has it on coming back to design. */
+    const again = () => { const key = fitKey(pane); if (useStudio.getState().mode === "design" && key !== fittedFor.current) apply(); };
     const ro = new ResizeObserver(again);
     ro.observe(pane);
     window.addEventListener("resize", again);
@@ -708,11 +711,20 @@ export function DesktopCanvas() {
    * frame to 2022 in a 1509 pane, and the first version of this undid every
    * one of them. Only a pane that has changed width since the fit is stale,
    * and only a stale fit is put right.
+   *
+   * NOT FREE, AS IT TURNED OUT: the *comparison* is two numbers, but reading
+   * `clientWidth` straight after React has written the DOM makes the
+   * browser lay the whole board out there and then. On the sol face board
+   * (800 parts, 13,500 elements) that was 3.9 s of a 5.5 s twenty-move drag,
+   * a full layout on every move. So this compares the width last read where
+   * reading is cheap (`paneSeen`). A fit that failed, or was skipped outside
+   * the design view, is still retried at the next render.
    */
   React.useLayoutEffect(() => {
     const pane = ref.current?.closest("[data-studio-pane]");
     if (!(pane instanceof HTMLElement)) return;
-    if (!pane.clientWidth || fitKey(pane) === fittedFor.current || useStudio.getState().mode !== "design") return;
+    const seen = paneSeen.current;
+    if (!seen || seen === "0" || seen === fittedFor.current || useStudio.getState().mode !== "design") return;
     fitTo(pane);
   });
 
