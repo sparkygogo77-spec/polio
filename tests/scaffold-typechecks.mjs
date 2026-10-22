@@ -31,6 +31,7 @@ const React = require("react");
 const { renderToStaticMarkup } = require("react-dom/server");
 const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") }, jsx: true });
+await jiti.import("@/features/studio/board/store"); // the store door first (see tests-jiti-store-first)
 const S = join(here, "..", "src", "features", "studio");
 const { Block } = await jiti.import(join(S, "blocks.tsx"));
 const { themeFrom, resolvePalette } = await jiti.import(join(S, "shelf", "parts", "theme.ts"));
@@ -96,8 +97,8 @@ for (const [name, html] of Object.entries(fixtures)) {
 }
 writeFileSync(join(site, "tsconfig.json"), JSON.stringify({ compilerOptions: { target: "ES2020", lib: ["dom", "dom.iterable", "esnext"], jsx: "preserve", module: "esnext", moduleResolution: "bundler", strict: true, skipLibCheck: true, noEmit: true, esModuleInterop: true, types: ["react", "react-dom"], typeRoots: [resolve("node_modules/@types")] }, include: ["**/*.tsx"] }));
 mkdirSync(join(site, "node_modules"), { recursive: true });
-for (const m of ["react", "@types"]) symlinkSync(resolve("node_modules", m), join(site, "node_modules", m), "dir");
-const tsc = spawnSync(resolve("node_modules/.bin/tsc"), ["-p", "tsconfig.json"], { cwd: site, encoding: "utf8" });
+for (const m of ["react", "@types"]) symlinkSync(resolve("node_modules", m), join(site, "node_modules", m), "junction");
+const tsc = spawnSync(process.execPath, [resolve("node_modules/typescript/bin/tsc"), "-p", "tsconfig.json"], { cwd: site, encoding: "utf8" });
 check(`the parts typecheck: ${Object.keys(fixtures).join(", ")}`, tsc.status === 0, tsc.status === 0 ? "tsc clean" : (tsc.stdout + tsc.stderr).trim().split("\n").slice(0, 6).join(" | "));
 rmSync(site, { recursive: true, force: true });
 
