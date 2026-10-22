@@ -10,7 +10,7 @@ import { boxStyles, cardStyle, FAMILY, items, titled, tint } from "./theme";
 import { num, opt, type PartProps } from "./types";
 import { Runs } from "./Runs";
 import { lines } from "./spans";
-import { useKeepLines } from "../../textFit";
+import { linesRoom, useKeepLines } from "../../textFit";
 
 /**
  * IN THE MIDDLE OF ITS BAND, BY ITS DRAWN CAPITALS. A line told to sit in
@@ -74,7 +74,7 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, w, h }: 
   const pad0 = boxStyles(t).padding;
   const roomY = h - ((typeof pad0 === "number" ? pad0 * 2 : 0) + (t.padY ?? 0));
   const heldToOne = !!t.said?.nowrap || (!t.said?.wrap && paras.length === 1 && (runParas?.length ?? 1) === 1 && h > 0 && roomY < 2 * t.fontPx * t.lineHeight - 1);
-  useKeepLines(wordsRef, quote || heldToOne ? 0 : roomY, `${w}|${content}|${t.fontPx}|${t.lineHeight}|${t.bodyFamily}`);
+  useKeepLines(wordsRef, quote || heldToOne ? 0 : linesRoom(roomY, t.fontPx * t.lineHeight), `${w}|${content}|${t.fontPx}|${t.lineHeight}|${t.bodyFamily}`);
 
   if (quote) {
     return (
