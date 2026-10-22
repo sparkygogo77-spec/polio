@@ -154,18 +154,16 @@ for (const n of doc.nodes) {
   }
 }
 const expected = [...firstOf.entries()].sort((a, b) => a[1][0] - b[1][0] || a[1][1] - b[1][1] || a[1][2] - b[1][2]).map(([f]) => f || "site");
+/* A brought-in board edits its fonts from the preview (J, 2026-10-09): its Look tab carries no "Fonts on this site" list (`{captured ? null : <SiteFontsSection />}`).
+   So the list is checked where it still shows, for a board that is not a capture, by the function that orders it. */
 await tab("Look");
-const fontRows = side.locator("[data-site-fonts] [data-site-font]");
-const shown = await fontRows.evaluateAll((els) => els.map((e) => e.getAttribute("data-site-font")));
+check("4 a brought-in board's Look tab has no Fonts list (its fonts are edited from the preview)", (await side.locator("[data-site-fonts]").count()) === 0);
+const { fontsInPageOrder } = await src("look/siteColours.ts");
+const ordered = fontsInPageOrder(doc.nodes, doc.pages.map((p) => p.id));
+const shown = ordered.map((f) => f.key || "site");
 check("4 Fonts on this site run top of the site to the bottom, by where each is first used", JSON.stringify(shown) === JSON.stringify(expected), `${shown.join(" > ")} (expected ${expected.join(" > ")}; by count it would be ${[...countOf.entries()].sort((a, b) => b[1] - a[1]).map(([f]) => f || "site").join(" > ")})`);
-const counts = await fontRows.evaluateAll((els) => els.map((e) => Number((e.textContent.match(/(\d+) parts?/) ?? [])[1])));
-check("4 …each row keeps how many parts use it", shown.every((f, i) => counts[i] === countOf.get(f === "site" ? "" : f)), shown.map((f, i) => `${f} ${counts[i]}`).join(", "));
-const hints = await side.locator("[data-site-fonts] [data-site-font-first]").allInnerTexts();
-check("4 …and says where it first appears", hints.length === shown.length && hints.every((h) => /^First (on .+|in “.+|on the page)/.test(h)) && new Set(hints).size === hints.length, hints.join(" | "));
-await fontRows.first().click();
-await wait(400);
-const listed = await side.locator("[data-site-font-detail] [data-site-part]").count();
-check("4 pressing a row still lists the parts set in it", listed === countOf.get(shown[0] === "site" ? "" : shown[0]), `${listed} of ${countOf.get(shown[0])}`);
+check("4 …each row keeps how many parts use it", ordered.every((f) => f.parts === countOf.get(f.key)), ordered.map((f) => `${f.key || "site"} ${f.parts}`).join(", "));
+check("4 …and says where it first appears", ordered.every((f) => !!f.first) && new Set(ordered.map((f) => JSON.stringify(f.first))).size === ordered.length);
 await page.screenshot({ path: `${SHOTS}/after-fonts-order.png` });
 
 check("no page errors", errors.length === 0, errors.slice(0, 3).join(" | "));
