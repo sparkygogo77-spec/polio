@@ -377,8 +377,8 @@ async function toTheFoot(page, { measure = true } = {}) {
      it did before. */
   const tabs = () => page.locator('[data-side-panel] [aria-label="Side panel"] [role=radio]').evaluateAll((els) => els.map((e) => e.textContent?.trim()));
   /* Generate went into each part's "Make a picture" (tests/side-panel-h.mjs). */
-  /* Pictures has a tab of its own since (side.tsx: "give the ai image generator its own section/display panel option"); Lab is the temporary experiments tab (J, 2026-10-10). */
-  const ROW = "Element,Format,Pages,Look,Motion,Pictures,Lab";
+  /* Pictures has a tab of its own since (side.tsx: "give the ai image generator its own section/display panel option"); the Lab tab was removed again (8f581e8d). */
+  const ROW = "Element,Format,Pages,Look,Motion,Pictures";
   const before = await tabs();
   check("with nothing picked it is the whole row, in order", before.join(",") === ROW, before.join(" · "));
 

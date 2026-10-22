@@ -2435,6 +2435,16 @@ for (const g of generics) note("(faces)", g, "nowhere", `a generic keyword: the 
         const el = elOfPart.get(p.id);
         const row = /flex$/.test(el?.disp ?? "") && !/column/.test(el?.dir ?? "") ? { gap: parseFloat(el.gap) || 0, fs: el.fs ?? p.font?.px ?? BASE_PX } : null;
         p.content = foldRuns(line.runs, (k) => kidRuns(k, p), row);
+        /*
+         * ITS OWN PADDING, AND NO ROOM ROUND ITS WORDS ALONE. Set where the page
+         * drew its words beside its children (`tb`), the part was padded by
+         * their room; folded, the children are runs of the words, and that room
+         * is not the words' any more. mochi's "▼ 91.7%" kept 15 on the left and
+         * 1 + 2 round an 18px inside, so the ▼ drew 15px right and the 21px
+         * line grew the part by 3 (check-fold-pad.mjs).
+         */
+        const own = Array.isArray(el?.pad) ? el.pad : null;
+        p.pad = own && own.some((v) => v > 0) ? { top: own[0], right: own[1], bottom: own[2], left: own[3] } : null;
         const reads = p.content.map((x) => x.text).join("");
         if (p.label === was) p.label = reads;
         for (const k of kids) { gone.add(k.id); handled.add(k.id); }
