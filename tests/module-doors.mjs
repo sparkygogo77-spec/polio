@@ -26,7 +26,7 @@
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 /* Each module: its folder and the files other modules may import. Add a row as each module moves (audit item 11). */
@@ -46,7 +46,7 @@ const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`); };
 
 const SPEC = /(?:\bfrom\s*|\bimport\s*\(\s*|^\s*import\s+)(["'])([^"']+)\1/gm;
-const strip = (p) => p.replace(/\.(tsx?|mjs|js)$/, "").replace(/\/index$/, "");
+const strip = (p) => p.replaceAll("\\", "/").replace(/\.(tsx?|mjs|js)$/, "").replace(/\/index$/, "");
 /* Where an import lands, as a path from the repo root without its extension; null for packages. */
 function target(fromFile, spec) {
   if (spec.startsWith("@/")) return strip(join("src", spec.slice(2)));
@@ -85,7 +85,7 @@ check("a sibling named like a module file is not caught", trespasses(`${S}/x.ts`
 /* index.ts loads in plain node: no React, no store, nothing extensionless behind it. A module of screens only (panels) has no index.ts. */
 for (const { dir } of MODULES.filter((m) => m.doors.includes("index.ts"))) {
   let err = "";
-  try { await import(join(ROOT, dir, "index.ts")); } catch (e) { err = String(e?.message ?? e).split("\n")[0]; }
+  try { await import(pathToFileURL(join(ROOT, dir, "index.ts")).href); } catch (e) { err = String(e?.message ?? e).split("\n")[0]; }
   check(`${dir}/index.ts loads in plain node`, err === "", err);
 }
 

@@ -39,7 +39,7 @@ for (const nft of nfts) {
     const key = rel.startsWith("node_modules") ? rel.split(/[/\\]/).slice(0, rel.split(/[/\\]/)[1]?.startsWith("@") ? 3 : 2).join("/") : rel.split(/[/\\]/).slice(0, 2).join("/");
     by.set(key, (by.get(key) ?? 0) + b);
   }
-  out.push({ fn: relative(join(server, "app"), own).replace(/[/\\](route|page)\.js$/, "") || "/", bytes, files: files.length, heaviest: [...by].sort((a, b) => b[1] - a[1]).slice(0, 4) });
+  out.push({ fn: relative(join(server, "app"), own).replaceAll("\\", "/").replace(/[/\\](route|page)\.js$/, "") || "/", bytes, files: files.length, heaviest: [...by].sort((a, b) => b[1] - a[1]).slice(0, 4) });
 }
 out.sort((a, b) => b.bytes - a.bytes);
 const mb = (b) => `${(b / 1048576).toFixed(1)} MB`;
