@@ -1636,7 +1636,9 @@ export function DesktopCanvas() {
   useSkipFar(ref, boardSettled, drawnIds);
   useHoverHot(ref);
   const pageWindowRef = React.useRef<HTMLDivElement>(null);
-  useViewTop(zoomRef, pageWindowRef, paneOf, zoom, stacks.size > 0 || groundLayers.length > 0);
+  /* The view's top is written on the parts and layers that ride it, not on the board (`useViewTop`). */
+  const viewReaders = React.useMemo(() => `${[...stacks].filter(([, s]) => s.translate).map(([id, s]) => `${id}:${s.translate}`).join(",")}|${groundLayers.length}`, [stacks, groundLayers]);
+  useViewTop(zoomRef, pageWindowRef, paneOf, zoom, stacks.size > 0 || groundLayers.length > 0, viewReaders);
   /* Kept per part, so a part the hand is not on keeps the same object across a drag and its `NodeView` is not drawn again. */
   const leads = React.useMemo(() => leadsOf(steadyNodes), [steadyNodes]);
   const ledOf = React.useMemo(() => { const kept = new WeakMap<StudioNode, StudioNode>(); return (n: StudioNode) => { let v = kept.get(n); if (!v) { v = withLead(n, leads); kept.set(n, v); } return v; }; }, [leads]);
