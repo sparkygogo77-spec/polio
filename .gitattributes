@@ -1,0 +1,16 @@
+# LF everywhere. Tests match source text with newline patterns and compare
+# generated files byte for byte, so a Windows checkout with core.autocrlf=true
+# (CRLF in the working tree) failed them.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.xz binary
+*.mp4 binary
+*.webm binary
+*.pdf binary
