@@ -1,17 +1,15 @@
 /**
  * The published document: what "Publish" pushed to `site/document.json`.
  *
- * On a deployment made from that push the app renders it at /site, and the
- * root redirects there (see next.config.ts). Here, in the repository, the
- * file is empty until something is published, and nothing reads it.
+ * On a deployment made from that push the app renders it at /site. The
+ * /site page reads the file on the server and hands it to `PublishedPage`
+ * as data (`src/app/(site)/site/[[...slug]]/page.tsx`): imported here, it
+ * was compiled into the page's script, and a visitor's browser parsed the
+ * whole document as code before drawing (sol face's: 1.3 MB of 3.4).
  */
-import doc from "../../../site/document.json";
+export type Published = { pages?: unknown[]; nodes?: unknown[] };
 
-type Published = { pages?: unknown[]; nodes?: unknown[] };
-
-export const PUBLISHED = doc as Published;
-
-/** Is there a published site in the repository? */
-export function hasPublished(): boolean {
-  return Array.isArray(PUBLISHED.pages) && Array.isArray(PUBLISHED.nodes) && PUBLISHED.nodes.length > 0;
+/** Is there a published site in this document? */
+export function hasPublished(doc: Published): boolean {
+  return Array.isArray(doc.pages) && Array.isArray(doc.nodes) && doc.nodes.length > 0;
 }

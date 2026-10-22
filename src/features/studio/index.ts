@@ -28,7 +28,6 @@ import dynamic from "next/dynamic";
 /* The route's page loads with its route: a static import here put every page of the Builder in every route's script (`tests/route-split.mjs`). */
 const StudioPage = dynamic<RouteProps>(() => import("./StudioPage").then((m) => m.StudioPage));
 const PreviewPage = dynamic<RouteProps>(() => import("./live/PreviewPage").then((m) => m.PreviewPage));
-const PublishedPage = dynamic<RouteProps>(() => import("./live/PublishedPage").then((m) => m.PublishedPage));
 
 /** The Builder answers on /builder and keeps the old /studio addresses working. */
 const onSiteRoutes = ["/builder", "/builder/*", "/studio", "/studio/*"];
@@ -173,8 +172,7 @@ export const studio = defineFeature({
     { path: "/builder", component: StudioPage, title: "Builder", fullBleed: true, ownSearch: true },
     { path: "/builder/preview", component: PreviewPage, title: "Live preview", fullBleed: true },
     { path: "/builder/preview/*", component: PreviewPage, title: "Live preview", fullBleed: true },
-    { path: "/site", component: PublishedPage, title: "Site", fullBleed: true },
-    { path: "/site/*", component: PublishedPage, title: "Site", fullBleed: true },
+    /* /site and /site/* are the published site's own root (`src/app/(site)`), not the Builder's. */
     // Old addresses keep working.
     { path: "/studio", component: StudioPage, title: "Builder", fullBleed: true },
     { path: "/studio/design", component: StudioPage, title: "Builder", fullBleed: true },

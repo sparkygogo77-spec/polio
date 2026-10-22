@@ -12,19 +12,19 @@
  */
 import * as React from "react";
 import type { RouteProps } from "@/core/types";
-import { hasPublished, PUBLISHED } from "../published";
+import { hasPublished, type Published } from "../published";
 import { useStudio, useStudioHydration, type StudioPage } from "../board/store";
 import { pen } from "../board/store/history";
 import { PreviewPage } from "./PreviewPage";
 import { installStandIn, standInFromDoc } from "../standIn";
 
-/* The stand-in server, before anything on the page asks: the published document carries it only when the owner turned it on (`standIn.ts`). */
-if (typeof window !== "undefined") {
-  const standIn = standInFromDoc(PUBLISHED as unknown as Record<string, unknown>);
-  if (standIn) installStandIn(standIn);
-}
-
-export function PublishedPage(props: RouteProps) {
+export function PublishedPage({ doc, ...props }: RouteProps & { doc: Published }) {
+  /* The stand-in server, before anything on the page asks: the published document carries it only when the owner turned it on (`standIn.ts`). In the first render, before any effect fetches. */
+  React.useState(() => {
+    if (typeof window === "undefined") return;
+    const standIn = standInFromDoc(doc as unknown as Record<string, unknown>);
+    if (standIn) installStandIn(standIn);
+  });
   /* Before any effect, the preview's hydration among them, can write; not at module scope, which the Builder's routes may load too. */
   React.useState(() => { if (typeof window !== "undefined") pen.visitor = true; });
   useStudioHydration();
@@ -32,8 +32,8 @@ export function PublishedPage(props: RouteProps) {
   React.useEffect(() => {
     const done = () => {
       const s = useStudio.getState();
-      if (hasPublished()) {
-        s.loadDoc(PUBLISHED as unknown as { pages: StudioPage[] });
+      if (hasPublished(doc)) {
+        s.loadDoc(doc as unknown as { pages: StudioPage[] });
       }
       setReady(true);
     };
