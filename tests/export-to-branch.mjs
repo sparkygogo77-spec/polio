@@ -107,6 +107,7 @@ const writes = [];
 let made = 0;
 const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium" });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+await page.addInitScript(() => { try { localStorage.setItem("builder.shelf.folded", "0"); } catch { /* none */ } }); /* the shelf starts folded since 2026-10-05; this test works in the open one */
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 /* The host takes no request body over 4.5 MB (Vercel answers 413 before our route runs): the kit's check is held to it here too. */

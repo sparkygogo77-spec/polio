@@ -101,6 +101,7 @@ await context.route("https://api.github.com/**", async (route) => {
 });
 
 const page = await context.newPage();
+await page.addInitScript(() => { try { localStorage.setItem("builder.shelf.folded", "0"); } catch { /* none */ } }); /* the shelf starts folded since 2026-10-05; this test works in the open one */
 await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
 await page.waitForTimeout(1500);
 
