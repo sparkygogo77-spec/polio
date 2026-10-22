@@ -27,6 +27,8 @@ const { renderToStaticMarkup } = require("react-dom/server");
 const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") }, jsx: true });
 const studio = join(here, "..", "src", "features", "studio");
+/* The store door first, by the alias the app uses. jiti keys its module cache by path text, and on Windows the same file turns up spelled two ways (C:/ and C:), so the store was made twice and its cycle (create, builds/store, heldView) met itself half-built. */
+await jiti.import("@/features/studio/board/store");
 const { Block } = await jiti.import(join(studio, "blocks.tsx"));
 const { themeFrom, resolvePalette, boxStyle } = await jiti.import(join(studio, "shelf", "parts", "theme.ts"));
 const draw = await jiti.import(join(studio, "board", "themeDraw.tsx"));
@@ -128,7 +130,8 @@ check("…on the box its motion plays on", /data-part-box="" class="mo mo-panel"
 globalThis.window = {};
 globalThis.matchMedia = (q) => ({ matches: q.includes("reduce") });
 globalThis.localStorage = { getItem: () => null, setItem: () => {} };
-const fresh = await jiti.import(join(studio, "board", "themeDraw.tsx") + "?reduced");
+/* A second copy of the module, read again with the media query answering "reduce" (a `?reduced` query on the path finds no file on Windows). */
+const fresh = await createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") }, jsx: true, moduleCache: false }).import(join(studio, "board", "themeDraw.tsx"));
 check("…and it starts still for a person who asked for less motion", fresh.boardMotion() === "still", fresh.boardMotion());
 
 /* 6. The svg is cleaned of what runs, in a real browser. */
