@@ -46,6 +46,9 @@ function useCapsNudge(on: boolean, family: string, weight: number | undefined, s
 const capsOnly = (t: { band?: { middle: boolean } }, nudge: number): React.CSSProperties => (t.band?.middle ? { lineHeight: 1, position: "relative", top: `${nudge}em` } : {});
 
 /** Paragraphs, quotes, drop caps, highlights — one component, several looks. */
+/** How far past its box a line held to one row may run and still be that row in another face: a quarter, against the 6% PST's title ran. */
+const ONE_LINE_SLACK = 1.25;
+
 export function Prose({ id, content, spans, theme: t, mode, onNavigate, w, h }: PartProps) {
   // Paragraphs break on lines, and only on lines. A comma inside prose is
   // punctuation, not a separator: "for the builders, believers, and bold
@@ -79,7 +82,24 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, w, h }: 
   const wordsRef = React.useRef<HTMLDivElement>(null);
   const pad0 = boxStyles(t).padding;
   const roomY = h - ((typeof pad0 === "number" ? pad0 * 2 : 0) + (t.padY ?? 0));
-  const heldToOne = !!t.said?.nowrap || (!t.said?.wrap && paras.length === 1 && (runParas?.length ?? 1) === 1 && h > 0 && roomY < 2 * t.fontPx * t.lineHeight - 1);
+  /*
+   * WORDS FAR LONGER THAN THE BOX ARE NOT ONE LINE OF IT. A box one line tall
+   * is held to one line so a face a few percent wider does not break it
+   * (PST's title, 314 → 334); its box is then as wide as the line drew
+   * (`textFit.ts#lineWidth`). Words needing well over the box's width are no
+   * such line in this face: held, SOLCINERATOR's 555px paragraphs ran 1338
+   * wide, into the rail beside them, and pushed the rail down
+   * (tests/grew-moves.mjs). Measured once held; past a quarter over, they
+   * wrap and the box grows down its own column instead.
+   */
+  const longKey = `${w}|${content}|${t.fontPx}|${t.bodyFamily}`;
+  const [longFor, setLongFor] = React.useState("");
+  const heldToOne = longFor !== longKey && (!!t.said?.nowrap || (!t.said?.wrap && paras.length === 1 && (runParas?.length ?? 1) === 1 && h > 0 && roomY < 2 * t.fontPx * t.lineHeight - 1));
+  React.useLayoutEffect(() => {
+    const el = wordsRef.current;
+    if (!heldToOne || t.said?.nowrap || !el || !(el.clientWidth > 0)) return;
+    if (el.scrollWidth > el.clientWidth * ONE_LINE_SLACK) setLongFor(longKey);
+  }, [heldToOne, longKey, t.said?.nowrap]);
   /* A line at `normal` is the reader's face's: its lines are kept by count (`lineOf`). */
   const pitch = t.fontPx * t.lineHeight;
   useKeepLines(wordsRef, quote || heldToOne ? 0 : linesRoom(roomY, pitch), `${w}|${content}|${t.fontPx}|${t.lineHeight}|${t.bodyFamily}|${t.lineNormal ? "n" : ""}`, t.lineNormal && pitch > 0 ? Math.max(1, Math.round(roomY / pitch)) : undefined);
