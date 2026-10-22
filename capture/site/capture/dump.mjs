@@ -957,8 +957,6 @@ export const DUMP = ({ sheets = [], paths = false } = {}) => {
     const title = el.getAttribute("title") || el.getAttribute("aria-label");
     if (title && (t === "a" || t === "button")) e.title = title.trim();
     const aria = el.getAttribute("aria-label"); if (aria) e.aria = aria.trim();
-    /* The page's own name for the element (`#community`, `#lore`): what a section with no heading is called (partNames.ts). */
-    if (!inSvg && typeof el.id === "string" && el.id.trim()) e.eid = el.id.trim().slice(0, 64);
     if (el.dataset.axRole) e.role = el.dataset.axRole;
     if (el.dataset.axName) e.name = el.dataset.axName;
     if (el.dataset.axState) e.state = JSON.parse(el.dataset.axState);

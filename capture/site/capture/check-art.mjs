@@ -115,7 +115,7 @@ must(!els.some((e) => e.pos === "fixed" && e.bg === "rgb(0, 0, 0)" && e.w >= 120
 const late = els.find((e) => e.text === "Late words");
 must(late && late.op === undefined, "the reveal-on-scroll section was revealed before the dump");
 /* (8) The page's own ids: thesolface's sections are `#top`, `#lore`, `#community`, and one with no heading is named by it. */
-must(late?.eid === "late", "the element's id is recorded");
+must(late?.domId === "late", "the element's id is recorded");
 must(doc.nodes.some((n) => n.from?.id === "late" && /Late words/.test(String(n.content ?? ""))), "the converter keeps it on the part's `from`");
 
 if (fails.length) { console.error("FAIL\n  " + fails.join("\n  ")); process.exit(1); }
