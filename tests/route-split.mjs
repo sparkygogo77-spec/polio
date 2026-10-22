@@ -9,7 +9,7 @@
  * now, and the server still renders the page it serves, so its script is
  * named in the HTML as before.
  *
- *   1. `/` loads under 4,000 KB of script (4,266 before, 3,891 after) and
+ *   1. `/` loads under 4,000 KB of script (4,065 before, 3,690 after) and
  *      none of the board (a string only `board/DesktopCanvas.tsx` holds);
  *   2. `/builder` still loads the board, and draws it;
  *   3. each route still draws its page: `/` the Builds list, `/account`,
