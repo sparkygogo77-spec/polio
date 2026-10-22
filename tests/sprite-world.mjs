@@ -30,6 +30,7 @@ const { renderToStaticMarkup } = require("react-dom/server");
 const { chromium } = require("playwright-core");
 const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") }, jsx: true });
+await jiti.import("@/features/studio/board/store"); // the store door first: through jiti on Windows its create/builds/heldView cycle only forms when this loads first
 const S = (...p) => join(here, "..", "src", "features", "studio", ...p);
 const { Block } = await jiti.import(S("blocks.tsx"));
 const { themeFrom, resolvePalette } = await jiti.import(S("shelf", "parts", "theme.ts"));
