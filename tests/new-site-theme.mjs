@@ -94,6 +94,7 @@ const shot = async (n) => {
 const names = [];
 for (let i = 1; i <= 6; i++) {
   const before = await liveTheme();
+  await page.evaluate(() => window.__studioSetLeftPanel("look")); /* the Look tab, which a click on the frame above leaves for Element */
   await page.locator("[data-theme-roll]").click();
   await wait(900);
   const t = await liveTheme();

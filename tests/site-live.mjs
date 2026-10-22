@@ -252,7 +252,8 @@ const drawSpace = async (page, B) => {
   await page.waitForTimeout(450);
   await page.keyboard.press("v");
   await page.waitForTimeout(1900);
-  await page.locator("[data-space-fill]").first().click({ force: true });
+  /* The drawn space opens its own panel; the fill handle that once had to be pressed for it is gone (1d680d3f). */
+  if (await page.locator("[data-space-fill]").count()) await page.locator("[data-space-fill]").first().click({ force: true });
   await page.waitForTimeout(400);
   return page.locator("[data-space-panel]");
 };

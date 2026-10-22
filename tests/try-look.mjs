@@ -50,6 +50,8 @@ for (const site of SITES) {
   const saved = async () => J((await s.doc()).nodes.find((n) => n.id === part.id));
 
   await s.pick(part.id);
+  const openFold = async (id) => { const d = page.locator(`[data-fold="${id}"]`); if (!(await d.evaluate((e) => e.open).catch(() => true))) await d.locator("summary").first().click(); }; /* the rest of the look sits in folds, shut until opened (Panel.tsx) */
+  await openFold("look-styles");
   const before = await paint(), was = await saved(), depth0 = await s.undoDepth();
 
   /* A style of the site's own. */
@@ -104,7 +106,8 @@ for (const site of SITES) {
   await page.waitForTimeout(250);
   check(`${site}: …and pointing away puts it back`, J(await paint()) === J(base));
 
-  /* An effect on the shelf. */
+  /* An effect on the shelf (folded to "+ Add" until opened). */
+  if (await page.locator("[data-shelf-add]").count()) await page.locator("[data-shelf-add]").first().click();
   await page.evaluate(() => window.dispatchEvent(new CustomEvent("studio:shelf", { detail: "motion" })));
   await page.waitForTimeout(1200);
   const spin = page.locator('[data-work-card="spin"]').first();

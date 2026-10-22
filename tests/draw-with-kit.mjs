@@ -302,10 +302,12 @@ const round = await lastWorn();
 check("a rough circle snaps to a circle, as wide as tall", round.worn.snap === "circle" && Math.abs(round.w - round.h) <= 2, J({ snap: round.worn.snap, w: round.w, h: round.h }));
 await closePanel();
 await pickSpace();
+if (await p.locator("[data-reminder-dismiss]").count()) await p.locator("[data-reminder-dismiss]").click(); /* the "never backed up" nudge shows after a number of edits and sits over the panel */
 await p.locator("[data-kit-snap]").uncheck();
 await draw(circle(pb2.x + 560, pb2.y + 600, 80));
 const loose = await lastWorn();
 check("with Snap off the line stays as drawn", loose.worn.snap === null && loose.worn.pts.length > 12, `${loose.worn.snap} ${loose.worn.pts.length}`);
+if (await p.locator("[data-reminder-dismiss]").count()) await p.locator("[data-reminder-dismiss]").click();
 await p.locator("[data-kit-snap]").check();
 
 check("no page errors", b.errors.length === 0, J(b.errors.slice(0, 3)));
