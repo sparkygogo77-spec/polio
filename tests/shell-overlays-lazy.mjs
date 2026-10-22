@@ -9,7 +9,7 @@
  *
  *   1. the scripts `/builder`'s HTML names hold neither the post console nor
  *      the command palette (each found by a string only it holds), and add
- *      up to under 4,020 KB (4,065 before, 3,978 after);
+ *      up to under 3,960 KB (4,016 before, 3,916 after);
  *   2. both still load, after the page;
  *   3. the palette still opens on its key, and no page errors.
  *
@@ -21,7 +21,7 @@
 import { chromium } from "playwright-core";
 
 const URL_BASE = (process.argv[2] ?? "http://localhost:3000").replace(/\/$/, "");
-const BUDGET_KB = 4020;
+const BUDGET_KB = 3960;
 const MARKS = { "post console": "Copy the whole thread", "command palette": "Type a command, page or setting" };
 
 const results = [];
