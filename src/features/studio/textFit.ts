@@ -521,9 +521,15 @@ export function useSettleToWords(
   apply: (f: Fitted[]) => void,
   /** The page frame's width: a top-level row fills it edge to edge. */
   frame?: number,
+  /**
+   * Every part is drawn. The board draws the parts near the view first and
+   * the rest the frame after (`board/drawNear.ts`); a settle reads parts as
+   * drawn, so until then none is read: owed, and the board not settled.
+   */
+  drawn = true,
 ): void {
-  const latest = React.useRef({ nodes, apply, frame });
-  latest.current = { nodes, apply, frame };
+  const latest = React.useRef({ nodes, apply, frame, drawn });
+  latest.current = { nodes, apply, frame, drawn };
   /** The last answer applied, so an unchanged one is never applied again. */
   const said = React.useRef("");
   /** A pointer on the board is a hand mid-gesture; nothing moves under it. */
@@ -543,7 +549,7 @@ export function useSettleToWords(
 
   const settle = React.useCallback(() => {
     if (typeof document === "undefined") return;
-    if (held.current) { owed.current = true; return; }
+    if (held.current || !latest.current.drawn) { owed.current = true; return; }
     owed.current = false;
     /* The page as it opens: a part a press shows is not drawn until then, and moves nothing (`StudioNode.state`). */
     const ns = latest.current.nodes.filter((n) => !(n as { state?: unknown }).state);
@@ -652,7 +658,7 @@ export function useSettleToWords(
     void Promise.race([fonts?.ready ?? Promise.resolve(), new Promise((go) => setTimeout(go, 1500))]).then(() => { if (alive) soon(); });
     soon();
     return () => { alive = false; ro.disconnect(); if (timer.current !== null) window.clearTimeout(timer.current); };
-  }, [ids, soon]);
+  }, [ids, soon, drawn]);
 
   React.useEffect(() => { soon(); }, [where, soon]);
 }
