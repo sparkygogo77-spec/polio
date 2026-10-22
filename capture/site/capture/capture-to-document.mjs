@@ -1816,7 +1816,7 @@ function convert(pageDef, cap) {
         /* A video: where it plays from and how; the backend (or a video part) plays it, the picture stands in. */
         ...(el.video ? { media: { kind: "video", ...Object.fromEntries(Object.entries(el.video).filter(([k, v]) => v !== null && v !== false && k !== "file" && k !== "at")), ...(videoFileOf(el) ? { file: videoFileOf(el) } : {}) } } : {}),
         /* A sticky band: its position and the inset that sticks it, in px, for polio's fluidSite.ts to hold it at. */
-        from: { url: cap.url, host, selector: sel, at, ...(el.pos === "absolute" || el.pos === "fixed" ? { position: el.pos } : el.pos === "sticky" ? { position: "sticky", inset: insetOf(el.ins) } : {}) },
+        from: { url: cap.url, host, selector: sel, at, ...(typeof el.domId === "string" && el.domId.trim() ? { id: el.domId.trim().slice(0, 64) } : {}), ...(el.pos === "absolute" || el.pos === "fixed" ? { position: el.pos } : el.pos === "sticky" ? { position: "sticky", inset: insetOf(el.ins) } : {}) },
         ...(layout ? { layout } : {}),
         ...(pad ? { pad } : {}),
         ...(edge ? { edge } : {}),
