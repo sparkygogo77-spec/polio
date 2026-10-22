@@ -3683,11 +3683,17 @@ Two things go with them:
 
 ## 8. Routing
 
-Pages are client components rendered through `app/[...slug]/page.tsx`. The
+Pages are client components rendered through `app/(builder)/[...slug]/page.tsx`. The
 registry matches `path` patterns in order: static first, then `:param`, then
 `/*`. You do not create files under `src/app/` for new pages. If you need a
 server component or an API route, add it under `src/app/api/` as normal
 Next.js code and call it from your module.
+
+The one exception is the published site: `/site` and `/site/*` have their own
+root layout (`src/app/(site)/`) and render `PublishedPage` directly, so a
+visitor never loads the registry, the shell or the Builder. Anything the
+published page needs from the shell goes in `(site)/SiteShell.tsx`;
+`tests/site-script.mjs` holds the line.
 
 ---
 

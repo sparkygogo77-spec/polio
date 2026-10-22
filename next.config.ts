@@ -3,6 +3,12 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   /*
+   * Source maps for the browser's scripts, only when asked for: they are how
+   * `scripts/route-script.mjs --modules` says which source files make up the
+   * script a route loads. Off for every real build (they would be served).
+   */
+  productionBrowserSourceMaps: process.env.POLIO_SOURCEMAPS === "1",
+  /*
    * When this build was made, so a deployment can say how old it is.
    *
    * `/api/version` answers which commit is being served; this is the other

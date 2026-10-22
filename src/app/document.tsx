@@ -1,9 +1,15 @@
 import type { Metadata, Viewport } from "next";
 import site from "@site";
-import { AppShell } from "@/core/shell/AppShell";
 import { themeBootScript } from "@/core/theme/boot";
-import "./globals.css";
 
+/*
+ * The page's <html> and <head>, shared by the two root layouts.
+ *
+ * The Builder (`(builder)/layout.tsx`) and the published site
+ * (`(site)/layout.tsx`) are separate roots so a visitor's browser never
+ * loads the Builder's shell; both still start from the same document: the
+ * same title, colours and the theme script that runs before React.
+ */
 export const metadata: Metadata = {
   title: { default: site.name, template: `%s · ${site.name}` },
   description: site.description,
@@ -19,7 +25,7 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export function RootDocument({ children }: { children: React.ReactNode }) {
   const boot = themeBootScript({
     mode: site.theme.defaultMode,
     hue: site.theme.accentHue,
@@ -31,9 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: boot }} />
       </head>
-      <body>
-        <AppShell>{children}</AppShell>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
