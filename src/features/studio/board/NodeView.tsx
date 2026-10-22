@@ -362,6 +362,8 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
         ...(node.hidden ? { opacity: selected ? 0.3 : 0 } : {}),
         /* A part a press shows (sink `behaviours.states`): the board lays out the page as it opens, so it is not drawn here; the press plays in the Preview and on the published page. */
         ...(!shownHere ? { display: "none" } : {}),
+        /* A captured part with no width here is one the page shows at a phone or a tablet only (its menu button, 0 × 0 on the desktop): not drawn, and so not grown to its words (tests/small-only-unseen.mjs). */
+        ...(node.from?.selector && (place?.w ?? node.w) <= 0 ? { display: "none" } : {}),
         /*
          * The aura belongs to the element, not to anything inside it — and
          * on a part cut to a drawn line it belongs to the *line*. A
