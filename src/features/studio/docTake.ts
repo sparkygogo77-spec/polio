@@ -103,6 +103,33 @@ export function withOptions<T>(nodes: T[]): T[] {
   return nodes.some(missing) ? nodes.map((n) => (missing(n) ? { ...n, options: {} } : n)) : nodes;
 }
 
+/**
+ * A BOX'S BACKGROUND NAMES ITS OWN PICTURE, NOT THE SITE IT CAME FROM. A
+ * capture keeps a picture layered with gradients as the whole stack on
+ * `art.background` (thesolface's splash under its fade), and an older
+ * capture wrote the picture's layer with the page's address
+ * (`url("https://thesolface.site/assets/bg.webp")`): a published copy
+ * fetched it from there, and broke if the site moved it. The layer names
+ * the picture's own place in the published site (`picture.path`) instead;
+ * the board and the page draw its file over it (`theme.ts#boxPicture`).
+ * Used where `withOptions` is, so a board already saved is repaired as it
+ * opens (tests/bg-stored.mjs).
+ */
+const PICTURE_LAYER = /url\(\s*(?!["']?data:)(?:"[^"]*"|'[^']*'|[^)]*)\)/;
+export function storedStacks<T>(nodes: T[]): T[] {
+  const fix = (n: T): T | null => {
+    const m = n as { picture?: { path?: unknown } | null; art?: { background?: unknown } | null } | null;
+    const path = typeof m?.picture?.path === "string" ? m.picture.path : "";
+    const bg = typeof m?.art?.background === "string" ? m.art.background : "";
+    if (!path || !/gradient\(/.test(bg) || !PICTURE_LAYER.test(bg)) return null;
+    const next = bg.replace(PICTURE_LAYER, `url("${path.replace(/"/g, "%22")}")`);
+    return next === bg ? null : ({ ...n, art: { ...m!.art, background: next } } as T);
+  };
+  let changed = false;
+  const out = nodes.map((n) => { const f = fix(n); if (f) changed = true; return f ?? n; });
+  return changed ? out : nodes;
+}
+
 export function takeDoc<P extends DocPrev>(
   s: P,
   doc: DocIn,
@@ -117,7 +144,7 @@ export function takeDoc<P extends DocPrev>(
     // A copy button nothing was decided for copies what it sits beside (library/copyButton.ts).
     nodes: (() => {
       const nodes = doc.nodes && doc.behaviours ? attachCaptured(doc.nodes as Parameters<typeof attachCaptured>[0], doc.behaviours, doc.keyframes) : doc.nodes ?? s.nodes;
-      return withOptions(giveCopies(nodes as Parameters<typeof giveCopies>[0]) as typeof nodes);
+      return storedStacks(withOptions(giveCopies(nodes as Parameters<typeof giveCopies>[0]) as typeof nodes));
     })(),
     groups: doc.groups ?? s.groups,
     shapes: doc.shapes ?? s.shapes,

@@ -381,7 +381,8 @@ export function saidRole(t: Theme, role: RoleId): boolean {
 export function boxPicture(picture: { pic: { w?: number; h?: number }; src?: string } | null | undefined, art?: { background?: string } | null): React.CSSProperties | null {
   if (!picture?.src) return null;
   const stack = art?.background ?? "";
-  const layer = /url\((?:"[^"]*"|'[^']*'|[^)]*)\)/;
+  /* The picture's layer is the first that is not data, as the capture chose it (and wrote it as the stored file). */
+  const layer = /url\(\s*(?!["']?data:)(?:"[^"]*"|'[^']*'|[^)]*)\)/;
   if (layer.test(stack) && /gradient\(/.test(stack)) return { backgroundImage: stack.replace(layer, `url("${picture.src.replace(/"/g, "%22")}")`) };
   const { w = 0, h = 0 } = picture.pic;
   const strip = h > 0 && w / h >= 3;
