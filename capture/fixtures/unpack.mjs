@@ -59,7 +59,8 @@ export function ensureFixtures({ force = false, quiet = false } = {}) {
   if (!force && have === names && existsSync(join(CAPTURE_ROOT, "site", "document.json")) && existsSync(join(TESTS_ROOT, "site", "document.json"))) return CAPTURE_ROOT;
   for (const pack of packs) {
     if (!quiet) console.log(`Unpacking ${pack.split(/[\\/]/).pop()} into capture/ …`);
-    const r = spawnSync("tar", ["-xJf", pack, "-C", CAPTURE_ROOT], { stdio: quiet ? "ignore" : "inherit" });
+    const r = spawnSync("tar", ["-xJf", pack.split(/[\\/]/).pop(), "-C", ".."], { cwd: here, stdio: quiet ? "ignore" : "inherit" });
+    // Relative paths and a cwd: GNU tar (Git for Windows) reads "C:\…" as host "C" and exits 128.
     if (r.status !== 0) { if (!quiet) console.error("tar could not unpack the fixtures (it needs xz)"); return null; }
   }
   writeFileSync(STAMP, `${names}\n`);
