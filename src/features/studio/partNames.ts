@@ -259,9 +259,12 @@ function ownTitle(box: Named, all: readonly Named[]): string | null {
 const LANDMARKS = new Set(["Section", "Header", "Footer", "Menu", "Page body", "Form", "List"]);
 
 /**
- * The heading of the section a part sits in: the first heading inside the
- * smallest part that holds it and has one, else the nearest heading above
- * it on its page. Null when the page has none.
+ * The name of the section a part sits in. Holder by holder, from the
+ * smallest that holds it: the holder's first heading, else the page's id
+ * for it (`#community` is “Community”), so a part in a section with no
+ * heading is not named for a heading a section away ("Picture in “THE SOL
+ * FACE”" for a sticker in #community). Else the nearest heading above it on
+ * its page. Null when none of these is there.
  */
 export function sectionOf(n: Named, all: readonly Named[]): string | null {
   const memo = memoOf(all);
@@ -269,13 +272,16 @@ export function sectionOf(n: Named, all: readonly Named[]): string | null {
   let headed = memo.headed.get(key);
   if (headed === undefined) { headed = onPageOf(n.pageId, all).some(isHeadingish); memo.headed.set(key, headed); }
   /* The page's only heading may be the part itself, which never names its own section. */
-  if (!headed || (isHeadingish(n) && !onPageOf(n.pageId, all).some((m) => m.id !== n.id && isHeadingish(m)))) return null;
+  const headings = headed && !(isHeadingish(n) && !onPageOf(n.pageId, all).some((m) => m.id !== n.id && isHeadingish(m)));
   const page = onPageOf(n.pageId, all).filter((m) => m.id !== n.id);
   const holders = page.filter((m) => contains(m, n) && (m.w ?? 0) * (m.h ?? 0) > (n.w ?? 0) * (n.h ?? 0)).sort((a, b) => (a.w! * a.h!) - (b.w! * b.h!));
   for (const box of holders) {
-    const h = firstHeading(box, all);
+    const h = headings ? firstHeading(box, all) : null;
     if (h) return h;
+    const id = idWords(box.from?.id);
+    if (id) return id;
   }
+  if (!headings) return null;
   const above = page.filter((h) => isHeadingish(h) && (h.y ?? 0) <= (n.y ?? 0)).sort((a, b) => (b.y ?? 0) - (a.y ?? 0));
   return above.length ? clip(wordsOf(above[0]!)) : null;
 }
