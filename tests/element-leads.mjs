@@ -32,6 +32,7 @@ const check = (name, ok, detail = "") => {
 
 const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
 const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+await page.addInitScript(() => { try { localStorage.setItem("builder.shelf.folded", "0"); } catch { /* none */ } }); /* the shelf starts folded since 2026-10-05; this test works in the open one */
 await page.route("**/api/studio/**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: "{}" }));
 await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
 await page.waitForTimeout(1400);

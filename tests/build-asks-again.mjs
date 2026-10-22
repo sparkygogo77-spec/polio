@@ -26,6 +26,7 @@ import { fileURLToPath } from "node:url";
 import { createJiti } from "jiti";
 const here = dirname(fileURLToPath(import.meta.url));
 const jiti = createJiti(import.meta.url, { jsx: true, alias: { "@": join(here, "..", "src"), "@site": join(here, "..", "site.config.ts") } });
+await jiti.import("@/features/studio/board/store"); // the store door first: through jiti on Windows its create/builds/heldView cycle only forms when this loads first
 const studio = (f) => join(here, "..", "src", "features", "studio", f);
 const A = await jiti.import(studio("codeAsks.ts"));
 const L = await jiti.import(studio("fixLoop.ts"));

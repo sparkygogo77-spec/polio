@@ -24,6 +24,7 @@ const { renderToStaticMarkup } = require("react-dom/server");
 const { chromium } = require("playwright-core");
 const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") }, jsx: true });
+await jiti.import("@/features/studio/board/store"); // the store door first: through jiti on Windows its create/builds/heldView cycle only forms when this loads first
 const S = (...p) => join(here, "..", "src", "features", "studio", ...p);
 const { Block } = await jiti.import(S("blocks.tsx"));
 const { themeFrom, resolvePalette } = await jiti.import(S("shelf", "parts", "theme.ts"));
@@ -156,7 +157,7 @@ const page = (w, h) => `<!doctype html><html><head><meta charset="utf-8"><style>
 <script id="site-features" type="application/json">${JSON.stringify([{ part: "n_world", feature: "world-dialogs", inputs: {} }])}</script>
 <script>${RUNTIME_JS}</script><script>(function (siteFeatures) {\n${script}})(window.siteFeatures);</script></body></html>`;
 
-const browser = await chromium.launch({ args: ["--no-sandbox"], executablePath: "/opt/pw-browsers/chromium" });
+const browser = await chromium.launch({ args: ["--no-sandbox"], executablePath: process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium" });
 try {
   /* The page served from a stand-in address of its own; anything asked of any other address is written down and refused. */
   const ORIGIN = "https://standin.test";

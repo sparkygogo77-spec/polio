@@ -560,7 +560,7 @@ export function check(manifestPath, { write = false } = {}) {
   const callRe = new RegExp(`(?<![\\w$.])(?<!function\\s)(${Object.keys(helpers).map((h) => h.replace(/\$/g, '\\$')).join('|')})\\s*\\(`, 'g');
   for (const [abs, text] of scripts) {
     const file = rel(abs);
-    if (abs === tokensModule || helperFiles.has(abs) || ignore.some((x) => abs.toLowerCase().includes(x))) continue;
+    if (abs === tokensModule || helperFiles.has(abs) || ignore.some((x) => abs.split("\\").join("/").toLowerCase().includes(x))) continue;
     const ranges = functionRanges(text);
     if (!outsideOk.has(abs)) for (const x of insertions(text, { helpers, fillCalls, hookExists: (h) => where.has(h) })) if (x.problem) problems.push(`${file}:${x.line}: ${x.problem}`);
     const lineOfIndex = (idx) => text.slice(0, idx).split('\n').length;
@@ -673,7 +673,7 @@ export function check(manifestPath, { write = false } = {}) {
   // ---- states in scripts and in the scene and sample files (BUILDER-RULES.md, rules 13, 15, 17, 20)
   const HIDES = /\.hidden\s*=(?!=)|\b(?:set|remove|toggle)Attribute\(\s*['"]hidden['"]|\.style\.display\b|\.classList\b/;
   for (const [abs, text] of scripts) {
-    if (!siteScripts.has(abs) || outsideOk.has(abs) || ignore.some((x) => abs.toLowerCase().includes(x))) continue;
+    if (!siteScripts.has(abs) || outsideOk.has(abs) || ignore.some((x) => abs.split("\\").join("/").toLowerCase().includes(x))) continue;
     const file = rel(abs);
     text.split('\n').forEach((line, i) => {
       const code = line.replace(/\/\/.*$/, '');

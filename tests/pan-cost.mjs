@@ -20,7 +20,7 @@ import { chromium } from "playwright-core";
    so the sweep can point this at whichever port it built on. It was pinned
    to :3000, which meant it only ever ran against a dev server. */
 const URL_ = process.argv[2] ?? "http://localhost:3000";
-const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
+const b = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium" });
 /*
  * Each update carries the document it landed on, because a green card
  * renders it: the card is the site as that update left it, so a board of

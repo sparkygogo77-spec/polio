@@ -47,7 +47,7 @@ const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src")
 const { statusOf } = await jiti.import(join(here, "..", "src", "features", "studio", "shelfFacts.ts"));
 const { getFeature } = await jiti.import(join(here, "..", "src", "features", "studio", "shelf", "catalog.ts"));
 
-const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync("/opt/pw-browsers/chromium") ? { executablePath: "/opt/pw-browsers/chromium" } : {}) });
+const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync("/opt/pw-browsers/chromium") ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium" } : {}) });
 const context = await browser.newContext({ viewport: { width: 1500, height: 1000 } });
 const page = await context.newPage();
 const errors = [];

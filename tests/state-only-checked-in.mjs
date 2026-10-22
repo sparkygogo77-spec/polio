@@ -40,6 +40,7 @@ import { fileURLToPath } from "node:url";
 import { createJiti } from "jiti";
 const here = dirname(fileURLToPath(import.meta.url));
 const jiti = createJiti(import.meta.url, { jsx: true, alias: { "@": join(here, "..", "src"), "@site": join(here, "..", "site.config.ts") } });
+await jiti.import("@/features/studio/board/store"); // the store door first: through jiti on Windows its create/builds/heldView cycle only forms when this loads first
 const studio = (f) => jiti.import(join(here, "..", "src", "features", "studio", f));
 const E = await studio("states/stateEdits.ts");
 const L = await studio("send-out/styleLayer.ts");

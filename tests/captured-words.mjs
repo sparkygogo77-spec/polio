@@ -81,7 +81,7 @@ const doc = JSON.stringify({ state: {
   nodes: [node("h_head", "value-prop", "A heading placed by hand", 40, 40, 300, 90), node("h_para", "prose", words, 40, 200, 900, 160)],
   groups: [], shapes: [], format: {}, brief: { name: "HAND", gimmick: "", master: "" }, frameWidth: 1440, activePageId: "p", trail: [],
 }, version: 0 });
-const b2 = await (await import("playwright-core")).chromium.launch({ args: ["--no-sandbox"], executablePath: "/opt/pw-browsers/chromium" });
+const b2 = await (await import("playwright-core")).chromium.launch({ args: ["--no-sandbox"], executablePath: process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium" });
 const ctx = await b2.newContext({ viewport: { width: 1500, height: 1000 } });
 await ctx.addInitScript((d) => { if (!sessionStorage.getItem("seeded")) { localStorage.setItem("builder.studio", d); localStorage.setItem("builder.builds", JSON.stringify({ state: { projects: [{ id: "h", name: "HAND", updatedAt: 1 }], activeId: "h" }, version: 0 })); sessionStorage.setItem("seeded", "1"); } }, doc);
 const p2 = await ctx.newPage();

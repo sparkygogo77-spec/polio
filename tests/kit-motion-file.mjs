@@ -49,6 +49,7 @@ const git = (...args) => execFileSync("git", args, { cwd: REPO_DIR, encoding: "u
 const gitIn = (input, ...args) => execFileSync("git", args, { cwd: REPO_DIR, encoding: "utf8", input, stdio: ["pipe", "pipe", "pipe"] }).trim();
 const commit = (m) => { git("-c", "user.name=t", "-c", "user.email=t@t", "add", "-A"); git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", m); };
 git("init", "-q", "-b", "main");
+git("config", "core.autocrlf", "false"); /* the scratch repo must hand the motion file back byte for byte, whatever the machine converts */
 commit("the starter");
 
 /* GitHub, stood in over that repository: every write is a real git object. */

@@ -44,6 +44,7 @@ check("Font still sets size, weight, letter spacing and family", ["Size", "Weigh
 /* ------------------------------------------------------------ the pure half */
 const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") }, jsx: true });
+await jiti.import("@/features/studio/board/store"); // the store door first: through jiti on Windows its create/builds/heldView cycle only forms when this loads first
 const C = await jiti.import(join(here, "..", "src", "features", "studio", "look", "siteColours.ts"));
 const E = await jiti.import(join(here, "..", "src", "features", "studio", "RingEditors.tsx"));
 const INK = "rgb(26, 15, 11)", RED = "rgb(210, 60, 52)";

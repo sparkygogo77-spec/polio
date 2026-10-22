@@ -137,7 +137,8 @@ check("and the brief lays out the section no part carries", /The coordinates/i.t
 const push = page.getByRole("button", { name: /Push to GitHub/ }).first();
 if (await push.count()) {
   await push.click();
-  await page.waitForTimeout(6000);
+  /* The push is eleven requests to the stand-in; on a slower machine than the one this was written on it outlasts any fixed wait. Wait for the page, up to a minute. */
+  for (let i = 0; i < 120 && !committed.has("index.html"); i++) await page.waitForTimeout(500);
 }
 check("a publish commits a page", committed.has("index.html"), `${committed.size} files`);
 

@@ -37,7 +37,7 @@ const parts = [
   { id: "card4", x: 1068, y: 520, w: 348, h: 300, selector: "body > div > div > div > a:nth-of-type(4)" },
 ];
 const k = fluid.fluidParts(parts, W);
-const browser = await chromium.launch({ args: ["--no-sandbox"], executablePath: "/opt/pw-browsers/chromium" });
+const browser = await chromium.launch({ args: ["--no-sandbox"], executablePath: process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium" });
 for (const win of [1440, 2000, 2560]) {
   const page = await browser.newPage({ viewport: { width: win, height: 900 } });
   const html = parts.map((p) => { const f = k.get(p.id); return `<div id="${p.id}" style="position:absolute;top:${p.y}px;height:${p.h}px;left:${fluid.css(f.left, W)};width:${fluid.css(f.width, W)}"></div>`; }).join("");
