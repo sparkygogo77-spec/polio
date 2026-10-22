@@ -18,6 +18,7 @@
  *   node tests/go-live.mjs [url]        # default http://localhost:3000
  */
 import { spawn } from "node:child_process";
+import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
 const URL_BASE = process.argv[2] ?? "http://localhost:3000";
@@ -85,7 +86,8 @@ if (rejected.reason === "network") {
 
 /* 4. The publish target, on a server that has a token and a list. */
 const PORT = 3101;
-const server = spawn("npx", ["next", "start", "-p", String(PORT)], {
+/* next itself, through node: "npx" is a .cmd shim on Windows and spawn finds no such program. */
+const server = spawn(process.execPath, [join(process.cwd(), "node_modules", "next", "dist", "bin", "next"), "start", "-p", String(PORT)], {
   cwd: process.cwd(),
   env: {
     ...process.env,
