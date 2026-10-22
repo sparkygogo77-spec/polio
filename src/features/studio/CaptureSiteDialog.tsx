@@ -77,7 +77,8 @@ async function follow(run: CaptureRun, onProgress?: (p: Progress) => void): Prom
   if (!r || watching.has(key)) return null;
   watching.add(key);
   try {
-    const token = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "";
+    /* Read at each poll: a run picked up as the page loads is followed before the keys have opened. */
+    const token = () => heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "";
     const end = await watchCapture({ repo: r, token, runId: run.runId, name: run.name, ranOn: run.ranOn, onProgress: onProgress ?? (() => {}) });
     keepRun(end.ok ? { ...run, at: "done", endedAt: Date.now(), ref: end.ref, path: end.path, htmlUrl: end.htmlUrl || run.htmlUrl } : { ...run, at: "failed", endedAt: Date.now(), says: end.says, htmlUrl: end.htmlUrl || run.htmlUrl });
     return end;
