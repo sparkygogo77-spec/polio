@@ -296,7 +296,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
          `parts/spans.ts`: a plain string stays valid for ever. */
       content={plain(node.content)}
       spans={isSpans(node.content) ? spansOf(node.content) : undefined}
-      options={node.options}
+      options={node.options ?? {}}
       w={size?.w ?? node.w}
       h={size?.h ?? node.h}
       link={node.link ?? null}

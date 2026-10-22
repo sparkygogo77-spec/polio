@@ -258,9 +258,9 @@ export interface PartTour {
   at?: number;
 }
 
-/** Read an option with its default. */
-export function opt(options: Record<string, string>, id: string, def: string): string {
-  const v = options[id];
+/** Read an option with its default. A part with no options at all reads as none set (tests/options-missing.mjs). */
+export function opt(options: Record<string, string> | null | undefined, id: string, def: string): string {
+  const v = options?.[id];
   return v && v.trim() ? v : def;
 }
 

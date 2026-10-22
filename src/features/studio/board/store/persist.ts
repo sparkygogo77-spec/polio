@@ -1,6 +1,6 @@
 "use client";
 import { unpackFrom } from "../../docStore";
-import { pictureLayersOff } from "../../docTake";
+import { pictureLayersOff, withOptions } from "../../docTake";
 import { defaultLight, delayMs, emptyLook, speedK } from "../../look";
 import { newMotion, SLEEVES } from "../../motion";
 import { normaliseSketch, type OutlineClip } from "../../pictures";
@@ -109,7 +109,7 @@ export function mergeDoc(persisted: unknown, current: StudioState): StudioState 
         return {
           ...current,
           ...p,
-          nodes: (p.nodes ?? current.nodes).map((n) => ({
+          nodes: withOptions(p.nodes ?? current.nodes).map((n) => ({
             ...n, content: n.content ?? "", link: n.link ?? null,
             /* A path packed for the localStorage mirror (docStore.ts) is the path it was. */
             from: n.from ? unpackFrom(n.from as { selector?: string; sel?: string } & Record<string, unknown>) as typeof n.from : n.from, data: n.data ?? "", colour: n.colour ?? null, font: n.font ?? null, anim: n.anim ?? null,
