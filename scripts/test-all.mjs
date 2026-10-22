@@ -120,6 +120,13 @@ const SKIP = {
   "ground-readback": "a measurement, not a pass or fail",
   "pan-cost": "a measurement, not a pass or fail",
 };
+/* Tests that read something outside this checkout say so in the table when it is not there, instead of failing for want of it. */
+const OUTSIDE = [
+  ["board-top-edge", resolve(ROOT, process.env.PST ?? "../PST"), "needs a PST checkout (PST=path, default ../PST)"],
+  ["source-site", process.env.SOLCANO ?? "/home/user/solcano", "needs his Solcano source (SOLCANO=path)"],
+  ["fonts-carried", "/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf", "needs the Liberation Serif font file (Linux path)"],
+];
+for (const [name, at, why] of OUTSIDE) if (!existsSync(at)) SKIP[name] = why;
 /* Arguments a header names in words the rules below do not read. */
 const ARGS = {
   "sticky-in-section": (url) => [url, join(SINK, "sites", "gotchi-gg")],
