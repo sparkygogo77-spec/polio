@@ -309,6 +309,15 @@ export async function hoverMotion(page, { late = () => false, most = 40 } = {}) 
     if (late()) break;
     const box = await page.evaluate((id) => {
       const el = window.__sinkHoverEls.get(id);
+      /*
+       * Brought into view, its boxes put back after. scrollIntoView scrolls
+       * every box around it, a clipped one too: thesolface's #community
+       * (overflow: hidden, its picture 95px past its foot) was left scrolled
+       * 95px by a hover on its button, and read at rest so, its words 95px
+       * above the section (check-hover-scroll.mjs).
+       */
+      const back = (window.__sinkScrollBack ??= new Map());
+      for (let a = el.parentElement; a && a !== document.documentElement; a = a.parentElement) if (!back.has(a)) back.set(a, [a.scrollTop, a.scrollLeft]);
       el.scrollIntoView({ block: "center", inline: "nearest" });
       const r = el.getBoundingClientRect();
       return [r.left, r.top, r.width, r.height];
@@ -379,7 +388,11 @@ export async function hoverMotion(page, { late = () => false, most = 40 } = {}) 
     }, { base, mid, q1, q3, after, host: id });
     for (const f of found) if (!results.some((r) => r.el === f.el)) results.push(f);
   }
-  await page.evaluate(() => scrollTo(0, 0));
+  await page.evaluate(() => {
+    scrollTo(0, 0);
+    for (const [a, [top, left]] of window.__sinkScrollBack ?? []) if (a.isConnected && (a.scrollTop !== top || a.scrollLeft !== left)) { a.scrollTop = top; a.scrollLeft = left; }
+    window.__sinkScrollBack = null;
+  });
   return results;
 }
 
