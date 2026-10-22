@@ -179,7 +179,7 @@ if (!up) {
   else {
     /* playwright-core ships no browser of its own; this container's is here,
        and every other suite launches it the same way. */
-    const browser = await chromium.launch({ headless: true, executablePath: "/opt/pw-browsers/chromium" });
+    const browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium" });
     const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
     await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
     await page.waitForTimeout(900);
