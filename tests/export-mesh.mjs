@@ -56,8 +56,8 @@ rmSync(site, { recursive: true, force: true });
 for (const f of files) { mkdirSync(join(site, dirname(f.path)), { recursive: true }); writeFileSync(join(site, f.path), f.content); }
 writeFileSync(join(site, "tsconfig.json"), JSON.stringify({ compilerOptions: { target: "ES2020", lib: ["dom", "dom.iterable", "esnext"], jsx: "preserve", module: "esnext", moduleResolution: "bundler", strict: true, skipLibCheck: true, noEmit: true, esModuleInterop: true, baseUrl: ".", paths: { "@/*": ["./*"] }, types: ["react", "react-dom"], typeRoots: [resolve("node_modules/@types")] }, include: ["**/*.ts", "**/*.tsx"] }));
 mkdirSync(join(site, "node_modules"), { recursive: true });
-for (const m of ["react", "next", "three", "@types"]) symlinkSync(resolve("node_modules", m), join(site, "node_modules", m), "dir");
-const tsc = spawnSync(resolve("node_modules/.bin/tsc"), ["-p", "tsconfig.json"], { cwd: site, encoding: "utf8" });
+for (const m of ["react", "next", "three", "@types"]) symlinkSync(resolve("node_modules", m), join(site, "node_modules", m), "junction");
+const tsc = spawnSync(process.execPath, [resolve("node_modules/typescript/bin/tsc"), "-p", "tsconfig.json"], { cwd: site, encoding: "utf8" });
 check("the exported site typechecks with the solid in it", tsc.status === 0, tsc.status === 0 ? "tsc clean" : (tsc.stdout + tsc.stderr).trim().split("\n").slice(0, 3).join(" | "));
 rmSync(site, { recursive: true, force: true });
 
