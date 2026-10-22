@@ -59,7 +59,13 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, w, h }: 
    * node's words are a plain string, and then everything below is untouched.
    */
   const runParas = spans?.length ? lines(spans).filter((l) => l.length > 0) : null;
-  const paras = typed.length ? typed : [unwritten(mode, () => sample.sentence(rng(hash(id)), 22), "", t.published), unwritten(mode, () => sample.sentence(rng(hash(id + "2")), 18), "", t.published)];
+  /*
+   * A captured part with no words is the page's, and the page had none there
+   * (a flex row whose words became a part of their own): it draws nothing,
+   * never sample prose over the real words beside it (J's lore sign-off,
+   * tests/captured-no-filler.mjs). Sample prose is for a part a person adds.
+   */
+  const paras = typed.length ? typed : t.captured ? [] : [unwritten(mode, () => sample.sentence(rng(hash(id)), 22), "", t.published), unwritten(mode, () => sample.sentence(rng(hash(id + "2")), 18), "", t.published)];
   const quote = id === "pull-quote";
   const dropCap = id === "drop-cap";
   const kinetic = id === "kinetic-type";
