@@ -56,6 +56,7 @@ import { pageFeatures } from "../shelf";
 import { ON_BOARD } from "../shelf";
 import { codesWorn, motionCss, pathCodes } from "../shelf/parts/capturedMotion";
 import { svgUnder } from "../live/svgUnder";
+import { useRestFar } from "./restFar";
 import { BOARD_MOTION_CSS, groundLayersOf, PageGroundLayers, stacksOf, useBoardMotion, useViewTop } from "./themeDraw";
 import { runWorks } from "../live/runWorks";
 import { followsOf, placeFollowers } from "../live/follow";
@@ -1624,6 +1625,8 @@ export function DesktopCanvas() {
     for (const n of ordered) { const svg = under.get(n.id); if (svg && ids.has(svg)) before.set(svg, [...(before.get(svg) ?? []), n]); }
     return ordered.flatMap((n) => (under.has(n.id) && ids.has(under.get(n.id)!) ? [] : [...(before.get(n.id) ?? []), n]));
   }, [nodes, under]);
+  /* Loops far from the view rest, and start again before they come into it (`restFar.ts`). Watched again when the parts drawn or the motion switch change. */
+  useRestFar(ref, `${motion}|${drawOrder.map((n) => n.id).join(",")}`);
   const pageWindowRef = React.useRef<HTMLDivElement>(null);
   useViewTop(zoomRef, pageWindowRef, paneOf, zoom, stacks.size > 0 || groundLayers.length > 0);
   /* Kept per part, so a part the hand is not on keeps the same object across a drag and its `NodeView` is not drawn again. */
