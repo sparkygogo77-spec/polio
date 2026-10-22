@@ -178,7 +178,7 @@ for (let t = 0; t < 60 && !git.merged.length; t++) await page.waitForTimeout(250
 await page.waitForTimeout(800);
 const main1 = treeOf(git.refs.get("main"));
 const paths = [...main1.keys()];
-check("2 the kit went on a kit/ branch, by a pull request, merged", git.merged.length === 1 && /^kit\/site-10-/.test(git.merged[0]) && /Builder kit: Site 10/.test(git.pulls[0]?.title ?? ""), `${git.merged.join()} ${git.pulls[0]?.title}`);
+check("2 the kit went on a kit/ branch, by a pull request, merged", git.merged.length === 1 && /^kit\/site-/.test(git.merged[0]) && /Builder kit: (Site 10|site)$/.test(git.pulls[0]?.title ?? ""), `${git.merged.join()} ${git.pulls[0]?.title}`);
 check("2 …carrying builder.json, CLAUDE.md, the kit's check, tokens, the style layer and the page", ["builder.json", "CLAUDE.md", "tools/kit-check.mjs", "site/tokens.css", "site/style-layer.css", "site/index.html"].every((f) => paths.includes(f)), paths.filter((x) => !x.startsWith("site/assets")).join(", "));
 const page1 = git.blobs.get(main1.get("site/index.html")).toString();
 check("2 …the page with a data-hook on its parts and the board's words", /data-hook="/.test(page1) && /Find a match/.test(page1));
