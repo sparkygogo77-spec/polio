@@ -431,6 +431,19 @@ function run(cmd, args, { env, timeout, cwd = ROOT, name } = {}) {
   });
 }
 
+/** Where Playwright put its headless shell on a machine with no /opt/pw-browsers (Windows, a laptop): the newest one, or undefined. */
+function playwrightShell() {
+  const root = process.env.PLAYWRIGHT_BROWSERS_PATH || (process.platform === "win32" ? join(process.env.LOCALAPPDATA ?? "", "ms-playwright") : join(process.env.HOME ?? "", ".cache", "ms-playwright"));
+  try {
+    const dirs = readdirSync(root).filter((d) => d.startsWith("chromium_headless_shell-")).sort((a, b) => parseInt(b.split("-")[1]) - parseInt(a.split("-")[1]));
+    for (const d of dirs) for (const sub of readdirSync(join(root, d))) {
+      const exe = join(root, d, sub, process.platform === "win32" ? "chrome-headless-shell.exe" : "chrome-headless-shell");
+      if (existsSync(exe)) return exe;
+    }
+  } catch { /* none here */ }
+  return undefined;
+}
+
 function baseEnv() {
   /*
    * SINK, to a test, is the trumpmorty.fun capture's folder (the drawing
@@ -441,8 +454,10 @@ function baseEnv() {
   for (const k of UNSET) delete env[k];
   /* The browser that is here, for the suites that take one by name: without
      it they ask Playwright for its own build, which may not be installed. */
-  const here = ["/opt/pw-browsers/chromium"].find((p) => existsSync(p));
-  if (here) { env.PLAYWRIGHT_CHROMIUM ??= here; env.CHROMIUM ??= here; }
+  const here = ["/opt/pw-browsers/chromium"].find((p) => existsSync(p)) ?? playwrightShell();
+  if (here) { env.PLAYWRIGHT_CHROMIUM ??= here; env.CHROMIUM ??= here; env.PW_CHROMIUM ??= here; }
+  /* Only playwright-core is a dependency here; the tests ask for "playwright" or this variable. */
+  if (existsSync(join(ROOT, "node_modules", "playwright-core"))) env.PLAYWRIGHT_MODULE ??= join(ROOT, "node_modules", "playwright-core");
   return env;
 }
 
