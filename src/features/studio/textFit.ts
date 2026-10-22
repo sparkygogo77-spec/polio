@@ -345,6 +345,13 @@ function holds(a: Drawn, b: Drawn): boolean {
  */
 export async function tidyToWords(ids: readonly string[], read: (id: string) => Drawn | null, apply: (f: Fitted[]) => void): Promise<void> {
   if (ids.length < 1 || typeof document === "undefined") return;
+  /* Not settled while it runs: the board draws every part for it to read (`useBoardSettled`). */
+  tidying++;
+  notifySettled();
+  try { await tidy(ids, read, apply); } finally { tidying--; notifySettled(); }
+}
+
+async function tidy(ids: readonly string[], read: (id: string) => Drawn | null, apply: (f: Fitted[]) => void): Promise<void> {
   const fonts = (document as Document & { fonts?: { ready?: Promise<unknown> } }).fonts;
   await Promise.race([
     fonts?.ready ?? Promise.resolve(),
@@ -360,6 +367,31 @@ export async function tidyToWords(ids: readonly string[], read: (id: string) => 
   });
   const fitted = fitRows(boxes);
   if (fitted.length) apply(fitted);
+}
+
+/**
+ * HAS THE BOARD SETTLED.
+ *
+ * True once a settle has read every part and had nothing to write, with no
+ * settle owed or due and no import's tidy running; false from the moment one
+ * is asked for. While it is true the board may leave parts far from the view
+ * undrawn (`board/skipFar.ts`); everything here reads parts as drawn, so the
+ * moment a reading is due it turns false and they are drawn again first.
+ */
+let settledNow = false;
+let tidying = 0;
+const settledHear = new Set<() => void>();
+let settledWas = false;
+function notifySettled() {
+  const now = settledNow && tidying === 0;
+  if (now === settledWas) return;
+  settledWas = now;
+  for (const f of settledHear) f();
+}
+function setSettled(v: boolean) { settledNow = v; notifySettled(); }
+export function boardSettled(): boolean { return settledWas; }
+export function useBoardSettled(): boolean {
+  return React.useSyncExternalStore((f) => { settledHear.add(f); return () => { settledHear.delete(f); }; }, boardSettled, () => false);
 }
 
 /**
@@ -528,7 +560,9 @@ export function useSettleToWords(
      * into, and settled once on hydration for a document older than the
      * field. A page where every part is his is not this rule's business.
      */
-    if (!ns.some((n) => !n.byHand)) return;
+    /* Nothing to write and nothing more due: the board has settled (`useBoardSettled`). */
+    const rest = () => { if (timer.current === null && !owed.current) setSettled(true); };
+    if (!ns.some((n) => !n.byHand)) { rest(); return; }
     const machines = new Set(ns.filter((n) => !n.byHand).map((n) => n.id));
     const boxes: Drawn[] = [];
     const wide = new Map<string, number>();
@@ -545,18 +579,21 @@ export function useSettleToWords(
         if (w) wide.set(n.id, w);
       }
     });
-    if (!boxes.length) return;
+    if (!boxes.length) { rest(); return; }
     const fitted = fitRows(boxes, (id) => machines.has(id), latest.current.frame);
     /* A line of words wider than its box in this machine's font is as wide as it drew (`lineWidth`). */
     for (const [id, w] of wide) {
       const f = fitted.find((x) => x.id === id), n = ns.find((x) => x.id === id)!;
       if (f) f.w = w; else fitted.push({ id, h: n.h, y: n.y, w });
     }
-    if (!fitted.length) { said.current = ""; return; }
+    if (!fitted.length) { said.current = ""; rest(); return; }
     const print = fitted.map((f) => `${f.id}:${f.h},${f.y},${f.w ?? ""}`).join("|");
-    if (print === said.current) return;
+    if (print === said.current) { rest(); return; }
     said.current = print;
+    const before = latest.current.nodes;
     latest.current.apply(withPressed(fitted, latest.current.nodes));
+    /* A write that moved something asks for another settle (the geometry effect below); one that moved nothing has settled. */
+    requestAnimationFrame(() => { if (latest.current.nodes === before) rest(); });
   }, []);
 
   /* Debounced, and never before the faces have had their chance: a run of
@@ -564,6 +601,7 @@ export function useSettleToWords(
      fallback, which is the very mistake this is here to repair. */
   const timer = React.useRef<number | null>(null);
   const soon = React.useCallback(() => {
+    setSettled(false);
     if (timer.current !== null) window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => {
       timer.current = null;
@@ -586,7 +624,24 @@ export function useSettleToWords(
 
   React.useEffect(() => {
     if (typeof document === "undefined" || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(soon);
+    /*
+     * A size counts when it has moved half a pixel since the last one that
+     * did. What is read is `offsetHeight`, whole pixels, so less says nothing;
+     * and a part the board leaves undrawn far from the view stands a hundredth
+     * of a pixel off its drawn size under the zoom (`board/skipFar.ts`), which
+     * must not ask for a settle that draws it again. Small moves still add up.
+     */
+    const heard = new WeakMap<Element, { w: number; h: number }>();
+    const ro = new ResizeObserver((seen) => {
+      let moved = false;
+      for (const s of seen) {
+        const b = s.borderBoxSize?.[0];
+        const now = b ? { w: b.inlineSize, h: b.blockSize } : { w: s.contentRect.width, h: s.contentRect.height };
+        const was = heard.get(s.target);
+        if (!was || Math.abs(now.w - was.w) >= 0.5 || Math.abs(now.h - was.h) >= 0.5) { heard.set(s.target, now); moved = true; }
+      }
+      if (moved) soon();
+    });
     const onBoard = boardElements();
     for (const n of latest.current.nodes) {
       const el = onBoard.get(n.id);
