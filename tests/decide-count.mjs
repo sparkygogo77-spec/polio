@@ -96,7 +96,7 @@ await page.waitForTimeout(700);
 const panel = page.locator("[data-look-panel]");
 const hints = await panel.locator("[data-more-hint]").evaluateAll((els) => els.map((e) => ({ state: e.getAttribute("data-more-hint"), text: e.textContent ?? "" })));
 const long = await panel.locator("p").evaluateAll((els) => els.filter((p) => !p.querySelector("[data-more-hint]") && !p.closest("[data-more-hint]")).map((p) => (p.textContent ?? "").trim()).filter((t) => t.split(/[.!?]\s+/).filter(Boolean).length > 1 && t.length > 90));
-check("the Look tab's explanations are cut to one line", hints.length >= 3 && hints.filter((h) => h.state === "shut").length >= 1, `${hints.length} hints, ${hints.filter((h) => h.state === "shut").length} with more behind a ?`);
+check("the Look tab's explanations are cut to one line", hints.length >= 2 && /* three before the Texture rows went (1d680d3f); two are left */ hints.filter((h) => h.state === "shut").length >= 1, `${hints.length} hints, ${hints.filter((h) => h.state === "shut").length} with more behind a ?`);
 check("…and no paragraph of two long sentences is left whole", long.length === 0, JSON.stringify(long.slice(0, 2)));
 const first = panel.locator('[data-more-hint="shut"]').first();
 const before = (await first.textContent()) ?? "";

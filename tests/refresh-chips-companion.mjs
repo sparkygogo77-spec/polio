@@ -89,7 +89,7 @@ async function open(doc, builds) {
   });
   const link = strip?.chips.find((c) => c.k === "button");
   check("the counts are chips with an icon each", !!strip && strip.chips.length >= 3 && strip.chips.every((c) => c.svg), J(strip?.chips));
-  check("…the buttons' chip says 1", link?.n === "1", J(link));
+  check("…the buttons' chip says 1", /^1s*buttons?$/.test(link?.n ?? "") /* the chip now says its label: "1buttons" in the text, "1 buttons" on screen */, J(link));
   check("…and they are green", !!link && /oklch\(0\.82 0\.17 150|rgb\(\d+, 2\d\d, \d+\)/.test(link.colour), link?.colour);
   check("the words beside them are one short line, the rest under details", !!strip && strip.shown.length < 160 && /landed/.test(strip.shown) && strip.details, J(strip?.shown));
   await page.close();
