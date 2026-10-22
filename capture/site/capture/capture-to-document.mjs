@@ -2439,6 +2439,15 @@ for (const g of generics) note("(faces)", g, "nowhere", `a generic keyword: the 
       } else {
         const made = line.own.map((o) => wordsPart(p, o, `n_prose_${++n}`));
         p.content = "";
+        /*
+         * NO WORDS OF ITS OWN LEFT: A BOX. Left a words part with no words, the
+         * Builder filled thesolface's sign-off row with sample prose over the
+         * real words, and its label still named it by the words it gave away
+         * (check-split-holder-box.mjs). It keeps its look and its place.
+         */
+        if (p.featureId === "prose" || p.featureId === "value-prop") p.featureId = "box";
+        const said = String(was ?? "").replace(/\s+/g, " ").trim().slice(0, 12);
+        if (said && String(p.label ?? "").replace(/\s+/g, " ").includes(said)) p.label = "";
         for (const k of kids) handled.add(k.id);
         for (const m of made) handled.add(m.id);
         after.set(p.id, made);
