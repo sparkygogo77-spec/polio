@@ -6,7 +6,7 @@ export { CARRIES, SHELF_GROUPS, isWorkKey, workIdOf } from "./shelfGroups.ts";
 export type { ShelfGroup } from "./shelfGroups.ts";
 export { PUBLISH, REMOVED, VARIANTS, VARIANT_OF, isFinished, itemOf, onShelf, placedWorks, publishOf, shelfOf } from "./shelfPlan.ts";
 export type { Publish, Runtime, ShelfEntry, VariantDef } from "./shelfPlan.ts";
-export { EMBED_SANDBOX, MOVES, animationValue, animationsValue, capName, copyMotion, embedSrc, hasMotion, hoverHost, inside, insideIndex, keyframesCss, motionClass, motionCss, movesItself, pathCodes, underPath } from "./parts/capturedMotion.ts";
+export { EMBED_SANDBOX, MOVES, animationValue, animationsValue, capName, codesWorn, copyMotion, embedSrc, hasMotion, hoverHost, inside, insideIndex, keyframesCss, motionClass, motionCss, movesItself, pathCodes, underPath } from "./parts/capturedMotion.ts";
 export type { CapturedKeyframes, MotionAnimation, MotionNode, MotionState, MotionTransition, NodeEmbed, NodeMotion } from "./parts/capturedMotion.ts";
 export { CUBE_MIN, CUBE_SIDES, REST, emptyCube, emptyFace, faceItems, faceOf, facesFrom, listItems, saysCube, written } from "./parts/cubeFaces.ts";
 export type { CubeData, CubeFace, CubeSide } from "./parts/cubeFaces.ts";

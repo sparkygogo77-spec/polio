@@ -54,8 +54,9 @@ import { useSettingValue } from "@/core/settings/useSetting";
 import { pulledBox,scaleHeld } from "../groupScale";
 import { pageFeatures } from "../shelf";
 import { ON_BOARD } from "../shelf";
-import { motionCss } from "../shelf/parts/capturedMotion";
+import { codesWorn, motionCss, pathCodes } from "../shelf/parts/capturedMotion";
 import { svgUnder } from "../live/svgUnder";
+import { useRestFar } from "./restFar";
 import { BOARD_MOTION_CSS, groundLayersOf, PageGroundLayers, stacksOf, useBoardMotion, useViewTop } from "./themeDraw";
 import { runWorks } from "../live/runWorks";
 import { followsOf, placeFollowers } from "../live/follow";
@@ -557,7 +558,9 @@ export function DesktopCanvas() {
   /* The width alone: the fit is across only (`fitZoom`). The height was in
      the key, so the shelf lowering under a carried card (`cardCarry.ts`) or
      its grip re-fitted the board and threw the page back to its top. */
-  const fitKey = (pane: Element) => `${pane.clientWidth}`;
+  /* The pane's width as last read where reading it is cheap: after a fit, in the observer, the window's resize and the clock below. The render-time check compares this, never the live width (`tests/drag-no-reflow.mjs`). */
+  const paneSeen = React.useRef<string | null>(null);
+  const fitKey = (pane: Element) => (paneSeen.current = `${pane.clientWidth}`);
 
   const fitTo = React.useCallback((pane: Element) => {
     const vw = pane.clientWidth;
@@ -636,7 +639,8 @@ export function DesktopCanvas() {
      * notifier.
      */
     /* Under Preview the board is kept, hidden (`StudioPage`), and the pane is wider without the side panel: no fit for a width it is not shown at, so coming back needs none either. */
-    const again = () => { if (useStudio.getState().mode === "design" && fitKey(pane) !== fittedFor.current) apply(); };
+    /* The width is read first, whatever the view, so the render-time check below has it on coming back to design. */
+    const again = () => { const key = fitKey(pane); if (useStudio.getState().mode === "design" && key !== fittedFor.current) apply(); };
     const ro = new ResizeObserver(again);
     ro.observe(pane);
     window.addEventListener("resize", again);
@@ -708,11 +712,20 @@ export function DesktopCanvas() {
    * frame to 2022 in a 1509 pane, and the first version of this undid every
    * one of them. Only a pane that has changed width since the fit is stale,
    * and only a stale fit is put right.
+   *
+   * NOT FREE, AS IT TURNED OUT: the *comparison* is two numbers, but reading
+   * `clientWidth` straight after React has written the DOM makes the
+   * browser lay the whole board out there and then. On the sol face board
+   * (800 parts, 13,500 elements) that was 3.9 s of a 5.5 s twenty-move drag,
+   * a full layout on every move. So this compares the width last read where
+   * reading is cheap (`paneSeen`). A fit that failed, or was skipped outside
+   * the design view, is still retried at the next render.
    */
   React.useLayoutEffect(() => {
     const pane = ref.current?.closest("[data-studio-pane]");
     if (!(pane instanceof HTMLElement)) return;
-    if (!pane.clientWidth || fitKey(pane) === fittedFor.current || useStudio.getState().mode !== "design") return;
+    const seen = paneSeen.current;
+    if (!seen || seen === "0" || seen === fittedFor.current || useStudio.getState().mode !== "design") return;
     fitTo(pane);
   });
 
@@ -1584,7 +1597,21 @@ export function DesktopCanvas() {
   const pageBox = React.useMemo(() => ({ w: frameWidth, h: frameH }), [frameWidth, frameH]);
   /* The site's theme on the board (`themeDraw.tsx`): its motion, played or held still by the toolbar's switch; its background layers; its fixed and sticky parts riding down with the view. */
   const motion = useBoardMotion();
-  const motionSheet = React.useMemo(() => motionCss(pageAll, look.keyframes, (id) => `[data-node-id="${id}"]`), [pageAll, look.keyframes]);
+  /*
+   * A group's hover, press and focus rules name its host and the path its
+   * parts stand under, as the published page's do (`motionCss#trigger`),
+   * not every part of the group by id. Said by id, sol face's board sheet was
+   * 1.6 MB with 35,546 `:hover`s inside 1,076 `:root:has(…)`, and every style
+   * pass of the board matched all of it: a drag move went from 83 ms to
+   * 217 ms with the sheet on (`tests/board-motion-light.mjs`). The parts
+   * under a named path wear its code (`data-at`), as on the published page.
+   */
+  const { motionSheet, atOf } = React.useMemo(() => {
+    const pathCode = pathCodes(pageAll);
+    const used = new Set<string>();
+    const css = motionCss(pageAll, look.keyframes, (id) => `[data-node-id="${id}"]`, undefined, pathCode, used);
+    return { motionSheet: css, atOf: codesWorn(pageAll, pathCode, used) };
+  }, [pageAll, look.keyframes]);
   const groundLayers = React.useMemo(() => groundLayersOf(page), [page]);
   const stacks = React.useMemo(() => stacksOf(nodes, pageH), [nodes, pageH]);
   /* A drawing's own hooked shapes the page painted under it (a dial's face, a clock's rim) are drawn before it, so its ticks and hands stay over them, as the Preview draws them (`live/svgUnder.ts`). */
@@ -1598,6 +1625,8 @@ export function DesktopCanvas() {
     for (const n of ordered) { const svg = under.get(n.id); if (svg && ids.has(svg)) before.set(svg, [...(before.get(svg) ?? []), n]); }
     return ordered.flatMap((n) => (under.has(n.id) && ids.has(under.get(n.id)!) ? [] : [...(before.get(n.id) ?? []), n]));
   }, [nodes, under]);
+  /* Loops far from the view rest, and start again before they come into it (`restFar.ts`). Watched again when the parts drawn or the motion switch change. */
+  useRestFar(ref, `${motion}|${drawOrder.map((n) => n.id).join(",")}`);
   const pageWindowRef = React.useRef<HTMLDivElement>(null);
   useViewTop(zoomRef, pageWindowRef, paneOf, zoom, stacks.size > 0 || groundLayers.length > 0);
   /* Kept per part, so a part the hand is not on keeps the same object across a drag and its `NodeView` is not drawn again. */
@@ -1928,6 +1957,7 @@ export function DesktopCanvas() {
             decide={decideAll || (mode !== "preview" && selection.includes(n.id)) ? decide.get(n.id) ?? null : null}
             name={names.get(n.id) ?? n.label}
             stack={stacks.get(n.id)}
+            at={atOf.get(n.id)}
           />
         ))}
         <PageGroundLayers layers={groundLayers} width={frameWidth} height={pageH} over />
