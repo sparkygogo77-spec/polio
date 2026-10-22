@@ -69,14 +69,15 @@ const seed = async (scroll) => {
   }, scroll);
   await page.goto(`${URL_}/builder/preview`, { waitUntil: "networkidle" });
   await page.waitForTimeout(900);
-  return page.locator("[data-live-scroller]").first().evaluate((el) => ({ snap: el.style.scrollSnapType, smooth: el.style.scrollBehavior }));
+  return page.locator("[data-live-scroller]").first().evaluate((el) => ({ snap: el.style.scrollSnapType, smooth: el.style.scrollBehavior, scripted: document.querySelector("[data-snap]")?.getAttribute("data-snap") ?? "" }));
 };
 const note = () => page.locator("[data-live-described]").evaluateAll((els) => els.map((e) => e.textContent?.trim() ?? "").join(" | "));
 
 const normal = await seed("normal");
 check("a normal page neither snaps nor smooths", !normal.snap && !normal.smooth, JSON.stringify(normal));
 const snap = await seed("snap to sections");
-check("snap to sections makes the live page snap", /^y/.test(snap.snap), JSON.stringify(snap));
+/* Up and down is the script's now, section by section (LiveShell: only sideways snapping stays the browser's), and the shell says so in data-snap. */
+check("snap to sections makes the live page snap", /^y/.test(snap.snap) || snap.scripted === "vertical", JSON.stringify(snap));
 const smooth = await seed("smooth / inertial");
 check("smooth / inertial makes it scroll smoothly", smooth.smooth === "smooth", JSON.stringify(smooth));
 const sideways = await seed("horizontal");

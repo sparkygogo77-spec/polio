@@ -206,7 +206,8 @@ check("the page loads its own motion sheet", /assets\/motion\/[\w-]+\.css/.test(
 check("the export's stylesheets hold the prefixed keyframes, the animation and the hover", /@keyframes cap-spin/.test(css) && /\.mo-n_box_1 \{ animation: 2s linear 0s infinite normal none cap-spin/.test(css) && /\.mo-n_ctaprimary_2:hover/.test(css), css.slice(css.indexOf("@keyframes"), css.indexOf("@keyframes") + 300));
 check("…and asks for nothing to move under reduced motion", /prefers-reduced-motion: reduce/.test(css));
 check("…and writes no keyframes rule whose frames held nothing it could write safely", !/cap-evil/.test(css) && !/display:\s*none/.test(css.slice(css.indexOf("@keyframes"))));
-check("…the page carries no motion stylesheet of its own", !/@keyframes/.test(files.get("index.html") ?? ""));
+/* The captured motion is in the sheets; the page itself carries only Polio's own live-drift keyframes (`polio-live-drift`, the living textures), nothing the capture drew. */
+check("…the page carries no motion stylesheet of its own", !/@keyframes (?!polio-live-)/.test(files.get("index.html") ?? ""));
 const site = await browser.newPage({ viewport: { width: 1400, height: 1000 } });
 await site.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load" });
 await site.waitForTimeout(1500);
