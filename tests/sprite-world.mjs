@@ -85,7 +85,7 @@ const page = (w, h) => `<!doctype html><html><head><meta charset="utf-8"><style>
 <script id="site-features" type="application/json">${JSON.stringify([{ part: "n_world", feature: "world-dialogs", inputs: {} }])}</script>
 <script>${RUNTIME_JS}</script><script>(function (siteFeatures) {\n${script}})(window.siteFeatures);</script></body></html>`;
 
-const browser = await chromium.launch({ args: ["--no-sandbox"], executablePath: "/opt/pw-browsers/chromium" });
+const browser = await chromium.launch({ args: ["--no-sandbox"], executablePath: process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium" });
 try {
   const errors = [];
   const at = async (W, H, reduce = false) => {

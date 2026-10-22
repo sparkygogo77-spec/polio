@@ -35,7 +35,7 @@ const clampHero = H({ height: "clamp(520px, -168px + 100svh, 900px)", px: 732 },
 const minHero = H({ minHeight: "100svh", px: 900, content: 640 }, null);
 const grownHero = H({ minHeight: "100svh", px: 900, content: 640 }, "14px");
 /* Measured as a browser sizes them, in windows 900 and 1200 tall. */
-const browser = await chromium.launch({ args: ["--no-sandbox"], executablePath: "/opt/pw-browsers/chromium" });
+const browser = await chromium.launch({ args: ["--no-sandbox"], executablePath: process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium" });
 const px = async (h, css) => { const p = await browser.newPage({ viewport: { width: 1000, height: h } }); await p.setContent(`<div id="d" style="height:${css}"></div>`); const v = await p.evaluate(() => document.getElementById("d").getBoundingClientRect().height); await p.close(); return v; };
 check("parasite's hero is 732px in the 900px window it was captured in", (await px(900, clampHero)) === 732, clampHero);
 check("…and 900px (its clamp's top) in a 1200px window", (await px(1200, clampHero)) === 900, clampHero);

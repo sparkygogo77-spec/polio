@@ -37,7 +37,7 @@ const block = { left: "133px", top: "95px", width: "calc(1251px + (100% - 1425px
 /* Its units are of the frame's inside (units.of.box: 135, 97, 1247 × 702), the frame being 133, 95, 1251 × 706 with a 2px border. */
 const inner = innerBlock(block, { x: 133, y: 95, w: 1251, h: 706 }, [135, 97, 1247, 702]);
 const st = layerStyle({ width: "100%", height: "100%" }, inner, 1247, 702, 702 / 1247, { x: 0, y: 0 });
-const browser = await chromium.launch({ args: ["--no-sandbox"], executablePath: "/opt/pw-browsers/chromium" });
+const browser = await chromium.launch({ args: ["--no-sandbox"], executablePath: process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium" });
 for (const W of [1425, 2000]) {
   const page = await browser.newPage({ viewport: { width: W, height: 900 } });
   await page.setContent(`<body style="margin:0"><div style="position:relative;width:100%;height:900px"><div id="f" style="position:absolute;left:${block.left};width:${block.width};top:95px;height:706px"></div><div id="c" style="position:absolute;left:${st?.left ?? "auto"};width:${st?.width ?? "auto"};top:${st?.top ?? "97px"};height:${st?.height ?? "702px"}"></div></div></body>`);
