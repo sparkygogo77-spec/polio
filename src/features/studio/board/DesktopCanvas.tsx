@@ -49,7 +49,7 @@ import { play } from "@/core/audio/engine";
 import { haptic } from "@/core/feedback/haptics";
 import { openRadial,pageSpot } from "../RadialMenu";
 import { decisions } from "../shelf";
-import { useSettleToWords } from "../textFit";
+import { useBoardSettled, useSettleToWords } from "../textFit";
 import { useSettingValue } from "@/core/settings/useSetting";
 import { pulledBox,scaleHeld } from "../groupScale";
 import { pageFeatures } from "../shelf";
@@ -58,6 +58,7 @@ import { codesWorn, motionCss, pathCodes } from "../shelf/parts/capturedMotion";
 import { svgUnder } from "../live/svgUnder";
 import { HOT, useHoverHot } from "./hoverHot";
 import { useRestFar } from "./restFar";
+import { useSkipFar } from "./skipFar";
 import { BOARD_MOTION_CSS, groundLayersOf, PageGroundLayers, stacksOf, useBoardMotion, useViewTop } from "./themeDraw";
 import { runWorks } from "../live/runWorks";
 import { followsOf, placeFollowers } from "../live/follow";
@@ -1628,7 +1629,11 @@ export function DesktopCanvas() {
     return ordered.flatMap((n) => (under.has(n.id) && ids.has(under.get(n.id)!) ? [] : [...(before.get(n.id) ?? []), n]));
   }, [nodes, under]);
   /* Loops far from the view rest, and start again before they come into it (`restFar.ts`). Watched again when the parts drawn or the motion switch change. */
-  useRestFar(ref, `${motion}|${drawOrder.map((n) => n.id).join(",")}`);
+  const drawnIds = React.useMemo(() => drawOrder.map((n) => n.id).join(","), [drawOrder]);
+  useRestFar(ref, `${motion}|${drawnIds}`);
+  /* On a settled board, parts far from the view are left undrawn; any settle or tidy draws them all again first (`skipFar.ts`). */
+  const boardSettled = useBoardSettled();
+  useSkipFar(ref, boardSettled, drawnIds);
   useHoverHot(ref);
   const pageWindowRef = React.useRef<HTMLDivElement>(null);
   useViewTop(zoomRef, pageWindowRef, paneOf, zoom, stacks.size > 0 || groundLayers.length > 0);
