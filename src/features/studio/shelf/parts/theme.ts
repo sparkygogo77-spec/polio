@@ -371,9 +371,18 @@ export function saidRole(t: Theme, role: RoleId): boolean {
  * than tall or more, is the box's full height repeating across (the site's
  * `auto 100% repeat-x`); anything else covers the box, centred (`center/cover`).
  * `tests/box-picture.mjs`.
+ *
+ * A picture the page layered with gradients is drawn in its stack: the box's
+ * `art.background` is the whole stack as the page set it (thesolface's hero,
+ * a dark fade over its splash), so only the picture's layer takes the
+ * picture's file, and the sizes `boxStyle` set from the page stand.
+ * `tests/bg-layers.mjs`.
  */
-export function boxPicture(picture: { pic: { w?: number; h?: number }; src?: string } | null | undefined): React.CSSProperties | null {
+export function boxPicture(picture: { pic: { w?: number; h?: number }; src?: string } | null | undefined, art?: { background?: string } | null): React.CSSProperties | null {
   if (!picture?.src) return null;
+  const stack = art?.background ?? "";
+  const layer = /url\((?:"[^"]*"|'[^']*'|[^)]*)\)/;
+  if (layer.test(stack) && /gradient\(/.test(stack)) return { backgroundImage: stack.replace(layer, `url("${picture.src.replace(/"/g, "%22")}")`) };
   const { w = 0, h = 0 } = picture.pic;
   const strip = h > 0 && w / h >= 3;
   return {

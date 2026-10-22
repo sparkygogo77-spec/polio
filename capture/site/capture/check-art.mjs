@@ -17,12 +17,13 @@ import { createServer } from "node:http";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
 const run = (args, stdio) => new Promise((ok, no) => { const c = execFile("node", args, { env, maxBuffer: 1 << 26 }, (e) => (e ? no(e) : ok())); c.stderr.pipe(process.stderr); if (stdio) c.stdout.pipe(process.stdout); });
 import { imageSize } from "./image-size.mjs";
 import { assetFile } from "./asset-name.mjs";
 
-const here = new URL(".", import.meta.url).pathname;
+const here = fileURLToPath(new URL(".", import.meta.url));
 const env = { ...process.env, HTTPS_PROXY: "", https_proxy: "" };
 const dir = mkdtempSync(join(tmpdir(), "check-art-"));
 /* A 1×1 PNG, a 1×1 lossless WebP, and a font file of stand-in bytes (the rule is what is read; the bytes are only fetched). */
@@ -88,6 +89,9 @@ must(hero?.bgi && /bg\.png/.test(hero.bgi) && /linear-gradient/.test(hero.bgi), 
 const bgFile = assetFile(assets, `http://127.0.0.1:${port}/bg.png`);
 must(!!bgFile && imageSize(readFileSync(bgFile))?.w === 1, "the background picture is fetched into --assets");
 must(doc.nodes.some((n) => n.picture && /\.png$/.test(n.picture.path) && /section$/.test(n.from?.selector ?? "")), "the converter carries the background picture as the box's picture");
+/* And the gradient layered with it, the whole stack in the page's order: thesolface's hero laid a dark fade over its splash, and a box carrying only its picture drew the splash brighter than the page did. */
+const heroNode = doc.nodes.find((n) => n.picture && /section$/.test(n.from?.selector ?? ""));
+must(/url\(/.test(heroNode?.art?.background ?? "") && /linear-gradient/.test(heroNode?.art?.background ?? "") && (heroNode?.art?.background ?? "").indexOf("url(") < (heroNode?.art?.background ?? "").indexOf("linear-gradient"), "the converter keeps a gradient layered with the picture as the box's background, in the page's order");
 /* (3) WebP decoded. */
 must(imageSize(WEBP)?.type === "image/webp" && imageSize(WEBP).w === 1, "imageSize reads a WebP");
 must(doc.nodes.some((n) => n.picture && /\.webp$/.test(n.picture.path) && n.picture.type === "image/webp"), "the converter carries a WebP picture");
