@@ -56,6 +56,7 @@ cpSync("kit", REPO_DIR, { recursive: true });
 const git = (...args) => execFileSync("git", args, { cwd: REPO_DIR, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }).trim();
 const gitIn = (input, ...args) => execFileSync("git", args, { cwd: REPO_DIR, encoding: "utf8", input, stdio: ["pipe", "pipe", "pipe"] }).trim();
 git("init", "-q", "-b", "main");
+git("config", "core.autocrlf", "false"); /* the scratch repo must hand files back byte for byte (hooks.json is compared), whatever the machine converts */
 git("-c", "user.name=t", "-c", "user.email=t@t", "add", "-A");
 git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "the starter");
 const at = (ref, path) => { try { return execFileSync("git", ["show", `${ref}:${path}`], { cwd: REPO_DIR, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }); } catch { return null; } };
