@@ -294,8 +294,13 @@ try {
     check("5 the picture is where the parts point", pic.status === 200 && /image\/png/.test(pic.type), `${pic.status} ${pic.type}`);
   }
 } finally {
-  server?.kill("SIGTERM");
-  rmSync(site, { recursive: true, force: true });
+  if (server) {
+    /* Windows will not remove a folder a running server still holds (EPERM): wait for it to go, then retry the removal. */
+    const gone = new Promise((r) => server.once("exit", r));
+    server.kill("SIGTERM");
+    await Promise.race([gone, new Promise((r) => setTimeout(r, 5000))]);
+  }
+  rmSync(site, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
 }
 
 const failed = results.filter((x) => !x).length;
