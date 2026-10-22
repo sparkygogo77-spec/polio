@@ -22,10 +22,16 @@ check("the capture's parts are there, and their saved description says \"box\"",
 for (const [name, part, strokes] of [["a circle on a full-width strip", strip, CIRCLE], ["a box on the ribbon", ribbon, BOX], ["a box on the title", title, BOX]]) {
   await b.load();
   const before = await b.nodes();
-  const job = await b.draw({ on: part.id, strokes, words: "" });
+  /* A box drawn over a part is asked about ("Is this box a cube?", a032b888): nothing is made until it is answered, and "A flat box" makes no cube. */
+  const standing = await b.draw({ on: part.id, strokes, words: "", answer: false });
+  const cubesStanding = (await b.nodes()).filter((n) => n.featureId === "cube-3d").length - before.filter((n) => n.featureId === "cube-3d").length;
+  check(`${name}, nothing typed: no cube is made before anything is answered`, cubesStanding === 0, `${cubesStanding} new cube(s); job ${J(standing && { status: standing.status, asked: standing.asked })}`);
+  await b.load();
+  const job = await b.draw({ on: part.id, strokes, words: "", answer: "A flat box" });
   const after = await b.nodes();
   const cubes = after.filter((n) => n.featureId === "cube-3d").length - before.filter((n) => n.featureId === "cube-3d").length;
   check(`${name}, nothing typed: no cube is made`, cubes === 0, `${cubes} new cube(s); job ${J(job && { status: job.status, note: job.note })}`);
+  if (strokes === BOX) check(`${name}: it asks whether the box is a cube, rather than making one from the part's saved description`, /Is this box a cube/.test(job?.asked ?? ""), job?.asked ?? "no question");
   check(`…and the part is not a cube`, (await b.node(part.id))?.featureId !== "cube-3d", J(shapeOf(await b.node(part.id))));
 }
 

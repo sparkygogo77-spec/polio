@@ -1045,6 +1045,9 @@ function apply(patch: ReshapePatch, drawn: Sketch, node: StudioNode | null, job:
 function loneDrawing(node: StudioNode | null, job: DrawJob): boolean {
   const s = useStudio.getState();
   if (node && (node.featureId !== "custom-idea" || plain(node.content).trim())) return false;
+  /* A drawing made on a part lands as a new part over it (`over`, above), and is about that part all the same: a box drawn over the ribbon is not a box on its own, so it is not a cube. */
+  const over = job.over ? s.nodes.find((n) => n.id === job.over) : null;
+  if (over && (over.featureId !== "custom-idea" || plain(over.content).trim())) return false;
   const box = node
     ? { x: node.x, y: node.y, w: node.w, h: node.h }
     : job.at && job.drawn
