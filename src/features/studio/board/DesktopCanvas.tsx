@@ -59,6 +59,7 @@ import { svgUnder } from "../live/svgUnder";
 import { HOT, useHoverHot } from "./hoverHot";
 import { useRestFar } from "./restFar";
 import { useSkipFar } from "./skipFar";
+import { useDrawNear } from "./drawNear";
 import { BOARD_MOTION_CSS, groundLayersOf, PageGroundLayers, stacksOf, useBoardMotion, useViewTop } from "./themeDraw";
 import { runWorks } from "../live/runWorks";
 import { followsOf, placeFollowers } from "../live/follow";
@@ -116,10 +117,7 @@ export function DesktopCanvas() {
   const steadyNodes = useSteady(nodes);
   /* What moves on its own (a spin, a float, the dust) plays on the board too, softly, on the drawn layer inside each part: the part's box stays put and editable (`live/runWorks.ts`, board). Again only when what they are told changes. */
   const boardMoves = React.useMemo(() => JSON.stringify(pageFeatures(steadyNodes).bindings.filter((b) => ON_BOARD.includes(b.feature))), [steadyNodes]);
-  React.useEffect(() => {
-    if (boardMoves === "[]" || !ref.current) return;
-    return runWorks(ref.current, useStudio.getState().nodes.filter((n) => n.pageId === useStudio.getState().activePageId), { board: true });
-  }, [boardMoves]);
+  /* Run once every part is drawn (`drawNear.ts`): the works find their parts in the page. Below, with `useDrawNear`. */
   /* The parts still waiting on a decision: each wears the orange ! (`library/badge.ts`). */
   /* A part whose held presses have all been learned loses its ! (`learn.ts`); every other ! is as it was. */
   const learnState = useStudio((s) => s.learn);
@@ -146,8 +144,7 @@ export function DesktopCanvas() {
    * See `useSettleToWords`.
    */
   const settleFrame = useStudio((s) => s.frameWidth);
-  /* Nothing is settled round a part while a look is being tried on it (tryLook.ts): what is tried is drawn, never written. */
-  useSettleToWords(nodes, React.useCallback((f) => { if (!useTryLook.getState().trying) useStudio.getState().settleToWords(f); }, []), settleFrame);
+  /* Settled once every part is drawn (`drawNear.ts`): below, with `useDrawNear`. */
   const shapes = useStudio(useShallow(pageShapes));
   /* Read here rather than off `getState()` in a handler, because the page's
      own height depends on it: a space drawn below the last part makes the
@@ -1629,7 +1626,16 @@ export function DesktopCanvas() {
     return ordered.flatMap((n) => (under.has(n.id) && ids.has(under.get(n.id)!) ? [] : [...(before.get(n.id) ?? []), n]));
   }, [nodes, under]);
   /* Loops far from the view rest, and start again before they come into it (`restFar.ts`). Watched again when the parts drawn or the motion switch change. */
-  const drawnIds = React.useMemo(() => drawOrder.map((n) => n.id).join(","), [drawOrder]);
+  /* The parts near the view are drawn first, the rest the frame after (`drawNear.ts`). */
+  const rides = React.useMemo(() => new Set(stacks.keys()), [stacks]);
+  const near = useDrawNear(drawOrder, zoom, rides, page?.id ?? null);
+  /* Nothing is settled round a part while a look is being tried on it (tryLook.ts): what is tried is drawn, never written. Nor before every part is drawn. */
+  useSettleToWords(nodes, React.useCallback((f) => { if (!useTryLook.getState().trying) useStudio.getState().settleToWords(f); }, []), settleFrame, near.all);
+  React.useEffect(() => {
+    if (boardMoves === "[]" || !ref.current || !near.all) return;
+    return runWorks(ref.current, useStudio.getState().nodes.filter((n) => n.pageId === useStudio.getState().activePageId), { board: true });
+  }, [boardMoves, near.all]);
+  const drawnIds = React.useMemo(() => near.drawn.map((n) => n.id).join(","), [near.drawn]);
   useRestFar(ref, `${motion}|${drawnIds}`);
   /* On a settled board, parts far from the view are left undrawn; any settle or tidy draws them all again first (`skipFar.ts`). */
   const boardSettled = useBoardSettled();
@@ -1948,7 +1954,7 @@ export function DesktopCanvas() {
           );
         })}
 
-        {drawOrder.map((n) => (
+        {near.drawn.map((n) => (
           <NodeView
             key={n.id}
             /* The words of a captured row start after what stands before them (`parts/leadIn.ts`). */
