@@ -1,5 +1,6 @@
 "use client";
 import { pageGround } from "../pageGround";
+import { holdersFirst } from "../paintOrder";
 import { partUnder } from "../states";
 import { clampMove,frameRiders,inside,keepInFrame,stateFrames } from "../states";
 import * as React from "react";
@@ -1589,11 +1590,13 @@ export function DesktopCanvas() {
   /* A drawing's own hooked shapes the page painted under it (a dial's face, a clock's rim) are drawn before it, so its ticks and hands stay over them, as the Preview draws them (`live/svgUnder.ts`). */
   const under = React.useMemo(() => svgUnder(nodes as unknown as Parameters<typeof svgUnder>[0]), [nodes]);
   const drawOrder = React.useMemo(() => {
-    if (!under.size) return nodes;
-    const ids = new Set(nodes.map((n) => n.id));
+    /* A part paints beneath what it holds, wherever the document lists it (`paintOrder.ts`, tests/holders-first.mjs). */
+    const ordered = holdersFirst(nodes);
+    if (!under.size) return ordered;
+    const ids = new Set(ordered.map((n) => n.id));
     const before = new Map<string, typeof nodes>();
-    for (const n of nodes) { const svg = under.get(n.id); if (svg && ids.has(svg)) before.set(svg, [...(before.get(svg) ?? []), n]); }
-    return nodes.flatMap((n) => (under.has(n.id) && ids.has(under.get(n.id)!) ? [] : [...(before.get(n.id) ?? []), n]));
+    for (const n of ordered) { const svg = under.get(n.id); if (svg && ids.has(svg)) before.set(svg, [...(before.get(svg) ?? []), n]); }
+    return ordered.flatMap((n) => (under.has(n.id) && ids.has(under.get(n.id)!) ? [] : [...(before.get(n.id) ?? []), n]));
   }, [nodes, under]);
   const pageWindowRef = React.useRef<HTMLDivElement>(null);
   useViewTop(zoomRef, pageWindowRef, paneOf, zoom, stacks.size > 0 || groundLayers.length > 0);

@@ -13,6 +13,7 @@ import { resolvePart, type NodeLink, type PartEvent, type PartMode, type PartTou
 import { EMBED_SANDBOX, embedSrc, hasMotion, motionClass } from "./shelf";
 import { livingLayered } from "./living";
 import { applyBand, applyCaptured, applyEdge, applyFont, applyLayout, applyPad, applyText, boxPicture, boxStyle, filmPic, hasBox, liftTheme, overrideTheme, type NodeText } from "./shelf/run";
+import { stillCutOf } from "./pageClip";
 import { lands, textureCss, type Light, type Palette, type TextureLayer, driftKeyframes } from "./look";
 import { WornTexture } from "./WornTexture";
 import { frameDoc, hasBody } from "./snippet";
@@ -145,7 +146,8 @@ function bandOf(node: StudioNode): { middle: boolean; size: number | null } | nu
  */
 function stillCut(node: StudioNode): string | null {
   const cut = node.art?.clipPath;
-  return cut && node.motion?.animation?.length ? cut : null;
+  /* Moved by its own translation, it keeps only the sides the capture cut (`pageClip.ts#stillCutOf`). */
+  return cut && node.motion?.animation?.length ? stillCutOf(cut, node.art) ?? null : null;
 }
 function StillCut({ node, children }: { node: StudioNode; children: React.ReactNode }) {
   const cut = stillCut(node);
