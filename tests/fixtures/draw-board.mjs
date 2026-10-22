@@ -78,17 +78,24 @@ export async function board(base, { reader = null, image = null, viewport = { wi
     async shapes() { return (await live()).shapes ?? []; },
     async node(id) { return (await api.nodes()).find((n) => n.id === id) ?? null; },
     /** A drawing on the queue, as the doors put one there; resolves with the job once it is over. */
-    async draw({ on = null, strokes, words = "", want = null, at = null, drawn = null }) {
+    /** `answer`: the button to press if the drawing raises a question (the first by default); `false` leaves the question standing. The job comes back with `asked`: the question's words, or null. */
+    async draw({ on = null, strokes, words = "", want = null, at = null, drawn = null, answer = null }) {
       const jid = await page.evaluate((j) => window.__studioDraw({ nodeId: j.on, at: j.at, frameWidth: 1440, sketch: { strokes: j.strokes, words: j.words }, picture: null, want: j.want, ...(j.drawn ? { drawn: j.drawn } : {}), label: "a check's drawing" }), { on, strokes, words, want, at, drawn });
-      let job = null;
+      let job = null, asked = null;
       for (let i = 0; i < 80; i++) {
         await page.waitForTimeout(250);
         job = await page.evaluate((id) => (window.__studioQueue?.() ?? []).find((x) => x.id === id) ?? null, jid);
-        if (job && job.status === "asking") { await page.locator("[data-queue-question] button").first().click({ force: true }).catch(() => {}); continue; }
+        if (job && job.status === "asking") {
+          asked ??= (await page.locator("[data-queue-question]").first().innerText().catch(() => "")).replace(/\s+/g, " ").trim();
+          if (answer === false) break;
+          const btn = answer ? page.locator("[data-queue-question] button", { hasText: answer }).first() : page.locator("[data-queue-question] button").first();
+          await btn.click({ force: true }).catch(() => {});
+          continue;
+        }
         if (job && !["waiting", "running"].includes(job.status)) break;
       }
       await page.waitForTimeout(300);
-      return job;
+      return job && { ...job, asked };
     },
     async undo() { await page.evaluate(() => document.activeElement?.blur?.()); await page.keyboard.press("Control+z"); await page.waitForTimeout(350); },
     async redo() { await page.evaluate(() => document.activeElement?.blur?.()); await page.keyboard.press("Control+Shift+z"); await page.waitForTimeout(350); },
