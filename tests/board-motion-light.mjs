@@ -16,10 +16,10 @@
  *   2. it is the same motion: pointed at a part under each of a dozen named
  *      paths, every part on the board computes the same style under the
  *      sheet said by id as under the sheet said by path;
- *   3. dragging a part and scrolling the board cost under the budgets set
- *      from the measurement (main-thread time, unthrottled): a move under
- *      150 ms (was 217), a wheel step under 220 ms (base 250–384 over
- *      repeated runs, branch 118–202).
+ *   3. dragging a part and scrolling the board cost, in main-thread time
+ *      (unthrottled), no more than a multiple of the same board with the sheet off: a move under
+ *      1.8x what it costs with the sheet off, a wheel step 2.3x (measured in the
+ *      same run, so a slow machine does not trip it; base was 2.6x).
  *
  *   npm run build && npx next start -p 3013
  *   node tests/board-motion-light.mjs http://127.0.0.1:3013
@@ -92,27 +92,37 @@ await use(sheet);
 await page.mouse.move(2, 2);
 check("…and pointed at a part under each named path, every part computes the same style either way", tried >= 3 && same === tried, `${same} of ${tried} paths alike${differ.length ? `; differ under ${differ.join(" ")}` : ""}`);
 
-/* 3. Main-thread time, from the browser's own count. */
+/* 3. Main-thread time, from the browser's own count, against the same board with the motion sheet switched off, measured in this run: the
+   guard is what the sheet adds, so it holds on a slow machine as on a fast one. (Absolute budgets of 150 and 220 ms tripped on a slow cloud
+   machine. The slip this guards cost 2.6x with the sheet on, 217 against 83 ms a move; healthy is about 1.05x a move and 1.7x a wheel step.) */
 const busy = async () => (await cdp.send("Performance.getMetrics")).metrics.find((m) => m.name === "TaskDuration").value;
 await cdp.send("Performance.enable");
-await page.locator("[data-studio-pane]").first().evaluate((el) => { el.scrollTop = 0; });
-await page.waitForTimeout(800);
-const t = await h.grabbable();
-await page.mouse.move(t.x, t.y);
-await page.mouse.down();
-await page.mouse.move(t.x + 4, t.y);
-let b0 = await busy();
-for (let i = 1; i <= 10; i++) { await page.mouse.move(t.x + 4 + i * 4, t.y + i); await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))); }
-const perMove = ((await busy()) - b0) * 100;
-await page.mouse.up();
-await page.keyboard.press("Control+z");
-await page.waitForTimeout(800);
-await page.mouse.move(700, 450);
-b0 = await busy();
-for (let i = 0; i < 10; i++) { await page.mouse.wheel(0, 120); await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))); }
-const perStep = ((await busy()) - b0) * 100;
-check("3. a drag move costs under 150 ms of main thread", perMove < 150, `${Math.round(perMove)} ms a move`);
-check("…and a wheel step under 220 ms", perStep < 220, `${Math.round(perStep)} ms a step`);
+const measure = async () => {
+  await page.locator("[data-studio-pane]").first().evaluate((el) => { el.scrollTop = 0; });
+  await page.waitForTimeout(800);
+  const t = await h.grabbable();
+  await page.mouse.move(t.x, t.y);
+  await page.mouse.down();
+  await page.mouse.move(t.x + 4, t.y);
+  let b0 = await busy();
+  for (let i = 1; i <= 10; i++) { await page.mouse.move(t.x + 4 + i * 4, t.y + i); await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))); }
+  const perMove = ((await busy()) - b0) * 100;
+  await page.mouse.up();
+  await page.keyboard.press("Control+z");
+  await page.waitForTimeout(800);
+  await page.mouse.move(700, 450);
+  b0 = await busy();
+  for (let i = 0; i < 10; i++) { await page.mouse.wheel(0, 120); await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))); }
+  const perStep = ((await busy()) - b0) * 100;
+  return { perMove, perStep };
+};
+await use("");
+const off = await measure();
+await use(sheet);
+const { perMove, perStep } = await measure();
+const MOVE_X = 1.8, STEP_X = 2.3, SLACK = 10;
+check(`3. a drag move costs under ${MOVE_X}x what it costs with the sheet off`, perMove < MOVE_X * off.perMove + SLACK, `${Math.round(perMove)} ms a move against ${Math.round(off.perMove)} with it off`);
+check(`…and a wheel step under ${STEP_X}x`, perStep < STEP_X * off.perStep + SLACK, `${Math.round(perStep)} ms a step against ${Math.round(off.perStep)} with it off`);
 check("…and nothing threw", h.errors.length === 0, h.errors[0] ?? "");
 
 await h.close();
