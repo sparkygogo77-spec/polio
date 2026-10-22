@@ -184,7 +184,11 @@ await page.waitForTimeout(400);
 await page.evaluate(() => window.__studioOpenBrief?.());
 await page.waitForTimeout(1200);
 const push = page.getByRole("button", { name: /Push to GitHub/ }).first();
-if (await push.count()) { await push.click(); await page.waitForTimeout(8000); }
+if (await push.count()) {
+  await push.click();
+  /* Up to a minute for the push to land, not a fixed 8 s (a slower or busier machine outlasts it). */
+  for (let i = 0; i < 120 && !committed.has("index.html"); i++) await page.waitForTimeout(500);
+}
 const panelSays = (await page.locator("[data-brief-publish]").first().innerText().catch(() => "")).replace(/\s+/g, " ").slice(0, 300);
 check("a page was committed", committed.has("index.html"), [...committed.keys()].join(", ") || `nothing; GitHub was asked: ${calls.slice(0, 12).join(", ") || "nothing"}; the panel says: ${panelSays || "-"}; Push to GitHub ${await push.count() ? "was there" : "was not there"}`);
 

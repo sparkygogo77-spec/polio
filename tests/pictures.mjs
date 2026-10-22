@@ -166,7 +166,11 @@ await page.waitForTimeout(400);
 await page.evaluate(() => window.__studioOpenBrief?.());
 await page.waitForTimeout(1200);
 const push = page.getByRole("button", { name: /Push to GitHub/ }).first();
-if (await push.count()) { await push.click(); await page.waitForTimeout(8000); }
+if (await push.count()) {
+  await push.click();
+  /* Up to a minute for the push to land, not a fixed 8 s (a slower machine outlasts it). */
+  for (let i = 0; i < 120 && ![...committed.keys()].some((p) => p.startsWith("assets/pictures/")); i++) await page.waitForTimeout(500);
+}
 
 const paths = [...committed.keys()];
 const shot = paths.find((p) => p.startsWith("assets/pictures/"));
