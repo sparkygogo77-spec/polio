@@ -38,11 +38,12 @@ const browser = await chromium.launch({ headless: true });
 /** A builder with one part on the board and the Blueprint dialog open. */
 async function openBlueprint() {
   const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
+  await page.addInitScript(() => { try { localStorage.setItem("builder.shelf.folded", "0"); } catch { /* none */ } }); /* the shelf starts folded since 2026-10-05; this test works in the open one */
   await page.goto(`${URL_BASE}/builder`, { waitUntil: "networkidle" });
   await page.evaluate(() => localStorage.clear());
   await page.reload({ waitUntil: "networkidle" });
   await page.waitForTimeout(800);
-  await page.locator("[data-drawer]").getByRole("button", { name: /^Navigation/ }).first().click();
+  await page.locator("[data-drawer]").getByRole("button", { name: /^Layout/ }).first().click();
   await page.waitForTimeout(400);
   await page.locator('[data-ctx="studio-palette"]').first().click();
   await page.waitForTimeout(400);

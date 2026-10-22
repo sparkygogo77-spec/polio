@@ -43,10 +43,11 @@ const check = (name, ok, detail = "") => {
 
 const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
 const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+await page.addInitScript(() => { try { localStorage.setItem("builder.shelf.folded", "0"); } catch { /* none */ } }); /* the shelf starts folded since 2026-10-05; this test works in the open one */
 await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
 await page.waitForTimeout(2500);
 /* A category open, so the shelf's field and its previews are both on screen. */
-await page.getByText("Layout", { exact: true }).first().click({ force: true });
+await page.getByText("Layout and menus", { exact: true }).first().click({ force: true });
 await page.waitForTimeout(1000);
 
 /** Everything the Builder paints itself with, and one preview for contrast. */
