@@ -177,12 +177,18 @@ export function partName(n: StudioNode, all: readonly StudioNode[] = []): string
   return section ? `${kind} “${base}” in “${section}”` : `${kind} “${base}”`;
 }
 
-export function movingParts(nodes: readonly StudioNode[], crates: readonly MotionAsset[], pageId: string): MoveRow[] {
+/**
+ * Every moving part on a page, as rows. `only`: one part's rows, the same as
+ * the page's filtered to it (a row is its part, the page and the crates), for
+ * the part's own panel, which asked for the whole page on every edit and kept
+ * one part of it (`tests/part-motions-own.mjs`).
+ */
+export function movingParts(nodes: readonly StudioNode[], crates: readonly MotionAsset[], pageId: string, only?: string): MoveRow[] {
   const rows: Omit<MoveRow, "section" | "sig">[] = [];
   const page = nodes.filter((n) => n.pageId === pageId);
   const names = new Map<string, string>();
   const nameOf = (n: StudioNode) => { let v = names.get(n.id); if (v === undefined) { v = partName(n, page); names.set(n.id, v); } return v; };
-  for (const n of page) {
+  for (const n of only === undefined ? page : page.filter((x) => x.id === only)) {
     if (!movesAtAll(n, crates)) continue;
     const name = nameOf(n);
     for (const u of usesOf(n.work)) {
