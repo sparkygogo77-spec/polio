@@ -107,7 +107,8 @@ check("so it repaints when the palette changes rather than only at creation — 
 const snippet = readFileSync("src/features/studio/snippet.ts", "utf8");
 check("the frame has somewhere to put them", /:root \{ \$\{opts\.roles \?\? ""\} \}/.test(snippet));
 
-const scaffold = readFileSync("src/features/studio/scaffold.ts", "utf8");
+/* The scaffold moved to scaffolding/ (the page file is where a body is written into the built site). */
+const scaffold = readFileSync("src/features/studio/scaffolding/pages.ts", "utf8");
 check("the built site paints its bodies too", /paintRoles\(part\.code\.html\)/.test(scaffold));
 check("and carries the site's roles into the frame, which cannot see them",
   /const ROLES = /.test(scaffold) && /:root\{\\\$\{ROLES\}\}/.test(scaffold));
