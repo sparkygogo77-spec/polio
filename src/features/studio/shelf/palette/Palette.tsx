@@ -42,8 +42,23 @@ import { ShelfGrip, onThisPage, OnThisPage } from "./onPage";
 
 const SKETCHES_KEY = "builder.shelf.sketches";
 
+/** A category asked for while the shelf was folded: the open shelf takes it on mounting. */
+let askedWhileFolded: string | null = null;
+
 export function Palette() {
   const folded = useShelfFolded();
+  /* The open shelf listens for `studio:shelf` itself; folded, nothing is mounted to, so this unfolds it and leaves the category for it. */
+  React.useEffect(() => {
+    if (!folded) return;
+    const go = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (typeof id !== "string") return;
+      askedWhileFolded = id;
+      setShelfFolded(false);
+    };
+    window.addEventListener("studio:shelf", go);
+    return () => window.removeEventListener("studio:shelf", go);
+  }, [folded]);
   if (folded) return <ShelfStrip />;
   return <OpenShelf />;
 }
@@ -127,6 +142,11 @@ function OpenShelf() {
   const toggleCat = React.useCallback((id: CategoryId) => {
     play("select");
     setOpen((was) => (was.includes(id) ? was.filter((c) => c !== id) : [...was, id].slice(-OPEN_AT_MOST)));
+  }, []);
+  React.useEffect(() => {
+    if (askedWhileFolded === null) return;
+    setOpen([askedWhileFolded]);
+    askedWhileFolded = null;
   }, []);
   /* Another panel asking for a category (the Motion tab's link to the shelf's Motion). Opens it; never closes it. */
   React.useEffect(() => {
