@@ -648,7 +648,10 @@ export function fromRailFoot(p: FluidPart, band: FluidPart, kids: readonly Fluid
 }
 
 export function captureHeight(parts: readonly FluidPart[]): number {
-  return Math.max(0, ...parts.filter((p) => p.selector && p.position === "fixed").map((p) => p.y + p.h));
+  /* The page as it opens: a state of a fixed part (thesolface's back-to-top button, captured scrolled 5,000px down) stands
+     where the page was when it was read, not in the window, and taken for the window it made it 5,454 tall: the grain over
+     the whole window was then no layer but a band at the top, cut to the 14px above the header. */
+  return Math.max(0, ...parts.filter((p) => p.selector && p.position === "fixed" && !p.state).map((p) => p.y + p.h));
 }
 
 /** A part's type set with the window (`node.font.fluid`, sink 3c98763), beside the px it measured. */
