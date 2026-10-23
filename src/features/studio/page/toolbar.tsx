@@ -277,6 +277,12 @@ export function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean
 export function MoreTools({ folding, shape, menuOpen, showWires, zoom, tool, inkHue, onUpdates }: { folding: boolean; shape: "square" | "round"; menuOpen: boolean; showWires: boolean; zoom: number; tool: string; inkHue: number; onUpdates: () => void }) {
   const [open, setOpen] = React.useState(false);
   const row = "flex items-center gap-1.5 text-plain text-fg";
+  /* Each row's name is a key too, not only its small icon: pressing the words does what the icon does. */
+  const word = "tactile flex-1 rounded-sm text-left hover:text-fg-muted";
+  const toggleWires = () => useStudio.getState().setShowWires(!showWires);
+  const toggleShape = () => { play("tap"); useStudio.getState().setMenuShape(shape === "square" ? "round" : "square"); };
+  const openCapture = () => { setOpen(false); window.dispatchEvent(new Event("studio:capture-site")); };
+  const openUpdates = () => { setOpen(false); onUpdates(); };
   return (
     <Popover
       open={open}
@@ -291,30 +297,30 @@ export function MoreTools({ folding, shape, menuOpen, showWires, zoom, tool, ink
             </div>
           ) : null}
           <div className={row}>
-            <Button variant={showWires ? "subtle" : "ghost"} size="iconXs" aria-label="Toggle wires" aria-pressed={showWires} onClick={() => useStudio.getState().setShowWires(!showWires)}>{showWires ? <Link2 /> : <Link2Off />}</Button>
-            <span className="flex-1">{showWires ? "Hide the wires" : "Show the wires"}</span>
+            <Button variant={showWires ? "subtle" : "ghost"} size="iconXs" aria-label="Toggle wires" aria-pressed={showWires} onClick={toggleWires}>{showWires ? <Link2 /> : <Link2Off />}</Button>
+            <button type="button" data-more-word="wires" className={word} onClick={toggleWires}>{showWires ? "Hide the wires" : "Show the wires"}</button>
           </div>
           <div className={row}>
             <Button
               variant={menuOpen ? "subtle" : "ghost"} size="iconXs"
               aria-label={shape === "square" ? "Round the part menu" : "Square off the part menu"} aria-pressed={shape === "round"}
               data-menu-shape={shape}
-              onClick={() => { play("tap"); useStudio.getState().setMenuShape(shape === "square" ? "round" : "square"); }}
+              onClick={toggleShape}
             >
               {shape === "square" ? <Square /> : <Circle />}
             </Button>
-            <span className="flex-1">{shape === "square" ? "Part menu: square edge" : "Part menu: round edge"}</span>
+            <button type="button" data-more-word="shape" className={word} onClick={toggleShape}>{shape === "square" ? "Part menu: square edge" : "Part menu: round edge"}</button>
           </div>
           {folding ? <ToolOptions tool={tool as Tool} compact /> : null}
           <div className={row}>
-            <Button variant="ghost" size="iconXs" data-capture-site="" aria-label="Capture a site" onClick={() => { setOpen(false); window.dispatchEvent(new Event("studio:capture-site")); }}><Camera /></Button>
-            <span className="flex-1">Capture a site</span>
+            <Button variant="ghost" size="iconXs" data-capture-site="" aria-label="Capture a site" onClick={openCapture}><Camera /></Button>
+            <button type="button" data-more-word="capture" className={word} onClick={openCapture}>Capture a site</button>
           </div>
           <div className={row}>
-            <Button variant="ghost" size="iconXs" data-updates-toggle="" aria-label="Updates" onClick={() => { setOpen(false); onUpdates(); }}>
+            <Button variant="ghost" size="iconXs" data-updates-toggle="" aria-label="Updates" onClick={openUpdates}>
               <History />
             </Button>
-            <span className="flex-1">Updates</span>
+            <button type="button" data-more-word="updates" className={word} onClick={openUpdates}>Updates</button>
           </div>
           {folding ? <div className={row}><SearchTools always /></div> : null}
         </div>
