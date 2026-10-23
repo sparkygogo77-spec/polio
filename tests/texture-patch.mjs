@@ -100,9 +100,9 @@ const added = await layerOf();
 check("a picture becomes a texture layer", added?.kind === "image" && !!added.src);
 check("the tile is baked with a shape written down", !!added?.baked && !!added.aspect, `aspect ${added?.aspect?.toFixed(2)}`);
 
-// Open the layer in the panel; the selection is on it.
-const row = page.locator("aside").first().getByRole("button").filter({ hasText: /image|picture/i }).first();
-if (await row.count()) { await row.click(); await page.waitForTimeout(500); }
+// Open the layer in the panel: the page pressed in the Colours preview shows its Texture row, with the picture's picker (PieceTexture, since 1d680d3f); the selection is on it.
+await page.locator("[data-theme-preview]").first().click({ position: { x: 4, y: 4 }, force: true });
+await page.waitForTimeout(800);
 const picker = page.locator("[data-crop-picker]").first();
 check("the layer has a selection on the picture", (await picker.count()) === 1);
 if (!(await picker.count())) {

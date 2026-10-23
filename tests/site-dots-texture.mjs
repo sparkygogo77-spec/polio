@@ -54,7 +54,7 @@ const app = () => ui.evaluate(() => window.__studioNodes().find((n) => n.pageId 
 
 /* 2. */
 await ui.locator('[aria-label="Side panel"] button', { hasText: /^Look$/ }).first().click({ force: true });
-await ui.locator("[data-look-texture]").first().waitFor({ timeout: 60000 }).catch(() => {});
+await ui.locator("[data-kind-texture], [data-theme-preview]").first().waitFor({ timeout: 60000 }).catch(() => {});
 await ui.locator("[data-theme-preview]").first().click({ position: { x: 4, y: 4 }, force: true });
 await ui.waitForTimeout(500);
 const row = ui.locator("[data-kind-texture]").first();
@@ -96,7 +96,8 @@ const fit = await ui.evaluate(() => {
   const buttons = [...dlg.querySelectorAll("button")].map((b) => b.getBoundingClientRect());
   return { rows: rows.length, inside: buttons.every((r) => r.left >= box.left - 0.5 && r.right <= box.right + 0.5), stacked: rows.every((r, i) => i === 0 || r.top >= rows[i - 1].bottom - 0.5) };
 });
-check("4. Refresh: three choices, one row each, every button inside the dialog", fit?.rows === 3 && fit.inside && fit.stacked, JSON.stringify(fit));
+/* Three choices when this was written, four since (a choice was added to the dialog): what is held is one row each, every button inside the dialog. */
+check("4. Refresh: its choices, one row each, every button inside the dialog", fit?.rows >= 3 && fit.inside && fit.stacked, JSON.stringify(fit));
 
 check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
 await browser.close();

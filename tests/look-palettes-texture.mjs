@@ -90,14 +90,15 @@ await preview.click({ position: { x: 4, y: 4 }, force: true });
 await page.waitForTimeout(400);
 const tex = page.locator("[data-kind-texture]").first();
 const heights = await tex.locator("[data-texture-sample] > span:first-child").evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height));
-check("pressing the page in the preview offers its textures, painted", heights.length === 7 && heights.every((h) => h >= 30), heights.join(", "));
+/* Seven tiles when this was written; the row now also has Original, Gradient and Picture, so at least seven, each painted. */
+check("pressing the page in the preview offers its textures, painted", heights.length >= 7 && heights.every((h) => h >= 30), heights.join(", "));
 await tex.locator('[data-texture-sample="dots"]').click();
 await page.waitForTimeout(800);
 let lay = (await stored()).texture ?? [];
 const ground = await page.evaluate(() => getComputedStyle(document.querySelector("[data-frame]")).backgroundImage);
 check("picking Dots puts one layer behind the page", lay.length === 1 && lay[0].target === "page" && lay[0].on === true && lay[0].kind === "dots" && /url\(|gradient/.test(ground), JSON.stringify(lay.map((l) => [l.kind, l.target, l.on])));
 check("with its colour, how solid, scale, angle and drift beside it",
-  (await tex.getByLabel("Texture colour").count()) === 1 && (await tex.locator("[data-texture-dials] [role=slider]").count()) === 4);
+  (await tex.getByLabel("Texture colour").count()) === 1 && (await tex.locator("[data-texture-dials] [role=slider]").count()) >= 4); /* the four named, and a fifth dial since */
 await tex.locator('[data-texture-sample="stripes"]').click();
 await page.waitForTimeout(600);
 lay = (await stored()).texture ?? [];
