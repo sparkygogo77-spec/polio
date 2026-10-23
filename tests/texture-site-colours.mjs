@@ -79,7 +79,7 @@ const startGround = await ui.evaluate(() => getComputedStyle(document.querySelec
 const start = await frameShot();
 /* The TV's static moves on its own: what two shots of the untouched page differ by is the floor every comparison stands on. */
 const still = await differ(start, await frameShot());
-const tex = ui.locator("[data-look-texture]");
+const tex = ui.locator("[data-kind-texture]");
 await ui.evaluate(() => window.__studioSetFormat("palette.background", "grid"));
 /* His case: the page pressed in the Colours preview, then a texture. PST's page already shows its own dots as Dots (`tests/site-dots-texture.mjs`), so Grid. */
 await ui.locator("[data-theme-preview]").first().click({ position: { x: 4, y: 4 }, force: true });

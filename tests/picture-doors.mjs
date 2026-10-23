@@ -123,7 +123,12 @@ await page.keyboard.press("Escape");
 await page.waitForTimeout(300);
 await side("Look");
 await page.waitForTimeout(500);
-const zone = page.locator("[data-look-texture]");
+/* The picture texture lives in the Texture row of the Background inspector (PieceTexture, since 1d680d3f): the "Picture" tile opens its drop well. */
+await page.locator("[data-theme-preview]").first().click({ position: { x: 4, y: 4 }, force: true }); /* the page, pressed in the Colours preview: its editor holds the Texture row */
+await page.waitForTimeout(400);
+await page.locator('[data-kind-texture] [data-texture-sample="image"]').first().click();
+await page.waitForTimeout(500);
+const zone = page.locator("[data-texture-picture]").first();
 const before = ((await doc()).look?.texture ?? []).length;
 const dt = await page.evaluateHandle(() => {
   const dt = new DataTransfer();
@@ -131,8 +136,10 @@ const dt = await page.evaluateHandle(() => {
   dt.setData("text/plain", "https://example.com/a-picture.jpg");
   return dt;
 });
-await zone.dispatchEvent("dragover", { dataTransfer: dt });
-await zone.dispatchEvent("drop", { dataTransfer: dt });
+/* The drop is taken by the well inside the row; events dispatched on its label bubble up to it. */
+const well = zone.locator("label").first();
+await well.dispatchEvent("dragover", { dataTransfer: dt });
+await well.dispatchEvent("drop", { dataTransfer: dt });
 await page.waitForTimeout(800);
 const said = (await zone.locator("[data-picture-refused]").allInnerTexts()).join(" ").replace(/\s+/g, " ").trim();
 check("a drag from another page, with no file in it, makes no layer", ((await doc()).look?.texture ?? []).length === before);

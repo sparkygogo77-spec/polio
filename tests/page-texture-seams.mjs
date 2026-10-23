@@ -85,7 +85,8 @@ check("…the see-through bands (nav, title, play layout) draw no second copy", 
 check("3. Stripes: line width, angle and drift", (await dials()) === "shape,angle,drift", await dials());
 await pick("dots");
 check("…Dots: dot size, angle and drift", (await dials()) === "shape,angle,drift", await dials());
-check("…no Flat colour: the Background colour already is one", (await row.locator('[data-texture-sample="flat"]').count()) === 0);
+/* (The page's row has a Gradient tile, sample "flat", since 1d680d3f; no tile is called Flat colour.) */
+check("…no Flat colour: the Background colour already is one", (await row.locator("[data-texture-sample]").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label") ?? e.textContent ?? ""))).every((l) => !/^flat/i.test(l.trim())));
 await pick("mesh");
 check("…Mesh: no Drift, since it is laid once across the page", (await dials()) === "shape,angle", await dials());
 const meshOff = await ui.evaluate(() => {
