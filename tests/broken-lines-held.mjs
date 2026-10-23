@@ -50,7 +50,7 @@ const parts = [
 ];
 const draw = (n) => renderToStaticMarkup(React.createElement(ValueProp, {
   id: "value-prop", content: n.content, options: {}, w: n.w, h: n.h, mode: "live",
-  theme: applyCaptured(applyFont(t, font, { captured: true }), { from, h: n.h }),
+  theme: applyCaptured(applyFont(t, font, { captured: true }), { from, h: n.h, font }),
 }));
 
 const AT = process.env.CHROMIUM ?? process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
