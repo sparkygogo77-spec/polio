@@ -270,7 +270,7 @@ export interface StudioNode {
    */
   hidden?: boolean;
   /** `position`: the capture placed it out of the flow (absolute or fixed), so it sizes nothing that holds it. */
-  from?: { url: string; host: string; selector: string; at: number; /** The element's own id on the page (`community`), when it had one. */ id?: string; position?: "absolute" | "fixed" | "sticky"; inset?: { top?: number; right?: number; bottom?: number; left?: number } | null } | null;
+  from?: { url: string; host: string; selector: string; at: number; /** The element's own id on the page (`community`), when it had one. */ id?: string; position?: "absolute" | "fixed" | "sticky"; inset?: { top?: number; right?: number; bottom?: number; left?: number } | null; /** Made by a copy (Ctrl+D, a paste): the copies made together share it, and hold only each other (`owner.ts#sameCopy`). */ copy?: string } | null;
   /**
    * HIS HAND PUT THIS BOX WHERE IT IS.
    *

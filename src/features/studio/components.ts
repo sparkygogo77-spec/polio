@@ -54,7 +54,7 @@ export interface CompNode extends KitNode {
   data?: string;
   link?: { kind: string; target: string } | null;
   work?: { id: string; also?: { id: string }[] } | null;
-  from?: { selector?: string } | null;
+  from?: { selector?: string; copy?: string } | null;
   vector?: unknown;
   /** Taken out of its component by hand: a part of its own again. */
   loose?: boolean;
@@ -112,6 +112,8 @@ export function holdsPart(o: CompNode, i: CompNode): boolean {
   if (o.id === i.id || (o.pageId && i.pageId && o.pageId !== i.pageId)) return false;
   const a = pathOf(o), b = pathOf(i);
   if (a && b) {
+    /* A copy holds only its own (`owner.ts#sameCopy`). */
+    if ((o.from?.copy ?? "") !== (i.from?.copy ?? "")) return false;
     const under = b.startsWith(`${a} > `) || b.startsWith(`${a}::`) || (b === a && isPseudo(i) && !isPseudo(o));
     /* Under it on the page, and drawn on it or just beside it (a shadow layer cast a little outside): a dropdown drawn far away is not one of its layers. */
     const m = 40;
