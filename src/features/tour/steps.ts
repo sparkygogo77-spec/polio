@@ -158,10 +158,10 @@ export const STEPS: Step[] = [
       builder().__studioSetLibrary?.(true);
       builder().__studioSetLeftPanel?.("look");
       await waitFor("[data-look-panel]");
-      // Three sections are taller than the panel, and a hole cut over
-      // something scrolled out of sight is a hole over nothing. Texture is
-      // brought to the foot, which puts the other two above it.
-      $("[data-look-texture]")?.scrollIntoView({ block: "end" });
+      // Two sections are taller than the panel, and a hole cut over
+      // something scrolled out of sight is a hole over nothing. The light is
+      // brought to the foot, which puts the colours above it.
+      $("[data-look-light]")?.scrollIntoView({ block: "end" });
       await new Promise((r) => requestAnimationFrame(() => r(null)));
     },
     spots: [
@@ -179,9 +179,8 @@ export const STEPS: Step[] = [
       },
       {
         name: "Texture",
-        line: "A stack of layers over the page, a pattern, a wash, or an image you drop straight onto it.",
-        where: "Look, under the light.",
-        at: "[data-look-texture]",
+        line: "A stack of layers over the page, a pattern or a wash.",
+        where: "The page's own Texture row, with its colours (the Look panel no longer has a texture row of its own).",
       },
       {
         name: "Looks, for one part",
