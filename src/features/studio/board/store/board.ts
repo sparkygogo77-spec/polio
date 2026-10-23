@@ -82,8 +82,11 @@ export function boardActions(set: SetStudio, get: GetStudio, push: () => void, p
     },
 
     removeShapes: (ids) => {
-      push();
       const set_ = new Set(ids);
+      /* Nothing to take, no step of undo: Delete asks for the picked parts and the picked drawings both, and an
+         empty second step made the first Ctrl+Z after a delete put back a board still without the part. */
+      if (!get().shapes.some((sh) => set_.has(sh.id))) return;
+      push();
       set((s) => ({ shapes: s.shapes.filter((sh) => !set_.has(sh.id)), selection: s.selection.filter((id) => !set_.has(id)) }));
     },
 
