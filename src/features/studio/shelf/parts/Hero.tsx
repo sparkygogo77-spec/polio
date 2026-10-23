@@ -99,7 +99,8 @@ export function ValueProp({ id, content, spans, options, h, theme: t, mode, onNa
   // "ROADMAP / TO THE TOP." is 550 wide in a 550 box, wrapped by a hair and
   // grew a line (tests/broken-lines-held.mjs).
   const lh = t.captured ? t.lineHeight : 1.2;
-  const oneLine = !!t.captured && h > 0 && h < (Math.max(1, typedLines.length) + 1) * t.fontPx * 1.6 * lh - 1;
+  /* Counted at the size the page set (`setPx`): made bigger in the panel, mochi's two-line hero heading read as one line in its old box and was held to it, 874 -> 1916 wide (tests/held-rows-own-words.mjs). */
+  const oneLine = !!t.captured && h > 0 && h < (Math.max(1, typedLines.length) + 1) * (t.setPx ?? t.fontPx * 1.6) * lh - 1;
   const turn = opt(options, "turn", "none");
   const parts = splitTurn(line, turn);
   const tone = turn === "last word muted" || turn === "second sentence muted" ? t.muted : t.accent;

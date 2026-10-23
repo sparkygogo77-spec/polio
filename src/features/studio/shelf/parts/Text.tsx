@@ -94,7 +94,7 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, w, h }: 
    */
   const longKey = `${w}|${content}|${t.fontPx}|${t.bodyFamily}`;
   const [longFor, setLongFor] = React.useState("");
-  const heldToOne = longFor !== longKey && (!!t.said?.nowrap || (!t.said?.wrap && paras.length === 1 && (runParas?.length ?? 1) === 1 && h > 0 && roomY < 2 * t.fontPx * t.lineHeight - 1));
+  const heldToOne = longFor !== longKey && (!!t.said?.nowrap || (!t.said?.wrap && paras.length === 1 && (runParas?.length ?? 1) === 1 && h > 0 && roomY < 2 * (t.setPx ?? t.fontPx) * t.lineHeight - 1));
   React.useLayoutEffect(() => {
     const el = wordsRef.current;
     if (!heldToOne || t.said?.nowrap || !el || !(el.clientWidth > 0)) return;
