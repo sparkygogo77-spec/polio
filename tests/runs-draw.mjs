@@ -91,7 +91,9 @@ const read = await page.evaluate(() => {
     const r = document.createRange();
     r.selectNodeContents(el);
     const rects = [...r.getClientRects()].filter((b) => b.width > 0 && b.height > 0);
-    const tops = [...new Set(rects.map((b) => Math.round(b.top)))];
+    /* Lines, not distinct tops: runs in different faces on one line (Georgia beside a sans) sit at different tops on some machines. A rect belongs to the line whose vertical span holds its middle. */
+    const linesOf = (rects) => { const ls = []; for (const b of [...rects].sort((x, y) => x.top - y.top)) { const mid = (b.top + b.bottom) / 2; const l = ls.find((q) => mid >= q.top && mid <= q.bottom); if (l) { l.top = Math.min(l.top, b.top); l.bottom = Math.max(l.bottom, b.bottom); } else ls.push({ top: b.top, bottom: b.bottom }); } return ls.length; };
+    const tops = { length: linesOf(rects) };
     out[id] = {
       text: (el.innerText || "").replace(/\s+/g, " ").trim(),
       lines: tops.length,

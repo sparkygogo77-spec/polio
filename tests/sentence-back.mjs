@@ -97,10 +97,12 @@ const measure = await page.evaluate(() => {
     const r = document.createRange();
     r.selectNodeContents(body);
     const rects = [...r.getClientRects()].filter((b) => b.width > 0 && b.height > 0);
+    /* Lines, not distinct tops: runs in different faces on one line (Georgia beside a sans) sit at different tops on some machines. A rect belongs to the line whose vertical span holds its middle. */
+    const linesOf = (rs) => { const ls = []; for (const b of [...rs].sort((x, y) => x.top - y.top)) { const mid = (b.top + b.bottom) / 2; const l = ls.find((q) => mid >= q.top && mid <= q.bottom); if (l) { l.top = Math.min(l.top, b.top); l.bottom = Math.max(l.bottom, b.bottom); } else ls.push({ top: b.top, bottom: b.bottom }); } return ls.length; };
     out.push({
       id: el.getAttribute("data-node-id"),
       text: (body.innerText || "").replace(/\s+/g, " ").trim(),
-      lines: [...new Set(rects.map((b) => Math.round(b.top)))].length,
+      lines: linesOf(rects),
       inks: [...new Set([...body.querySelectorAll("span")].map((s) => getComputedStyle(s).color))],
       faces: [...new Set([...body.querySelectorAll("span")].map((s) => getComputedStyle(s).fontFamily.split(",")[0].replace(/['"]/g, "")))],
       weights: [...new Set([...body.querySelectorAll("span")].map((s) => getComputedStyle(s).fontWeight))],
