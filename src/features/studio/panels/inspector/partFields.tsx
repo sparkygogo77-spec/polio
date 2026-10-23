@@ -15,6 +15,10 @@ import { MoveRowView } from "../MotionPanel";
 import { Field } from "./fields";
 import { HandColour } from "../../HandSlider";
 
+/** The parts whose words are drawn larger than the size they store, and by how much (`shelf/parts/Hero.tsx#ValueProp`). */
+const DRAWN_LARGER = new Set(["value-prop", "gimmick"]);
+const HEADING_DRAWN = 1.6;
+
 /** The face and size a part's words are set in, and a way to change both. */
 export function FontField({ node, base }: { node: StudioNode; base: number }) {
   const nodes = useHeldStudio((s) => s.nodes);
@@ -25,6 +29,8 @@ export function FontField({ node, base }: { node: StudioNode; base: number }) {
   if (!wordsOf(node) && !node.font) return null;
   const face = faceOf(node);
   const size = typeof node.font?.size === "number" ? node.font.size : 1;
+  /* A heading is drawn at 1.6 times the size its part stores (`Hero.tsx#ValueProp`): the box shows and takes the size on the page, so typing 92 draws 92. */
+  const drawn = DRAWN_LARGER.has(node.featureId) ? HEADING_DRAWN : 1;
   const set = (font: StudioNode["font"]) => useStudio.getState().updateNode(node.id, { font });
   return (
     <Field label="Font">
@@ -45,8 +51,8 @@ export function FontField({ node, base }: { node: StudioNode; base: number }) {
           inputSize="sm"
           className="w-16 px-1.5"
           aria-label="Size in pixels"
-          value={String(Math.round(base * size))}
-          onChange={(e) => { const px = Number(e.target.value); if (Number.isFinite(px) && px > 0) set({ ...(node.font ?? {}), size: px / base }); }}
+          value={String(Math.round(base * size * drawn))}
+          onChange={(e) => { const px = Number(e.target.value); if (Number.isFinite(px) && px > 0) set({ ...(node.font ?? {}), size: px / drawn / base }); }}
         />
         <span className="text-small text-fg-muted">px</span>
       </div>
