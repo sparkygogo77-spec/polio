@@ -66,7 +66,14 @@ export function readPress(e: PressEvent, p: Point, tool: Tool, st: StudioState, 
     };
   };
 
-  const owner = hit && !e.shiftKey && !st.selection.includes(hit.id) ? ownerOf(st.nodes, hit, pal) : null;
+  const lifted = hit && !e.shiftKey && !st.selection.includes(hit.id) ? ownerOf(st.nodes, hit, pal) : null;
+  /*
+   * THE SECOND PRESS GOES IN. The first press on a part inside a control or a card picks the control; the second of
+   * two picks the part under the hand. Words had their own way in (they open), and a part that holds others its own
+   * (`go-in`), but a picture or an icon in a link had none: two presses on sol face's logo picture or a card's sticker
+   * kept the link or the card, and the picture could not be picked, swapped or resized (the hand-edit pass, 2026-10-22).
+   */
+  const owner = lifted && twice && st.selection.includes(lifted.id) ? null : lifted;
   const node = owner ?? hit;
   const id = owner?.id ?? hitId;
   const group = node?.groupId ? st.nodes.filter((n) => n.groupId === node.groupId).map((n) => n.id) : null;
