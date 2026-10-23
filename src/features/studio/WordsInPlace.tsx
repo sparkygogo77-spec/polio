@@ -35,6 +35,7 @@ import { FAMILY } from "./shelf/run";
 import { fontsInPageOrder } from "./look";
 import { partName } from "./partNames";
 import { play } from "@/core/audio/engine";
+import { growToWords } from "./growToWords";
 
 /* ------------------------------------------------------------ which part */
 let editing: string | null = null;
@@ -207,6 +208,24 @@ function highlight(el: HTMLElement, a: number, b: number) {
   sel?.addRange(range);
 }
 
+/** One row of words, as drawn: the room between the words and the part's left and right edges, in the page's pixels; null when they take more rows. */
+function oneRowOf(el: HTMLElement, part: DOMRect, zoom: number): { gapL: number; gapR: number } | null {
+  const tops: number[] = [];
+  let l = Infinity, r = -Infinity;
+  const rg = document.createRange(), walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  for (let x = walk.nextNode(); x; x = walk.nextNode()) {
+    if (!(x.textContent ?? "").trim()) continue;
+    rg.selectNodeContents(x);
+    for (const q of rg.getClientRects()) {
+      if (!(q.width > 0)) continue;
+      if (!tops.some((t) => Math.abs(t - q.top) < Math.max(2, q.height / 2))) tops.push(q.top);
+      l = Math.min(l, q.left); r = Math.max(r, q.right);
+    }
+  }
+  if (tops.length !== 1 || !(zoom > 0)) return null;
+  return { gapL: Math.max(0, (l - part.left) / zoom), gapR: Math.max(0, (part.right - r) / zoom) };
+}
+
 /* ------------------------------------------------------------ the editor */
 
 interface Spot { x: number; y: number; w: number; h: number; style: React.CSSProperties; px: number }
@@ -229,6 +248,8 @@ export function WordsInPlace({ zoom }: { zoom: number }) {
   const before = React.useRef<StudioNode["content"] | undefined>(undefined);
   /* The stretch the bar works on: the box's last selection, kept because the box loses it to the bar's own controls. */
   const held = React.useRef<[number, number] | null>(null);
+  /* The words' one row as they were drawn when the box opened, and their room either side of it in the part (`growToWords`). */
+  const row = React.useRef<{ gapL: number; gapR: number } | null>(null);
 
   /* Where the words are, in the page's own pixels, and how they are set. */
   React.useLayoutEffect(() => {
@@ -244,6 +265,7 @@ export function WordsInPlace({ zoom }: { zoom: number }) {
     const r = el.getBoundingClientRect();
     const o = root.getBoundingClientRect();
     const cs = getComputedStyle(el);
+    row.current = oneRowOf(el, o, zoom);
     setSpot({
       x: node.x + (r.left - o.left) / zoom,
       y: node.y + (r.top - o.top) / zoom,
@@ -309,6 +331,9 @@ export function WordsInPlace({ zoom }: { zoom: number }) {
     if (keep && n && typed !== plain(n.content)) {
       if (!committed.current) s.commit();   // one step of undo for the whole edit
       s.updateNodeQuiet(id, { content: reword(n.content, typed) });
+      /* A part whose words were one row grows to hold what was typed on that row, as it does from the panel's WORDS box:
+         typed here, longer words ran past its edge, over what stands beside it (mochi's "Sign in", sunkcoin's "Find my wallet"). */
+      growToWords(id, row.current ?? undefined);
       play("confirm");
     } else if (!keep && committed.current && n) {
       /* The bar (or Ctrl+B/I) wrote as it went: Escape takes all of it back, the typing too. */

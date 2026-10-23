@@ -19,7 +19,13 @@
 import { useStudio } from "./board/store";
 import { atFullSize } from "./textFit";
 
-export function growToWords(id: string): void {
+/**
+ * `row`: the words were one row when they were opened on the canvas (`WordsInPlace.tsx`), with this much room
+ * between them and the part's left and right edges. Their one row is then the test, not the part's height (a
+ * button's own padding made "Find my wallet" a 38px part round a 19px line), and the part is as wide as the room
+ * either side and the words' one row.
+ */
+export function growToWords(id: string, row?: { gapL: number; gapR: number }): void {
   if (typeof window === "undefined") return;
   /* Two frames: the words just written have to be drawn before they can be measured. */
   /* Read at one to one: words laid out at the board's zoom are not the page's words (`textFit.ts#atFullSize`). */
@@ -38,6 +44,11 @@ export function growToWords(id: string): void {
     surface.parentElement?.appendChild(c);
     const one = c.getBoundingClientRect();
     c.remove();
+    if (row) {
+      const want = Math.ceil(row.gapL + one.width / zoom + row.gapR);
+      if (want > n.w + 0.5) useStudio.setState((st) => ({ nodes: st.nodes.map((x) => (x.id === id ? { ...x, w: want } : x)) }));
+      return;
+    }
     const has = surface.getBoundingClientRect().width;
     const oneLineTall = n.h < 1.5 * (one.height / zoom);
     const short = (one.width - has) / zoom;
