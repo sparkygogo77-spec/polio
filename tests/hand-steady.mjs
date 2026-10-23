@@ -106,7 +106,8 @@ const LOOK = () => {
     scale: frame.getBoundingClientRect().height / Math.max(1, frame.clientHeight),
     /* How far the part in hand hangs past the board's foot, on screen. */
     over: (() => { const n = document.querySelector('[data-node-id="n0"]'); if (!n) return 0; return Math.max(0, Math.round(n.getBoundingClientRect().bottom - board.getBoundingClientRect().bottom)); })(),
-    y: d?.state?.nodes?.find((n) => n.id === "n0")?.y ?? null,
+    /* The live store, which follows the hand: a drag is saved once, on the drop (bd67594c), so localStorage still holds the old y while the part is held. */
+    y: (window.__studioNodes?.() ?? d?.state?.nodes ?? []).find((n) => n.id === "n0")?.y ?? null,
   };
 };
 
