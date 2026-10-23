@@ -27,6 +27,7 @@ import { WornShape } from "./WornShape";
 import { hasLetters, isSpans, plain, spansOf } from "./shelf";
 import type { NodeMedia } from "./shelf";
 import type { NodeWorld } from "./shelf/ui";
+import { exactBox } from "./exactBox";
 import { SvgArt, svgMarkupOf } from "./board/themeDraw";
 
 export { items, themeFrom, type Theme } from "./shelf/run";
@@ -359,7 +360,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       // page never settles — `plain-box` could not even take a screenshot.
       // See `parts/primitives.tsx`.
       <StillCut node={node}>
-      <div data-part-box="" className={hasMotion(node) ? motionClass(motionId ?? node.id) ?? undefined : undefined} style={{ width: "100%", height: "auto", flex: "1 0 auto", boxSizing: "border-box", overflow: hasLetters(node.content) || wordsOwn ? "visible" : "hidden", ...(ground ? { background: ground } : null), ...boxStyle(node, t, palette), ...(node.featureId === "box" && !livingLayered(node.art?.live) ? boxPicture(picture, node.art) : null), ...(stillCut(node) ? { clipPath: undefined } : null), ...(band?.middle ? { paddingTop: 0, paddingBottom: 0, display: "flex", flexDirection: "column" } : null), ...(boxWorn || svgArt ? { position: "relative" as const, isolation: "isolate" as const } : null), ...(svgArt ? { backgroundImage: undefined } : null), ...(typeof node.font?.variation === "string" && node.font.variation.trim() ? { fontVariationSettings: node.font.variation } : null) }}>
+      <div data-part-box="" className={hasMotion(node) ? motionClass(motionId ?? node.id) ?? undefined : undefined} style={{ width: "100%", height: "auto", flex: "1 0 auto", ...(exactBox(node) ? { flex: "1 1 0%", minHeight: 0 } : null), boxSizing: "border-box", overflow: hasLetters(node.content) || wordsOwn ? "visible" : "hidden", ...(ground ? { background: ground } : null), ...boxStyle(node, t, palette), ...(node.featureId === "box" && !livingLayered(node.art?.live) ? boxPicture(picture, node.art) : null), ...(stillCut(node) ? { clipPath: undefined } : null), ...(band?.middle ? { paddingTop: 0, paddingBottom: 0, display: "flex", flexDirection: "column" } : null), ...(boxWorn || svgArt ? { position: "relative" as const, isolation: "isolate" as const } : null), ...(svgArt ? { backgroundImage: undefined } : null), ...(typeof node.font?.variation === "string" && node.font.variation.trim() ? { fontVariationSettings: node.font.variation } : null) }}>
         {/*
           A TEXTURE A BOXED PART WEARS, over the fill its box paints and under
           everything the part draws. A part brought in paints its fill on the
