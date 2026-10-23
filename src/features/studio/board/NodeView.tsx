@@ -34,6 +34,7 @@ import { looksOnBoard,liftedOnBoard,shownOnBoard,placedOnBoard,screenHoles,shado
 import { HANDLE_CURSOR,HANDLES } from "./ShapeView";
 import { isPointed,subscribePointed } from "./pointed";
 import { exactBox } from "../exactBox";
+import { heldRowsGrow } from "../growToWords";
 
 /**
  * Fill: a tab under the selected part that opens, on hover, into the four
@@ -202,6 +203,17 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
   // Not the app's accent, which was the loudest thing on the board and sat
   // on top of the aura you were editing.
   const mark = React.useMemo(() => markColour(node, palette), [node, palette]);
+  /* Its words' look changed (size, face, weight, spacing): words held on their rows grow their part to them (`growToWords.ts#heldRowsGrow`). Not as it first draws. */
+  const look = node.font ? JSON.stringify([node.font.size, node.font.px, node.font.face, node.font.stack, node.font.weight, node.font.spacing]) : "";
+  const lookWas = React.useRef({ look, size: node.font?.size ?? 0, px: node.font?.px ?? 0 });
+  React.useEffect(() => {
+    const was = lookWas.current;
+    if (look === was.look) return;
+    lookWas.current = { look, size: node.font?.size ?? 0, px: node.font?.px ?? 0 };
+    /* Words made smaller (an undo of a bigger size among them) never need more room. */
+    if ((node.font?.size ?? 0) < was.size || (node.font?.px ?? 0) < was.px) return;
+    heldRowsGrow(node.id);
+  }, [look, node.id, node.font?.size, node.font?.px]);
   // A part other parts sit in is a panel, and wears the texture laid on panels.
   const holder = useStudio((s) => holderIds(s.nodes).has(node.id));
   /*
