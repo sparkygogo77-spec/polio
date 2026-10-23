@@ -101,9 +101,18 @@ await page.evaluate((url) => {
  */
 const LOGO = s.nodes.find((x) => x.picture?.id === "pic_cc8659c3" && x.pageId === s.pages[0].id && x.from?.selector);
 const HAND = "n_hand_picture";
-await page.evaluate(({ logo, id }) => {
+/* The twin gets a picture of its own that is NOT see-through: the board marks a picture with clear pixels see-through (NodeView, `seesThrough`) and a see-through
+   picture wears no frame by design (primitives.tsx), and all three of the capture's pictures, the logo among them, are see-through. A plain opaque square, kept under its own id. */
+await page.evaluate(async ({ logo, id }) => {
+  const c = document.createElement("canvas"); c.width = c.height = 64;
+  const g = c.getContext("2d"); g.fillStyle = "#3a6ea5"; g.fillRect(0, 0, 64, 64);
+  const blob = await new Promise((ok) => c.toBlob(ok, "image/png"));
+  const pic = { id: "pic_hand_opaque", path: "assets/pictures/pic_hand_opaque.png", type: "image/png", w: 64, h: 64, bytes: blob.size, alt: "", from: "upload" };
+  const db = await new Promise((ok, no) => { const r = indexedDB.open("builder.pictures"); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); });
+  await new Promise((ok, no) => { const q = db.transaction("files", "readwrite").objectStore("files").put(blob, pic.id); q.onsuccess = () => ok(); q.onerror = () => no(q.error); });
+  db.close();
   const raw = JSON.parse(localStorage.getItem("builder.studio"));
-  raw.state.nodes.push({ ...logo, id, from: null, label: "picture", x: 40, y: 1440 });
+  raw.state.nodes.push({ ...logo, picture: pic, id, from: null, label: "picture", x: 40, y: 1440 });
   localStorage.setItem("builder.studio", JSON.stringify(raw));
 }, { logo: LOGO, id: HAND });
 await page.reload({ waitUntil: "networkidle" });
