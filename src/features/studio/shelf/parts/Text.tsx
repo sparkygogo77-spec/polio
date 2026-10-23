@@ -171,8 +171,16 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, w, h }: 
    * forms (tnum, cv11) set the site's words wider, and four let PST's Balance
    * note keep "your" on its first line where the page wraps it. The site's
    * own forms are its own now (`[data-live-root]` in globals.css).
+   *
+   * EVERY LINE SET FROM THE LEFT, not only words the page read as wrapped.
+   * thesolface.site's footer wordmark is "THE SOL" and "FACE." on two lines
+   * (a break between them): its box measured 600.0625 on the page and was
+   * recorded as 600, and "THE SOL" is exactly 600.0625 wide. With no slack it
+   * wrapped to three lines: on the board the keep-lines pass tightened it
+   * back, and the published page, which has no such pass, drew it 371 tall
+   * against 248 (tests/line-slack.mjs).
    */
-  const slack = !!t.said?.wrap && !spill && !mid?.x && t.textAlign !== "center" && t.textAlign !== "right";
+  const slack = !oneLine && !spill && !mid?.x && t.textAlign !== "center" && t.textAlign !== "right";
   return (
     /*
      * A hair of room on the left: `Fill` clips what leaves its box, and text
