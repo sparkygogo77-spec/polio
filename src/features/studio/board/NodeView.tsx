@@ -33,6 +33,7 @@ import { plain } from "../shelf";
 import { looksOnBoard,liftedOnBoard,shownOnBoard,placedOnBoard,screenHoles,shadowReach,HANDS_ON } from "./helpers";
 import { HANDLE_CURSOR,HANDLES } from "./ShapeView";
 import { isPointed,subscribePointed } from "./pointed";
+import { exactBox } from "../exactBox";
 
 /**
  * Fill: a tab under the selected part that opens, on hover, into the four
@@ -350,6 +351,8 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
         /* A minimum, not a height: the part grows past it when its words
            need the room. `parts/primitives.tsx` holds the reasoning. */
         minHeight: place?.h ?? node.h, display: "flex", flexDirection: "column",
+        /* A picture is its box: no words to make room for (`exactBox.ts`). */
+        ...(exactBox(node) ? { height: place?.h ?? node.h } : null),
         /* A part stepped through on the board stands over its neighbours (`liftedOnBoard`). */
         ...(lifted ? { zIndex: 4 } : {}),
         /* Pinned to the window as the page pinned it: it rides down with the view, above what scrolls under it. */
@@ -450,6 +453,8 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
           // Fills the node's box when the box is taller, grows past it when
           // its words need more: see the note on this element above.
           flex: "1 0 auto",
+          /* A picture is its box (`exactBox.ts`): it fills the box and never grows past it. */
+          ...(exactBox(node) ? { flex: "1 1 0%", minHeight: 0 } : null),
           pointerEvents: handsOn ? "auto" : "none",
           // The lamp's shadow is put here by one rule in `globals.css`, off
           // the `--lift-shadow` the wrapper carries; the corner is the one the

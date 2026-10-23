@@ -35,6 +35,7 @@ import { holderIds } from "../owner";
 import { svgUnder } from "./svgUnder";
 import { groundLayersOf, layerStyle, overParts, type GroundLayer } from "../board/themeDraw";
 import { cornersOf } from "../shelf/parts/theme";
+import { exactBox } from "../exactBox";
 
 /**
  * THE PAGE'S OWN BACKGROUND LAYERS, LIVE. The html and body layers a page
@@ -398,6 +399,8 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
         // The same floor the board gives a box: its words are never
         // cut off, whatever height the capture measured.
         minHeight: p.h, display: "flex", flexDirection: "column",
+        /* A picture is its box: no words to make room for (`exactBox.ts`). */
+        ...(exactBox(p.node) ? { height: p.h } : null),
         // Its corners, for a class the page swaps onto this holder as it plays (`cornersOf`).
         ...(p.node.from?.selector ? { borderRadius: cornersOf(p.node) } : null),
         ...((auraStyle(p.node.aura, palette, p.node.auraSize, p.node.auraStyle) ?? {}) as React.CSSProperties),
