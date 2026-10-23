@@ -4,7 +4,7 @@ import * as React from "react";
 import { getFeature,categoryOf } from "../shelf";
 import { isOverlay } from "../shelf/ui";
 import { pageClip } from "../pageClip";
-import { appAreaLabel,appAreaName,holderIds,isWrapper } from "../owner";
+import { appAreaLabel,appAreaName,holderIds,isWrapper,wordsOf } from "../owner";
 import { leadsOf } from "../shelf";
 import { Block,themeFrom } from "../blocks";
 import { LiveSite,PartCopy,resolvePageLink } from "../live/LiveSite";
@@ -349,9 +349,10 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
         e.preventDefault();
         e.stopPropagation();
       }}
-      /* An inert part (sink: the page's grain over everything) lets a press through to what is under it (`tests/board-inert.mjs`). Hit-testing only. */
+      /* An inert part (sink: the page's grain over everything) lets a press through to what is under it (`tests/board-inert.mjs`). Hit-testing only.
+         Not words: a heading the page made `pointer-events: none` over its canvas (mochi's hero) is still what a person presses to edit it (`tests/inert-words-press.mjs`). */
       /* A dimmed screen pinned over the whole window (PST's intro tour) is never grabbed off the board, picked or not: a press goes to what is on it, its card (J, 2026-10-06: dragging moved the dim). It is still picked from the Panels list or the layers. */
-      className={cn("group absolute cursor-grab active:cursor-grabbing", ((node as { inert?: boolean }).inert && !selected) || isScreenShade(node, page.w) || wrapper ? "pointer-events-none" : "pointer-events-auto", node.locked && "cursor-not-allowed", flash && "node-snap")}
+      className={cn("group absolute cursor-grab active:cursor-grabbing", ((node as { inert?: boolean }).inert && !selected && !wordsOf(node)) || isScreenShade(node, page.w) || wrapper ? "pointer-events-none" : "pointer-events-auto", node.locked && "cursor-not-allowed", flash && "node-snap")}
       style={{
         left: place?.x ?? node.x, top: place?.y ?? node.y, width: place?.w ?? node.w,
         /* A minimum, not a height: the part grows past it when its words
