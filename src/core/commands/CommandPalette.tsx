@@ -58,6 +58,22 @@ export function CommandPalette() {
     if (!open) setQuery("");
   }, [open]);
 
+  /* The field takes focus when the palette opens, and again a moment later
+     if a menu that was closing just before hands focus back to the page (it
+     does so after this opens, which left the field unfocused and the typing
+     going nowhere). */
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  React.useEffect(() => {
+    if (!open) return;
+    const take = () => {
+      const el = inputRef.current;
+      if (el && document.activeElement !== el) el.focus({ preventScroll: true });
+    };
+    take();
+    const timers = [window.setTimeout(take, 30), window.setTimeout(take, 150)];
+    return () => timers.forEach(window.clearTimeout);
+  }, [open]);
+
   const run = (fn: () => void) => {
     play("confirm");
     closePanel("commands");
@@ -110,6 +126,7 @@ export function CommandPalette() {
               >
                 <Search className="size-4" style={{ color: SCREEN.dim }} />
                 <Command.Input
+                  ref={inputRef}
                   autoFocus
                   value={query}
                   onValueChange={setQuery}
