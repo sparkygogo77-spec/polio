@@ -38,8 +38,10 @@ export function heldRowsGrow(id: string): void {
     const zoom = frame.getBoundingClientRect().width / Math.max(1, s.frameWidth);
     if (!(zoom > 0)) return;
     const box = el.getBoundingClientRect();
+    /* The part's own drawing: its name tag and its note, drawn beside it on the board, are not its words. */
+    const drawn = el.querySelector<HTMLElement>("[data-part-drawn]") ?? el;
     let l = Infinity, r = -Infinity, held = false;
-    const rg = document.createRange(), walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const rg = document.createRange(), walk = document.createTreeWalker(drawn, NodeFilter.SHOW_TEXT);
     for (let t = walk.nextNode(); t; t = walk.nextNode()) {
       if (!(t.textContent ?? "").trim() || !t.parentElement) continue;
       if (getComputedStyle(t.parentElement).whiteSpace === "nowrap") held = true;
