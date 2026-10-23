@@ -69,6 +69,11 @@ export interface Theme {
   backdrop: string;
   /** Body size in px from the type settings. */
   fontPx: number;
+  /**
+   * A captured part's words at the size the PAGE set them (`NodeFont.px`), kept when the part is made bigger or smaller
+   * in the panel (which writes `size`): how many rows its box held is a fact of that size, not of the size now drawn.
+   */
+  setPx?: number;
   lineHeight: number;
   /** The line is drawn at `normal` (`NodeFont.leadingNormal`); `lineHeight` is its measured share, for arithmetic only. */
   lineNormal?: boolean;
@@ -204,6 +209,7 @@ export function applyFont(t: Theme, font: NodeFont | null | undefined, opts: { c
   }
   /* An exact size and no multiplier (a theme's sample page, `starterPage.ts`): drawn at that size, as a captured one is. */
   else if (typeof font.px === "number" && Number.isFinite(font.px) && font.px > 0) next.fontPx = Math.max(8, Math.min(200, Math.round(font.px * 10) / 10));
+  if (opts.captured && typeof font.px === "number" && Number.isFinite(font.px) && font.px > 0) next.setPx = font.px;
   if (typeof font.weight === "number" && Number.isFinite(font.weight)) next.fontWeight = Math.round(Math.max(300, Math.min(800, font.weight)) / 100) * 100;
   /*
    * A CAPTURED PART'S SPACING, AT THE SIZE ITS WORDS ARE DRAWN. The spacing is
