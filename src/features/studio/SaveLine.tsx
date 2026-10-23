@@ -42,6 +42,8 @@ import { keepThisTab, loadNewer, onBoardEdit, onOtherTab, otherTab } from "./boa
 const LIVE = "builder.studio";
 /** Edits to one site in one visit before the one reminder may show. */
 export const NUDGE_AFTER = 10;
+/** How long the reminder stays under the save line before it leaves by itself. */
+const NUDGE_SHOWN_MS = 10000;
 
 /*
  * Quiet: a write takes a tenth of a second and happens on every edit, so a
@@ -91,6 +93,14 @@ function SaveLineInner() {
     /* A bubble under the line, never a popover: it takes no focus, so a person typing keeps typing. */
     setTimeout(() => setNudge(true), 0);
   }), []);
+
+  /* It hangs over the toolbar's middle, so it goes by itself: once shown, a few seconds is enough to read it,
+     and the save line still opens the backups. */
+  React.useEffect(() => {
+    if (!nudge) return;
+    const t = window.setTimeout(() => setNudge(false), NUDGE_SHOWN_MS);
+    return () => window.clearTimeout(t);
+  }, [nudge]);
 
   const at = st?.at ?? lastEdit() ?? project?.updatedAt ?? null;
   const failed = st?.state === "failed";
