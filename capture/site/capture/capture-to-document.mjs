@@ -134,6 +134,17 @@ import { measureParts, verdicts } from "./join-arbiter.mjs";
 import { holesIn, placeHoles } from "./hole-arbiter.mjs";
 import { inlineLines, foldRuns, gapSide, wordsPart } from "./inline-runs.mjs";
 /** Why a line's own words became parts of their own rather than runs of it. */
+/*
+ * The insets a layer's containing block had round the box its units are taken of (left, top, right, bottom), read at
+ * the capture beside the box: the importer cannot work them out later from a block that has grown on the board
+ * (`layerUnits.ts#innerBlock`, tests/units-inset-kept.mjs).
+ */
+function blockInsetOf(el, box) {
+  if (!el || !Array.isArray(box) || box.length < 4 || ![el.x, el.y, el.w, el.h].every(Number.isFinite)) return {};
+  const r2 = (v) => Math.round(v * 100) / 100;
+  const inset = [box[0] - el.x, box[1] - el.y, el.x + el.w - (box[0] + box[2]), el.y + el.h - (box[1] + box[3])].map(r2);
+  return inset.every((v) => v >= 0 && v < 200) ? { inset } : {};
+}
 const SPLIT_WHY = (kids) => (kids.every((k) => k.link) ? "its own words only separate its links" : "its own words only separate them");
 import { imageSize } from "./image-size.mjs";
 import { assetFile } from "./asset-name.mjs";
@@ -2133,7 +2144,7 @@ for (const l of lists) note("(lists)", "rows", "field", `${l.page} ${l.selector}
 for (const node of nodes) {
   if (!node.units?.of || !("el" in node.units.of)) continue;
   const { el, ...of } = node.units.of;
-  node.units = { ...node.units, of: { by: of.by, selector: of.selector, part: partOfEl.get(el) ?? null, box: of.box } };
+  node.units = { ...node.units, of: { by: of.by, selector: of.selector, part: partOfEl.get(el) ?? null, box: of.box, ...blockInsetOf(el, of.box) } };
 }
 /* The tags: a span the browser computes as an image (a "Save 71×" badge, a venue tab's chip). Its words are its own; neither arbiter touches them. */
 const tagParts = new Set(converted.flatMap((c) => c.made.filter((m) => m.el.t !== "img" && m.el.role === "image").map((m) => partOfEl.get(m.el))));
@@ -2535,7 +2546,7 @@ for (const c of converted) {
     for (const node of shows.length ? nodes.slice(-shows.length) : []) {
       if (!node.units?.of || !("el" in node.units.of)) continue;
       const { el, ...of } = node.units.of;
-      node.units = { ...node.units, of: { by: of.by, selector: of.selector, part: partOfEl.get(el) ?? null, box: of.box } };
+      node.units = { ...node.units, of: { by: of.by, selector: of.selector, part: partOfEl.get(el) ?? null, box: of.box, ...blockInsetOf(el, of.box) } };
     }
     const alive = new Set(nodes.map((x) => x.id));
     const hides = st.hides.map((m) => partOfEl.get(m.el)).filter((id) => id && alive.has(id));
