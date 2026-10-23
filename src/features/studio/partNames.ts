@@ -142,11 +142,11 @@ export const isHeadingish = (n: Named) => {
  * a list says (each page's parts, what each box holds, its first heading) is
  * kept beside the list itself, and a new list (any edit) starts afresh.
  */
-interface ListMemo { pages: Map<string, readonly Named[]>; within: Map<Named, Named[]>; heading: Map<Named, string | null>; headed: Map<string, boolean> }
+interface ListMemo { pages: Map<string, readonly Named[]>; within: Map<Named, Named[]>; heading: Map<Named, string | null>; headed: Map<string, boolean>; pieces: Map<string, Map<string, Named[]>> }
 const memos = new WeakMap<readonly Named[], ListMemo>();
 const memoOf = (all: readonly Named[]): ListMemo => {
   let m = memos.get(all);
-  if (!m) { m = { pages: new Map(), within: new Map(), heading: new Map(), headed: new Map() }; memos.set(all, m); }
+  if (!m) { m = { pages: new Map(), within: new Map(), heading: new Map(), headed: new Map(), pieces: new Map() }; memos.set(all, m); }
   return m;
 };
 /** The list's parts on a page (every part when the page is not said). */
@@ -189,13 +189,32 @@ function within(box: Named, all: readonly Named[]): Named[] {
 /** The first heading inside a part: a section is named by its own heading, never the page's. */
 /* The h1–h4 element a part's words sit in, by its path: the hero's title is an h1 of two spans, "THE" and "SOL FACE", neither a heading on its own. */
 const HEADING_STEP = /^(.* > h[1-4](?::nth-of-type\(\d+\))?)(?: > .*)?$/;
-const headingAt = (n: Named) => HEADING_STEP.exec(pathOf(n))?.[1] ?? null;
+/* Read once per part: a page of 800 parts asked it of every part for every heading (the names after an edit, 2026-10-23). */
+const headingAts = new WeakMap<Named, string | null>();
+const headingAt = (n: Named) => {
+  if (headingAts.has(n)) return headingAts.get(n)!;
+  const v = HEADING_STEP.exec(pathOf(n))?.[1] ?? null;
+  headingAts.set(n, v);
+  return v;
+};
+/** A page's parts with words, by the h1–h4 element they sit in: built once per list and page. */
+function piecesOf(pageId: string | undefined, all: readonly Named[]): Map<string, Named[]> {
+  const m = memoOf(all);
+  const key = pageId ?? "";
+  let got = m.pieces.get(key);
+  if (!got) {
+    got = new Map();
+    for (const q of onPageOf(pageId, all)) { const el = headingAt(q); if (el && wordsOf(q)) got.set(el, [...(got.get(el) ?? []), q]); }
+    m.pieces.set(key, got);
+  }
+  return got;
+}
 const meets = (a: Named, b: Named) => (a.x ?? 0) < (b.x ?? 0) + (b.w ?? 0) && (b.x ?? 0) < (a.x ?? 0) + (a.w ?? 0) && (a.y ?? 0) < (b.y ?? 0) + (b.h ?? 0) && (b.y ?? 0) < (a.y ?? 0) + (a.h ?? 0);
 /** The words of the h1–h4 element at `el`, read across its pieces in order: those whose path is inside it and that touch its own box, or the box of the part being named where the element has no part of its own (a copy elsewhere with the same path, a press-shown twin, is not one of them). */
 function headingWords(el: string, near: Named, all: readonly Named[]): string {
   const page = onPageOf(near.pageId, all);
   const own = page.find((q) => pathOf(q) === el) ?? near;
-  return page.filter((q) => q.id !== own.id && headingAt(q) === el && !!wordsOf(q) && meets(own, q)).sort((x, y) => (x.y ?? 0) - (y.y ?? 0) || (x.x ?? 0) - (y.x ?? 0)).map(wordsOf).join(" ");
+  return (piecesOf(near.pageId, all).get(el) ?? []).filter((q) => q.id !== own.id && meets(own, q)).sort((x, y) => (x.y ?? 0) - (y.y ?? 0) || (x.x ?? 0) - (y.x ?? 0)).map(wordsOf).join(" ");
 }
 
 /** The first heading inside a part: a part that reads as one, or the words of an h1–h4 element read across its pieces. */
