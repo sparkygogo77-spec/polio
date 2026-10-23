@@ -645,8 +645,10 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
     if (st.left) el.style.left = st.left;
     if (st.top) el.style.top = st.top;
     if (st.width) el.style.width = st.width;
-    if (st.height) {
-      el.style.height = st.height; el.style.minHeight = st.height;
+    if (st.height || st.aspectRatio) {
+      if (st.height) { el.style.height = st.height; el.style.minHeight = st.height; }
+      /* Sized by its shape (`layerUnits.ts#layerStyle`): its height follows its width, with no floor of the height it was measured at. */
+      else { el.style.aspectRatio = st.aspectRatio!; el.style.height = "auto"; el.style.minHeight = "0px"; }
       /* A picture sized by its block is held to that height: its wrapper grows with what it holds, and parasiteonsol.fun's hero picture stood 1026 tall in 702 (tests/picture-in-box.mjs). */
       if (pic) for (const box of Array.from(el.querySelectorAll<HTMLElement>(":scope > [data-part-box], :scope > [data-still-cut], :scope > [data-still-cut] > [data-part-box]"))) { box.style.flex = "1 1 0"; box.style.minHeight = "0"; }
     }

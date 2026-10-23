@@ -39,6 +39,8 @@ export interface BlockBox { left: string; top: string; width: string; height: st
 export interface LayerStyle {
   left?: string; top?: string; width?: string; height?: string;
   backgroundSize?: string; backgroundPosition?: string;
+  /** A picture with no height of its own keeps its shape as its width changes: `w / h`, as an img with `height: auto` does. */
+  aspectRatio?: string;
 }
 
 /** An expression, inside a calc() if it is not one already. */
@@ -96,14 +98,23 @@ export function innerBlock(block: BlockBox, part: { x: number; y: number; w: num
 export function layerStyle(u: Units | null | undefined, block: BlockBox, w: number, h: number, ratio: number | null = null, off: { x: number; y: number } | null = null): LayerStyle | null {
   if (!u) return null;
   const x = axis(u.left, u.right, u.width, block.left, block.width, `${w}px`, off?.x ?? null);
-  let height = u.height;
-  if (!height && !(u.top && u.bottom) && x.size && ratio) height = calc(bare(x.size), "*", String(+ratio.toFixed(6)));
-  const y = axis(u.top, u.bottom, height, block.top, block.height, `${h}px`, off?.y ?? null);
+  /*
+   * A picture's shape gives its height from its width, and is said as a shape (`aspect-ratio`), never as a height
+   * worked out of the width's expression: that expression can hold a `100%` of the page's width (a block that grows
+   * with the window), and in a height, read against the block's height, the `100%` became the block's 393px.
+   * thesolface.site's stickers, 75% of their card's width, stood 48px tall in place of 180 (tests/layer-units-ratio.mjs).
+   * A width with no share in it (a block of a fixed size) gives a plain length, written as a height as before.
+   */
+  const shaped = !u.height && !(u.top && u.bottom) && x.size && ratio ? calc(bare(x.size), "*", String(+ratio.toFixed(6))) : null;
+  /* Anchored at its foot it is placed from its height, so there it keeps the height it had (its place reads it). */
+  const asShape = !!shaped && /%/.test(shaped) && !(u.bottom && !u.top);
+  const y = axis(u.top, u.bottom, u.height ?? (asShape ? undefined : shaped ?? undefined), block.top, block.height, shaped ?? `${h}px`, off?.y ?? null);
   const out: LayerStyle = {};
   if (x.at) out.left = x.at;
   if (x.size) out.width = x.size;
   if (y.at) out.top = y.at;
   if (y.size) out.height = y.size;
+  else if (asShape && ratio) out.aspectRatio = `1 / ${+ratio.toFixed(6)}`;
   if (u.backgroundSize) out.backgroundSize = u.backgroundSize;
   if (u.backgroundPosition) out.backgroundPosition = u.backgroundPosition;
   return Object.keys(out).length ? out : null;
