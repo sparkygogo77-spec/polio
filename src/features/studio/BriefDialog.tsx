@@ -67,7 +67,11 @@ export function useCompiledBrief() {
   const motion = useStudio((s) => s.motion);
   const trail = useStudio((s) => s.trail);
   return React.useMemo(
-    () => compileSpec({ pages, nodes, groups, shapes, format, brief, frameWidth, look, motion, trail }),
+    () => {
+      /* For the checks: how many times the blueprint was compiled (`tests/brief-closed-idle.mjs`). */
+      if (typeof window !== "undefined") { const w = window as unknown as { __studioCompiled?: number }; w.__studioCompiled = (w.__studioCompiled ?? 0) + 1; }
+      return compileSpec({ pages, nodes, groups, shapes, format, brief, frameWidth, look, motion, trail });
+    },
     [pages, nodes, groups, shapes, format, brief, frameWidth, look, motion, trail],
   );
 }
@@ -227,6 +231,17 @@ function useResumeLive() {
 
 export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   useResumeLive();
+  /*
+   * CLOSED, IT DOES NOTHING. The dialog stays mounted for the live run it resumes (`useResumeLive`), and it compiled the
+   * whole blueprint (`useCompiledBrief`) on every change to the board for a description no one could see: about 18ms of
+   * every edit on sol face (the editable-imports pass, 2026-10-23). The book and its stats are drawn only while open.
+   */
+  if (!open) return null;
+  return <OpenBrief onOpenChange={onOpenChange} />;
+}
+
+function OpenBrief({ onOpenChange }: { onOpenChange: (v: boolean) => void }) {
+  const open = true;
   const pinned = useStudio((s) => s.bookPinned);
   const spec = useCompiledBrief();
 
