@@ -134,7 +134,9 @@ export function Runs({ spans, t, mode, onNavigate }: RunsProps) {
   const out: React.ReactNode[] = [];
   let word: React.ReactNode[] = [];
   const close = () => { if (word.length) out.push(<span key={`w${out.length}`} style={{ whiteSpace: "nowrap" }}>{word}</span>); word = []; };
-  spans.forEach((s, i) => { if (/^\s+$/.test(s.text)) { close(); out.push(drawn[i]); } else word.push(drawn[i]); });
+  /* Only letters are held: a run with spaces in it (words typed after the title, `spans.ts#reword`) breaks at them, or it
+     was one line 3,900px long (tests/letters-typed-plain.mjs). */
+  spans.forEach((s, i) => { if (/\s/.test(s.text)) { close(); out.push(drawn[i]); } else word.push(drawn[i]); });
   close();
   return <>{out}</>;
 }

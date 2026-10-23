@@ -163,15 +163,25 @@ export function reword(was: Words | null | undefined, next: string): Words {
   let tail = 0;
   while (tail < old.length - head && tail < next.length - head && old[old.length - 1 - tail] === next[next.length - 1 - tail]) tail++;
   const typedInto = head > 0 ? owner[head - 1]! : owner[0] ?? 0;
+  /*
+   * A LETTER THAT MOVES ON ITS OWN IS NOT WHERE NEW WORDS GO. trumpmorty.fun's title is one run per letter, each with
+   * its own wobble, drawn as a box of its own; words typed after the last letter went into that letter's box, one
+   * unbreakable line 3,900px past the title (the hand-edit pass, 2026-10-23). What is typed there is a run of its own:
+   * the letter's look, without its motion (tests/letters-typed-plain.mjs).
+   */
+  const into = was[typedInto];
+  const letter = !!into && into.text.length === 1 && !!(into as { motion?: unknown }).motion;
+  const TYPED = -1;
   const runOf: number[] = [
     ...owner.slice(0, head),
-    ...Array.from({ length: next.length - head - tail }, () => typedInto),
+    ...Array.from({ length: next.length - head - tail }, () => (letter ? TYPED : typedInto)),
     ...owner.slice(old.length - tail),
   ];
   const out: Span[] = [];
   for (let k = 0; k < next.length; k++) {
     const last = out[out.length - 1];
     if (last && runOf[k - 1] === runOf[k]) last.text += next[k];
+    else if (runOf[k] === TYPED) { const { motion: _m, ...look } = into as Span & { motion?: unknown }; void _m; out.push({ ...look, text: next[k]! }); }
     else out.push({ ...was[runOf[k]!]!, text: next[k]! });
   }
   return out.length ? out : "";
