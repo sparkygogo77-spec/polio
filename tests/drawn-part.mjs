@@ -63,7 +63,7 @@ check("a dot is still nothing", outlinePath({ strokes: [[[0.5, 0.5]]], words: ""
 check("the board marks the selection along the outline when there is one, and puts the aura on the shape", (() => {
   const src = ["Canvas.tsx", ...readdirSync("src/features/studio/board").filter((f) => /\.tsx?$/.test(f)).map((f) => `board/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
   return /const hugs = React\.useMemo\(\(\) => \(node\.outline\?\.cut \? handlePoints\(node\.outline\.cut\) : null\)/.test(src)
-    && /selected && hugs && node\.outline \?/.test(src) && /hugs \? \(\(auraFilter\(/.test(src);
+    && /selected && hugs && node\.outline \?/.test(src) && /const hugAura = hugs \? auraFilter\(/.test(src);
 })());
 
 /* ------------------------------------------------------------------ */
