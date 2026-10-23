@@ -389,8 +389,10 @@ export function nodesActions(set: SetStudio, get: GetStudio, push: () => void, p
     },
 
     removeNodes: (ids) => {
-      push();
       const set_ = new Set(ids);
+      /* Nothing to take, no step of undo (see `removeShapes`). */
+      if (!get().nodes.some((n) => set_.has(n.id))) return;
+      push();
       set((s) => {
         const nodes = s.nodes.filter((n) => !set_.has(n.id));
         const liveGroups = new Set(nodes.map((n) => n.groupId).filter(Boolean) as string[]);
