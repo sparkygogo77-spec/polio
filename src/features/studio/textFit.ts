@@ -54,6 +54,8 @@ export interface Drawn {
   row?: boolean;
   /** The capture recorded it out of the flow (`from.position` fixed or absolute): it takes no room beside its siblings. */
   out?: boolean;
+  /** Out of the flow and placed from its holder's foot (`bottom` written, no `top`): it rides that foot as the holder grows. */
+  foot?: boolean;
 }
 
 /** A box that has to move, grow, or both. */
@@ -234,6 +236,12 @@ function fitTree(boxes: readonly Drawn[], grows?: (id: string) => boolean, frame
       }
     }
     for (const b of sibs) { if (b.out) continue; const p = put.get(b.id)!; inside = Math.max(inside, p.moved - base + p.grew); }
+    /*
+     * A PART PLACED FROM ITS HOLDER'S FOOT RIDES THAT FOOT. thesolface.site's splash is `bottom: -10%` of its section:
+     * the section grew 731px under a longer heading and the splash stayed where it was, over the heading (the
+     * hand-edit pass, 2026-10-22). It still takes no room and moves nothing; it moves by its holder's growth.
+     */
+    if (owner && inside) for (const b of sibs) if (b.out && b.foot && put.has(b.id)) shift(b.id, inside);
     return inside;
   };
   place(null, 0);
@@ -451,7 +459,7 @@ export function boardElements(): Map<string, Element> {
 }
 
 /** What a node's box drew at on the board, or null if it is not on screen. */
-export function drawnOnBoard(node: { id: string; x: number; y: number; w: number; h: number; from?: { selector?: string; position?: string } | null; content?: unknown; layout?: { display?: string; direction?: string; align?: string } | null; pad?: { left?: number; right?: number } | null }, onBoard?: Map<string, Element>): Drawn | null {
+export function drawnOnBoard(node: { id: string; x: number; y: number; w: number; h: number; from?: { selector?: string; position?: string; inset?: { top?: number; bottom?: number } | null } | null; units?: { top?: string; bottom?: string } | null; content?: unknown; layout?: { display?: string; direction?: string; align?: string } | null; pad?: { left?: number; right?: number } | null }, onBoard?: Map<string, Element>): Drawn | null {
   const el = onBoard ? onBoard.get(node.id) : document.querySelector(`[data-node-id="${node.id}"]`);
   if (!(el instanceof HTMLElement)) return null;
   const path = (node.from?.selector ?? "").trim();
@@ -461,7 +469,9 @@ export function drawnOnBoard(node: { id: string; x: number; y: number; w: number
   const row = !!l && (l.display === "grid" || (l.display === "flex" && (!l.direction || l.direction === "row"))) && (!l.align || l.align === "stretch" || l.align === "normal");
   const pad = node.pad ? { left: node.pad.left ?? 0, right: node.pad.right ?? 0 } : undefined;
   const out = node.from?.position === "fixed" || node.from?.position === "absolute";
-  return { id: node.id, x: node.x, y: node.y, w: node.w, h: node.h, drew: el.offsetHeight, ...(path ? { path, words, row, ...(pad ? { pad } : {}), ...(out ? { out } : {}) } : {}) };
+  const u = node.units, inset = node.from?.inset;
+  const foot = node.from?.position === "absolute" && ((!!u?.bottom && !u.top) || (!u && inset?.bottom !== undefined && inset?.top === undefined));
+  return { id: node.id, x: node.x, y: node.y, w: node.w, h: node.h, drew: el.offsetHeight, ...(path ? { path, words, row, ...(pad ? { pad } : {}), ...(out ? { out } : {}), ...(foot ? { foot } : {}) } : {}) };
 }
 
 /* ------------------------------------------------------------------ */
