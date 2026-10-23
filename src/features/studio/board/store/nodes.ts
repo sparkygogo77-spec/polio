@@ -24,6 +24,9 @@ import { resolvePalette } from "../../shelf/run";
  * on the page with no link round them, and Ctrl+D copied sunkcoin's "$SUNK" link
  * without its words (the hand-edit pass on fresh imports, 2026-10-22).
  */
+/** A copy's mark on its page path, so it holds only the parts copied with it (`owner.ts#sameCopy`). */
+export const copyMark = (n: StudioNode, mark: string): Partial<StudioNode> => (n.from ? { from: { ...n.from, copy: mark } } : {});
+
 export const withHeld = (s: Pick<StudioState, "nodes" | "format" | "look">, ids: readonly string[]): string[] =>
   [...ids, ...ridersOf(s.nodes, ids, resolvePalette(s.format, s.look))];
 
@@ -426,9 +429,10 @@ export function nodesActions(set: SetStudio, get: GetStudio, push: () => void, p
       set((s) => {
         const set_ = new Set(withHeld(s, ids));
         const asked = new Set(ids);
+        const mark = uid("c");
         const made = s.nodes
           .filter((n) => set_.has(n.id))
-          .map((n) => ({ was: n.id, copy: { ...n, id: uid("n"), x: n.x + 24, y: n.y + 24, groupId: null } }));
+          .map((n) => ({ was: n.id, copy: { ...n, id: uid("n"), x: n.x + 24, y: n.y + 24, groupId: null, ...copyMark(n, mark) } }));
         /* The copies of what was picked are picked: what they hold rides with them, as it does with the originals. */
         return { nodes: [...s.nodes, ...made.map((m) => m.copy)], selection: made.filter((m) => asked.has(m.was)).map((m) => m.copy.id) };
       });

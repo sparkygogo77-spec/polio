@@ -12,7 +12,10 @@
  *   · Backspace on the card takes the heading it holds;
  *   · Ctrl+D copies the button with its words, and the copy of the button is
  *     what is picked;
- *   · Ctrl+X takes the button and its words, and Ctrl+V puts both back.
+ *   · Ctrl+X takes the button and its words, and Ctrl+V puts both back;
+ *   · a copy holds only its own: on a captured link (its words its by page
+ *     path), deleting the Ctrl+D copy, or the pasted copy, leaves the
+ *     original's words where they are.
  *
  *   npx next start -p 3013
  *   node tests/held-go-along.mjs http://127.0.0.1:3013
@@ -38,6 +41,9 @@ const doc = JSON.stringify({ state: {
     node("go_words", "value-prop", "GO", 216, 212, 288, 48),
     node("card", "box", "", 700, 200, 400, 300, { colour: { bg: "#e1a12f" } }),
     node("card_head", "value-prop", "A CARD", 720, 220, 300, 48),
+    /* A captured link: the words are its by page path, as an import has them. */
+    node("ln", "box", "", 200, 600, 240, 60, { data: "button, named SIGN IN", colour: { bg: "#22aa66" }, from: { url: "https://x.test/", host: "x.test", selector: "body > nav > a", at: 1 } }),
+    node("ln_words", "value-prop", "SIGN IN", 212, 606, 216, 48, { from: { url: "https://x.test/", host: "x.test", selector: "body > nav > a > span", at: 1 } }),
   ],
   groups: [], shapes: [], format: {}, brief: { name: "HELD", gimmick: "", master: "" },
   frameWidth: 1440, activePageId: "p0", trail: [], swept: SWEEP,
@@ -79,11 +85,12 @@ check("Backspace on a card takes the heading it holds", !(await has("card")) && 
 await press("Control+z");
 
 /* Duplicate */
+const ORIG = ["go", "go_words", "card", "card_head", "ln", "ln_words"];
 const n0 = (await nodes()).length;
 await pick("go");
 await press("Control+d");
 const after = await nodes();
-const copies = after.filter((n) => !["go", "go_words", "card", "card_head"].includes(n.id));
+const copies = after.filter((n) => !ORIG.includes(n.id));
 check("Ctrl+D copies the button with its words", after.length === n0 + 2 && copies.some((n) => words(n) === "GO"), `${n0} -> ${after.length}: ${copies.map((n) => `${n.id}:${words(n)}`).join(", ")}`);
 const sel = await selection();
 check("…and the copy of the button is what is picked", sel.length === 1 && copies.some((c) => c.id === sel[0] && c.featureId === "box"), JSON.stringify(sel));
@@ -95,8 +102,27 @@ await press("Control+x");
 check("Ctrl+X takes the button and its words", !(await has("go")) && !(await has("go_words")));
 await page.mouse.click(1420, 880);
 await press("Control+v");
-const pasted = (await nodes()).filter((n) => !["card", "card_head"].includes(n.id));
+const pasted = (await nodes()).filter((n) => !["card", "card_head", "ln", "ln_words"].includes(n.id));
 check("…and Ctrl+V puts both back", pasted.length === 2 && pasted.some((n) => words(n) === "GO"), pasted.map((n) => `${n.id}:${words(n)}`).join(", "));
+
+/* A copy holds only its own: the captured link, copied and the copy deleted. */
+for (const how of ["Control+d", "copy-paste"]) {
+  await press("Escape");
+  await pick("ln");
+  const before = (await nodes()).map((n) => n.id);
+  if (how === "Control+d") await press("Control+d");
+  else { await press("Control+c"); await page.mouse.click(1420, 880); await press("Control+v"); }
+  const made = (await nodes()).filter((n) => !before.includes(n.id));
+  const copyLink = made.find((n) => n.featureId === "box");
+  check(`${how === "Control+d" ? "Ctrl+D" : "Ctrl+C, Ctrl+V"} on the captured link copies it with its words`, made.length === 2 && !!copyLink, made.map((n) => `${n.id}:${words(n)}`).join(", "));
+  if (!copyLink) continue;
+  await page.mouse.click(1420, 880); await page.waitForTimeout(200);
+  await page.evaluate((id) => window.__studioHistory.act("setSelection", [id]), copyLink.id);
+  await page.waitForTimeout(200);
+  await press("Backspace");
+  const left = await nodes();
+  check("…deleting the copy takes the copy's words, and the original keeps its words", (await has("ln")) && (await has("ln_words")) && !left.some((n) => made.some((m) => m.id === n.id)), `original ${await has("ln")}/${await has("ln_words")}, copies left ${left.filter((n) => made.some((m) => m.id === n.id)).length}`);
+}
 
 check("no page errors", errors.length === 0, errors.join(" | ").slice(0, 200));
 console.log(`\n${results.filter(Boolean).length}/${results.length} pass`);

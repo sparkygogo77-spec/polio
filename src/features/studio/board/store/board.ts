@@ -8,7 +8,7 @@ import { boundaryIn, lockLayout, placeLocked, tidyBoundary } from "../../space";
 import { GetStudio, HUES, SetStudio, inherit, pickedStates } from "./history";
 import { BACKGROUND_ID, StudioNode, type StudioPage } from "./model";
 import type { StudioState } from "./state";
-import { withHeld } from "./nodes";
+import { copyMark, withHeld } from "./nodes";
 
 /**
  * What was cut last, held until it is put back — parts, or the background.
@@ -315,7 +315,8 @@ export function boardActions(set: SetStudio, get: GetStudio, push: () => void, p
       const h = held;
       push();
       set((s) => {
-        const copies = h.nodes.map((n) => ({ ...n, id: uid("n"), pageId: s.activePageId, x: n.x + 24, y: n.y + 24, groupId: null }));
+        const mark = uid("c");
+        const copies = h.nodes.map((n) => ({ ...n, id: uid("n"), pageId: s.activePageId, x: n.x + 24, y: n.y + 24, groupId: null, ...copyMark(n, mark) }));
         return { nodes: [...s.nodes, ...copies], selection: copies.map((c) => c.id) };
       });
       return true;

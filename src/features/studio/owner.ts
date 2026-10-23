@@ -21,12 +21,18 @@ import { under } from "./owns";
 import { plain } from "./shelf";
 
 type Boxed = Pick<StudioNode, "id" | "pageId" | "x" | "y" | "w" | "h" | "featureId" | "link" | "data" | "content"> & {
-  from?: { selector?: string } | null;
+  from?: { selector?: string; copy?: string } | null;
   locked?: boolean;
   hooks?: Record<string, string> | null;
 };
 
 const pathOf = (n: Boxed) => (n.from?.selector ?? "").trim();
+/**
+ * A COPY HOLDS ONLY ITS OWN. A copy (Ctrl+D, a paste) keeps the page path of the part it was made from, and ownership
+ * is read by path: so a copied button "held" the original's words too, and deleting the copy took them (held-go-along).
+ * The copies made together share a mark (`from.copy`), and a path holds another only within the same mark.
+ */
+export const sameCopy = (a: { from?: { copy?: string } | null }, b: { from?: { copy?: string } | null }) => (a.from?.copy ?? "") === (b.from?.copy ?? "");
 const area = (n: Boxed) => Math.max(0, n.w) * Math.max(0, n.h);
 
 /** Does `outer` hold `inner`: by the recorded page path, else wholly inside its box and smaller. */
@@ -34,7 +40,7 @@ export function holds(outer: Boxed, inner: Boxed): boolean {
   if (outer.id === inner.id || outer.pageId !== inner.pageId) return false;
   const a = pathOf(outer);
   const b = pathOf(inner);
-  if (a && b) return under(a, b);
+  if (a && b) return sameCopy(outer, inner) && under(a, b);
   const slack = 1;
   return inner.x >= outer.x - slack && inner.y >= outer.y - slack
     && inner.x + inner.w <= outer.x + outer.w + slack && inner.y + inner.h <= outer.y + outer.h + slack
