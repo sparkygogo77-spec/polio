@@ -14,6 +14,18 @@ import { groupTwins } from "../../states";
 import { GetStudio, HUES, SetStudio, TYPED_FIELDS, inherit, withFits, withGrown, withJoins, withPaint, withoutTwins } from "./history";
 import { ShapeKind, ShapeRelation, StudioNode } from "./model";
 import type { StudioState } from "./state";
+import { ridersOf } from "../../owner";
+import { resolvePalette } from "../../shelf/run";
+
+/**
+ * WHAT A PART HOLDS GOES WITH IT. A drag and a copy already took a part with the
+ * words, icon and parts it holds (`owner.ts#ridersOf`); a delete and a duplicate
+ * took the part alone. Deleting mochi's search link left its words and its icon
+ * on the page with no link round them, and Ctrl+D copied sunkcoin's "$SUNK" link
+ * without its words (the hand-edit pass on fresh imports, 2026-10-22).
+ */
+export const withHeld = (s: Pick<StudioState, "nodes" | "format" | "look">, ids: readonly string[]): string[] =>
+  [...ids, ...ridersOf(s.nodes, ids, resolvePalette(s.format, s.look))];
 
 /** The nodes actions of the studio store; spread into `useStudio` by create.ts. */
 export function nodesActions(set: SetStudio, get: GetStudio, push: () => void, pushEdit: (key: string) => void): Pick<StudioState, "addNode" | "updateNode" | "updateNodeQuiet" | "updateNodes" | "fitToWords" | "settleToWords" | "joinSentences" | "fitWrappers" | "sweepDocument" | "raiseNode" | "lowerNode" | "stackNode" | "removeNodes" | "duplicateNodes" | "setCubeFace" | "pickFace" | "hold" | "want" | "markQueueSeen" | "setCubeTurn" | "setMeshTurn" | "applyDrawnKind" | "groupSelection" | "ungroup" | "updateGroup"> {
@@ -389,7 +401,7 @@ export function nodesActions(set: SetStudio, get: GetStudio, push: () => void, p
     },
 
     removeNodes: (ids) => {
-      const set_ = new Set(ids);
+      const set_ = new Set(withHeld(get(), ids));
       /* Nothing to take, no step of undo (see `removeShapes`). */
       if (!get().nodes.some((n) => set_.has(n.id))) return;
       push();
@@ -412,11 +424,13 @@ export function nodesActions(set: SetStudio, get: GetStudio, push: () => void, p
     duplicateNodes: (ids) => {
       push();
       set((s) => {
-        const set_ = new Set(ids);
-        const copies = s.nodes
+        const set_ = new Set(withHeld(s, ids));
+        const asked = new Set(ids);
+        const made = s.nodes
           .filter((n) => set_.has(n.id))
-          .map((n) => ({ ...n, id: uid("n"), x: n.x + 24, y: n.y + 24, groupId: null }));
-        return { nodes: [...s.nodes, ...copies], selection: copies.map((c) => c.id) };
+          .map((n) => ({ was: n.id, copy: { ...n, id: uid("n"), x: n.x + 24, y: n.y + 24, groupId: null } }));
+        /* The copies of what was picked are picked: what they hold rides with them, as it does with the originals. */
+        return { nodes: [...s.nodes, ...made.map((m) => m.copy)], selection: made.filter((m) => asked.has(m.was)).map((m) => m.copy.id) };
       });
     },
 

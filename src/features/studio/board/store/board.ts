@@ -8,6 +8,7 @@ import { boundaryIn, lockLayout, placeLocked, tidyBoundary } from "../../space";
 import { GetStudio, HUES, SetStudio, inherit, pickedStates } from "./history";
 import { BACKGROUND_ID, StudioNode, type StudioPage } from "./model";
 import type { StudioState } from "./state";
+import { withHeld } from "./nodes";
 
 /**
  * What was cut last, held until it is put back — parts, or the background.
@@ -277,7 +278,9 @@ export function boardActions(set: SetStudio, get: GetStudio, push: () => void, p
     },
     cutNodes: (ids) => {
       const s = get();
-      const nodes = s.nodes.filter((n) => ids.includes(n.id));
+      /* Cut holds what each part holds too, as a copy does, so a paste puts the button back with its words. */
+      const all = new Set(withHeld(s, ids));
+      const nodes = s.nodes.filter((n) => all.has(n.id));
       if (!nodes.length) return false;
       held = { kind: "nodes", nodes };
       s.removeNodes(nodes.map((n) => n.id));
