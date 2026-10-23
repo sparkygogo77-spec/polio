@@ -640,9 +640,18 @@ export function windowTallBands(parts: readonly FluidPart[]): Set<string> {
  * window's height at the read (`captureHeight`, else the lowest part in the
  * rail). Null: placed from the top.
  */
+/** The tallest window a page is read in (`api/studio/zip`: 600..1600). */
+const WINDOW_MAX = 1600;
+
 export function fromRailFoot(p: FluidPart, band: FluidPart, kids: readonly FluidPart[], H: number): number | null {
   const at = p.y - band.y;
-  const win = H > 0 ? H : Math.max(0, ...kids.map((k) => k.y - band.y + k.h));
+  /*
+   * With no fixed band to read the window from, a rail that ends within a window's height (the reads run 600..1600 tall,
+   * `api/studio/zip`) is its window: sink's Docs rail runs 63..1433, all of it seen at once. Read off its lowest part
+   * instead (749), half its nav counted as "low in the window" and was hung from a foot 678px further down on the
+   * published page (tests/fluid-site.mjs, page_docs). A rail longer than any window keeps the lowest-part reading.
+   */
+  const win = H > 0 ? H : band.y + band.h <= WINDOW_MAX ? band.h : Math.max(0, ...kids.map((k) => k.y - band.y + k.h));
   if (win <= 0 || at + p.h > win || at + p.h / 2 <= win / 2) return null;
   return Math.max(0, win - (at + p.h));
 }

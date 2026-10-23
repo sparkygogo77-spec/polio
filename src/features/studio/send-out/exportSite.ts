@@ -564,9 +564,13 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
   for (const id of windowTallBands(parts)) {
     const el = root.querySelector<HTMLElement>(`[data-live-node="${CSS.escape(id)}"]`);
     if (!el || el.parentElement?.closest("[data-live-node]") || el.style.position !== "sticky") continue;
-    el.style.height = "100vh";
+    /* The window less where it sticks: sink's Docs rail sticks 57px down under its header and runs to the window's foot,
+       1370 in a 1427 window. A whole window tall it ran 57px past the foot, and what it hangs from its foot hung that much low. */
+    const inset = parseFloat(el.style.top) || 0;
+    const tall = inset > 0 ? `calc(100vh - ${inset}px)` : "100vh";
+    el.style.height = tall;
     el.style.minHeight = "0px";
-    el.style.marginBottom = "-100vh";
+    el.style.marginBottom = `calc(-1 * ${tall})`;
     el.style.overflow = "clip";
     for (const box of Array.from(el.querySelectorAll<HTMLElement>(":scope > [data-part-box], :scope > [data-still-cut], :scope > [data-still-cut] > [data-part-box]"))) { box.style.flex = "1 1 0"; box.style.minHeight = "0"; box.style.height = "auto"; }
   }
