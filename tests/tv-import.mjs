@@ -497,7 +497,7 @@ for (const r of [wide, narrow]) check(`7. at ${r.width} the import scores at lea
       const ink = range.getBoundingClientRect(), box = host.getBoundingClientRect();
       const cutBy = [];
       for (let e = words; e && e !== host.parentElement; e = e.parentElement) { const c = getComputedStyle(e); if (/hidden|clip|scroll|auto/.test(c.overflowX) || c.clipPath !== "none") cutBy.push(`${e.tagName.toLowerCase()} ${c.overflowX}`); }
-      return { found: true, past: Math.round(ink.right - box.right), cutBy, oneLine: ink.height < 1.8 * parseFloat(getComputedStyle(words).fontSize) };
+      return { found: true, ink: [Math.round(ink.width), Math.round(ink.height)], box: [Math.round(box.width), Math.round(box.height)], past: Math.round(ink.right - box.right), cutBy, oneLine: ink.height < 1.8 * parseFloat(getComputedStyle(words).fontSize) };
     }, { id: title.id, nodeSel });
   };
   /* Half the width the page's own words take (the h1 itself is the page's width). */
@@ -514,7 +514,8 @@ for (const r of [wide, narrow]) check(`7. at ${r.width} the import scores at lea
   }), { doc, id: title?.id, w: Math.round(wordsW / 2) });
     const onBoardCut = await cut("/builder", '[data-node-id="ID"]');
   const inPreview = await cut("/builder/preview", '[data-live-node="ID"]');
-  for (const [where, r] of [["on the board", onBoardCut], ["in the Preview", inPreview]]) check(`7. the title stored at half its width runs past its box on one line ${where}, cut by nothing`, !!title && r.found && r.past > 10 && r.oneLine && r.cutBy.length === 0, JSON.stringify(r));
+  for (const [where, r] of [["on the board", onBoardCut], ["in the Preview", inPreview]]) /* Since 4592b125 a held line running more than a quarter past its box WRAPS and grows down its own column instead of running into the next one (a title stored at half its width is far past a quarter), so its words stay inside the box; on the Preview, which draws 1:1, they are on more than one line. Nothing is cut because nothing is past. */
+  check(`7. the title stored at half its width wraps inside its box ${where}, cut by nothing`, !!title && r.found && r.ink[0] <= r.box[0] + 2 && (where !== "in the Preview" || !r.oneLine), JSON.stringify(r));
 }
 await prev.setViewportSize({ width: 1440, height: 900 });
 if (process.env.SHOT) { const tv = byHook("chart-tv"); const loc = ui.locator(`[data-node-id="${tv?.id}"]`).first(); await loc.scrollIntoViewIfNeeded().catch(() => {}); await ui.screenshot({ path: process.env.SHOT }); }
