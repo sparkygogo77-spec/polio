@@ -30,7 +30,7 @@ export interface Units {
   left?: string; top?: string; right?: string; bottom?: string;
   width?: string; height?: string;
   backgroundSize?: string; backgroundPosition?: string;
-  of?: { by?: string; part?: string | null; box?: number[] } | null;
+  of?: { by?: string; part?: string | null; box?: number[]; inset?: number[] } | null;
 }
 
 /** The block's box on the frame, each side as CSS. */
@@ -80,9 +80,16 @@ function axis(near: string | undefined, far: string | undefined, size: string | 
  * with a 2px border, its canvas's `100%` is of the 1247 inside). The block's
  * place on the frame, less the insets it had at the capture on each side.
  */
-export function innerBlock(block: BlockBox, part: { x: number; y: number; w: number; h: number }, box?: number[] | null): BlockBox {
-  if (!box || box.length < 4) return block;
-  const l = box[0]! - part.x, r = part.x + part.w - (box[0]! + box[2]!), t = box[1]! - part.y, b = part.y + part.h - (box[1]! + box[3]!);
+export function innerBlock(block: BlockBox, part: { x: number; y: number; w: number; h: number }, box?: number[] | null, kept?: number[] | null): BlockBox {
+  /*
+   * THE INSETS THE CAPTURE READ, WHEN IT WROTE THEM DOWN (`units.of.inset`, left top right bottom). Worked out from
+   * the block as it is now, a block that has grown on the board read its growth as a bottom inset: trumpmorty.fun's
+   * hero, 85px taller under a bigger title, left the deserts placed from its foot where they were, 85px up on the
+   * published page while the board moved them down (the hand-edit pass, 2026-10-23; tests/units-inset-kept.mjs).
+   */
+  const read = kept && kept.length === 4 && kept.every((v) => Number.isFinite(v)) ? kept : null;
+  if (!read && (!box || box.length < 4)) return block;
+  const [l = 0, t = 0, r = 0, b = 0] = read ?? [box![0]! - part.x, box![1]! - part.y, part.x + part.w - (box![0]! + box![2]!), part.y + part.h - (box![1]! + box![3]!)];
   if (![l, r, t, b].every((v) => Number.isFinite(v) && v >= 0 && v < 200)) return block;
   const inset = (v: string, a: number, z = 0) => (a || z ? calc(bare(v), "+", `${a}px`) : v);
   const less = (v: string, a: number) => (a ? calc(bare(v), "-", `${a}px`) : v);
