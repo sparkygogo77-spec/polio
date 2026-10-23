@@ -41,14 +41,16 @@ export function heldRowsGrow(id: string): void {
     /* The part's own drawing: its name tag and its note, drawn beside it on the board, are not its words. */
     const drawn = el.querySelector<HTMLElement>("[data-part-drawn]") ?? el;
     let l = Infinity, r = -Infinity, held = false;
+    const tops: number[] = [];
     const rg = document.createRange(), walk = document.createTreeWalker(drawn, NodeFilter.SHOW_TEXT);
     for (let t = walk.nextNode(); t; t = walk.nextNode()) {
       if (!(t.textContent ?? "").trim() || !t.parentElement) continue;
       if (getComputedStyle(t.parentElement).whiteSpace === "nowrap") held = true;
       rg.selectNodeContents(t);
-      for (const q of rg.getClientRects()) if (q.width > 0) { l = Math.min(l, q.left); r = Math.max(r, q.right); }
+      for (const q of rg.getClientRects()) if (q.width > 0) { l = Math.min(l, q.left); r = Math.max(r, q.right); if (!tops.some((y) => Math.abs(y - q.top) < q.height / 2)) tops.push(q.top); }
     }
-    if (!held || !(r > l)) return;
+    /* Or one row that cannot break: share.xyz's "Share", one word, made bigger ran 32px past its box with nothing held (tests/size-widens.mjs). */
+    if ((!held && tops.length !== 1) || !(r > l)) return;
     const over = (Math.max(0, box.left - l) + Math.max(0, r - box.right)) / zoom;
     if (!(over > 0.5)) return;
     useStudio.setState((st) => ({ nodes: st.nodes.map((x) => (x.id === id ? { ...x, w: Math.ceil(x.w + over) } : x)) }));
