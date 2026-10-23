@@ -206,10 +206,12 @@ function SaveLineInner() {
       <div
         data-save-reminder=""
         role="status"
-        className="absolute right-0 top-full z-50 mt-1.5 flex w-[min(320px,90vw)] flex-col gap-2 rounded-lg border border-border bg-panel p-3 text-small shadow-lg"
+        title="A backup is one file you can keep anywhere and load again."
+        className="absolute right-full top-1/2 z-50 mr-3 -translate-y-1/2 items-center gap-3 rounded-lg border border-border bg-panel px-3 py-1 text-small shadow-lg flex"
       >
-        <p className="text-plain text-fg">This site is only in this browser, and it has never been backed up or published. A backup is one file you can keep anywhere and load again.</p>
-        <div className="flex flex-wrap items-center gap-1.5">
+        {/* In the top bar, to the left of the save line, where nothing else is: it stays until dismissed or backed up, and covers no control. */}
+        <p className="w-[330px] text-fine leading-tight text-fg">This site is only in this browser, and it has never been backed up or published.</p>
+        <div className="flex shrink-0 items-center gap-1.5">
           <Button size="sm" variant="primary" data-reminder-download="" loading={busy === "down"} onClick={() => void download()}>
             <Download /> Download a backup
           </Button>
