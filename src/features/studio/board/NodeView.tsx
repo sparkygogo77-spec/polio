@@ -177,6 +177,12 @@ export function useUnshown(node: StudioNode, body: React.RefObject<HTMLDivElemen
 }
 
 /** A part pinned to the window and as wide as the page: a dimmed screen over it, such as a tour's (`boardStates.ts#keepOverlaysOnPage` stretches it over the page). */
+/**
+ * A PICKED PART'S HANDLES ARE OVER EVERYTHING ON THE PAGE. They are drawn inside the part, so a part drawn after it
+ * covered them: the corner of sol face's "ENTER THE TRENCHES" heading lies under its card's sticker, and a drag on
+ * the corner the person could see moved the card instead (the hand-edit pass, 2026-10-22; tests/handles-on-top.mjs).
+ */
+const HANDLE_Z = 60;
 export const isScreenShade = (n: { w: number; from?: { position?: string } | null }, pageW: number) => n.from?.position === "fixed" && pageW > 0 && n.w >= pageW * 0.9;
 /** A mask that is the whole part less each "x,y,w,h" box. */
 export function holeMask(holes: string): React.CSSProperties {
@@ -612,6 +618,7 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
                   left: `${hugs[h][0] * 100}%`,
                   top: `${hugs[h][1] * 100}%`,
                   transform: `translate(-50%, -50%) scale(${chipScale})`,
+                  zIndex: HANDLE_Z,
                   borderColor: mark,
                   cursor: HANDLE_CURSOR[h],
                 }}
@@ -623,8 +630,8 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
                 data-resize={h}
                 className={cn("absolute", bar ? "rounded-[3px] hover:bg-(--mark)/35" : "size-2 rounded-[2px] border bg-panel", cls)}
                 style={bar
-                  ? ({ "--mark": mark } as React.CSSProperties)
-                  : { transform: `scale(${chipScale})`, borderColor: mark }}
+                  ? ({ "--mark": mark, zIndex: HANDLE_Z } as React.CSSProperties)
+                  : { transform: `scale(${chipScale})`, borderColor: mark, zIndex: HANDLE_Z }}
               />
             ))
         : null}
