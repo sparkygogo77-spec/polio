@@ -437,6 +437,20 @@ export function atFullSize<T>(read: () => T): T {
 export function lineWidth(el: HTMLElement, w: number): number | undefined {
   const line = el.querySelector<HTMLElement>("[data-one-line]");
   if (!line) return undefined;
+  /*
+   * READ STILL. A part that turns as it plays (thesolface.site's spinning "✳", `rotate` 22s) drew a wider box of words at
+   * every angle but the first, so each settle read a new width and the part only ever widened: 67 → 88 → 91 → 96 over a
+   * few edits elsewhere on the page (the hand-edit pass, 2026-10-22). Its motion is held at its start for the reading.
+   */
+  const playing = typeof el.getAnimations === "function" ? el.getAnimations({ subtree: true }) : [];
+  if (playing.length) {
+    const at = playing.map((a) => a.currentTime);
+    try { for (const a of playing) a.currentTime = 0; return readLine(el, line, w); } finally { playing.forEach((a, i) => { a.currentTime = at[i] ?? null; }); }
+  }
+  return readLine(el, line, w);
+}
+
+function readLine(el: HTMLElement, line: HTMLElement, w: number): number | undefined {
   const at = line.getBoundingClientRect();
   let left = Infinity, right = -Infinity;
   const range = document.createRange();
