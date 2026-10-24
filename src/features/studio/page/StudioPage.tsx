@@ -35,6 +35,7 @@ import { FormatPanel } from "../panels/ui";
 import { PagesPanel } from "../PagesPanel";
 import { BriefDialog } from "../BriefDialog";
 import { exportSite } from "../send-out/run";
+import { installSystem } from "../system/api";
 import { activePage, useStudio, useStudioHydration } from "../board/store";
 import { LiveStage } from "../live/LiveStage";
 import { RadialMenu } from "../RadialMenu";
@@ -60,6 +61,8 @@ import { SIDE_TABS, SHEET, useSideWidth, SideEdge, SheetHandle } from "./side";
 
 export function StudioPage() {
   useStudioHydration();
+  /* The open site follows its System in the shared library (system/api.ts). */
+  React.useEffect(() => installSystem(), []);
   /* A repository named on another page's top bar waits for this board.
      Placed once the document has loaded, so the space lands in the site
      that is open rather than in a document about to be replaced. */
