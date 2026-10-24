@@ -45,6 +45,7 @@ activePage,frameHeight,frameTopReach,groupBounds,pageGroups,pageNodes,pageShapes
 useStudio,type StudioNode
 } from "./store";
 import { ctxProps } from "@/core/context-menu/ctx";
+import { tradePlaces } from "./tradePlaces";
 import { play } from "@/core/audio/engine";
 import { haptic } from "@/core/feedback/haptics";
 import { openRadial,pageSpot } from "../RadialMenu";
@@ -981,7 +982,8 @@ export function DesktopCanvas() {
   const lastNudge = React.useRef(0);
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || e.altKey || e.metaKey || e.ctrlKey) return;
+      /* Alt only with ↑ or ↓: the picked part trades places up or down the page (below). */
+      if (e.defaultPrevented || (e.altKey && e.key !== "ArrowUp" && e.key !== "ArrowDown") || e.metaKey || e.ctrlKey) return;
       if (!["Escape", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
@@ -1016,6 +1018,12 @@ export function DesktopCanvas() {
       /* The arrows. A page with nothing picked scrolls as it always did. */
       if (!picked.length) return;
       e.preventDefault();
+      /* Alt+↑ / Alt+↓: the picked part trades places with the one beside it, up or down the page (`flowOrder.ts`). One step of undo. */
+      if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+        if (picked.length !== 1) return;
+        play(tradePlaces(picked[0]!.id, e.key === "ArrowUp" ? -1 : 1) ? "tap" : "deny");
+        return;
+      }
       const step = e.shiftKey ? 10 : 1;
       const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
       const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
