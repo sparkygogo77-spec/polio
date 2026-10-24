@@ -20,6 +20,8 @@
  *                           links them)
  *   usedBy(id)              the open site's parts pointing at a token, or
  *                           instances of a component
+ *   newSystem(name?)        a new, empty System for the open site
+ *   setVariantState, addVariant, makeComponent    a component's variants
  *
  * The React side: `useSiteSystem()` (the open site's System, live) and
  * `useLibrary()` (every System held).
@@ -38,7 +40,8 @@ import * as React from "react";
 import { useStudio, type StudioNode } from "../board/store";
 import { resolvePalette } from "../shelf/run";
 import { ROLES, type Palette } from "../look";
-import { readSystem, type FieldPath, type System, type TokenKind } from "./model";
+import { componentsOf, KIND_WORD, type CompNode } from "../components";
+import { emptySystem, readSystem, type FieldPath, type StateLook, type StateName, type System, type TokenKind } from "./model";
 import { materialise, rolesOf, sameValue } from "./resolve";
 import { linksHold, takeSystem, withSys, type TakeNode, type TakeReport } from "./take";
 import * as L from "./link";
@@ -144,7 +147,13 @@ function step(next: System, nodes: (now: readonly StudioNode[]) => readonly Stud
   const changed = new Set(after.filter((n, i) => n !== st.nodes[i]).map((n) => n.id));
   const byId = new Map(after.map((n) => [n.id, n]));
   quietly(() => {
-    st.patchNodes([...changed], (n) => byId.get(n.id) ?? n);
+    /* `patchNodes` merges, so a key the new part no longer has (its `sys`, taken off by a detach or a last link let go) is set to undefined, or the old one would stay. */
+    st.patchNodes([...changed], (n) => {
+      const next = byId.get(n.id) ?? n;
+      const patch: Partial<StudioNode> = { ...next };
+      for (const k of Object.keys(n) as (keyof StudioNode)[]) if (!(k in next)) (patch as Record<string, unknown>)[k] = undefined;
+      return patch;
+    });
     seen.add(next);
     const now = useStudio.getState();
     useStudio.setState({ systemId, system: next, look: lookWith(now, next) });
@@ -244,6 +253,40 @@ export function pointSiteAt(id: string): System | Refused {
 
 export function usedBy(id: string): string[] { return L.usedBy(useStudio.getState().nodes, id); }
 
+/** A new, empty System for the open site (the panel's New). Its parts keep the values they have; they let go of the old System's tokens. */
+export function newSystem(name?: string): System {
+  const st = useStudio.getState();
+  const s = emptySystem(name?.trim() || st.brief?.name?.trim() || "New system", "theme");
+  const keep = st.systemId;
+  step(s, (now) => (keep ? now.map((n) => (n.sys?.s === keep ? withSys(n, null) : n)) : now));
+  return s;
+}
+
+/* Components: one undo step each, in the System (instances drawing a variant's edit is the parts-bind lane's). */
+export const setVariantState = (component: string, variant: string, state: Exclude<StateName, "rest">, look: StateLook | null) =>
+  edit((s) => L.setVariantState(s, component, variant, state, look));
+export function addVariant(component: string, from: string, name = ""): { ok: true; id: string } | Refused {
+  const s = siteSystem();
+  if (!s) return { ok: false, says: "This site has no System yet." };
+  const r = L.addVariant(s, component, from, name);
+  if (!r) return { ok: false, says: "No such component." };
+  step(r.system);
+  return { ok: true, id: r.id };
+}
+/** A component made from the picked part (the panel's "make a component from the picked part"): the kind the Builder reads it as, else a card. */
+export function makeComponent(partId: string, name?: string): { ok: true; id: string } | Refused {
+  const s = siteSystem();
+  const st = useStudio.getState();
+  const n = st.nodes.find((x) => x.id === partId);
+  if (!s || !n) return { ok: false, says: s ? "No such part." : "This site has no System yet." };
+  const read = componentsOf(st.nodes as unknown as readonly CompNode[], palette() as Record<string, string>).list.find((c) => c.id === partId || c.parts.includes(partId));
+  const kind = read?.kind ?? "card";
+  const r = L.componentFromPart(s, n, kind, name ?? KIND_WORD[kind]);
+  if (!r) return { ok: false, says: "That part cannot be a component." };
+  step(r.system, (now) => now.map((x) => (x.id === partId ? r.node : x)));
+  return { ok: true, id: r.id };
+}
+
 /* ------------------------------------------------------------------ */
 /* React                                                               */
 /* ------------------------------------------------------------------ */
@@ -276,6 +319,7 @@ const testHook = {
   system: () => siteSystem(),
   doc: () => { const s = useStudio.getState(); return { systemId: s.systemId ?? null, rev: s.system?.rev ?? null }; },
   setToken, renameToken, addToken, removeToken, linkPart, unlinkPart, detachPart, forkSite, pointSiteAt, usedBy,
+  newSystem, setVariantState, addVariant, makeComponent,
   /** Fields that point at a token whose value they do not hold now (should be none). */
   broken: () => { const s = siteSystem(); return s ? linksHold(useStudio.getState().nodes, s) : []; },
   library: () => libraryList().map((s) => ({ id: s.id, name: s.name, rev: s.rev })),

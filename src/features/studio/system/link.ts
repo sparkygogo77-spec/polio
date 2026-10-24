@@ -6,7 +6,12 @@
  *     of it ("change just this one": the part keeps the value it shows), or
  *     a part taken out of the System altogether (`detach`);
  *   · a whole System copied to diverge (`fork`), and a site's parts moved
- *     onto the copy (`onSystem`).
+ *     onto the copy (`onSystem`);
+ *   · a component's variant: a state's look (hover, pressed, focus,
+ *     disabled), a new variant, a component made from one part. A variant
+ *     edit is kept in the System; instances drawing it is the parts-bind
+ *     lane's. A token's value change reaches them, as it reaches every part
+ *     pointing at it.
  *
  * Every step that changes a System hands back a new one with `rev` bumped
  * and `editedAt` stamped, so whatever drew the old one draws the new one.
@@ -14,9 +19,11 @@
  * Pure. `tests/system-take.mjs`.
  */
 import { colourKey } from "../look/index.ts";
+import type { ComponentKind } from "../components.ts";
 import {
   ID_PREFIX, kindOfField, kindOfToken, newSystemId, tokenById, valueOf,
-  type ColourToken, type CssToken, type FaceToken, type FieldPath, type NodeSys, type SizeToken, type System, type TokenKind, type TokenValue,
+  type ColourToken, type CssToken, type FaceToken, type FieldPath, type LookRefs, type LookSlot, type NodeSys, type SizeToken, type StateLook, type StateName,
+  type System, type SystemComponent, type TokenKind, type TokenValue, type Variant,
 } from "./model.ts";
 import { fieldValue, sameValue, withField, type SysNode } from "./resolve.ts";
 
@@ -161,6 +168,107 @@ export function holds(n: SysNode, s: System, field: FieldPath): boolean {
   const t = id ? tokenById(s, id) : null;
   const kind = kindOfField(field);
   return !!t && !!kind && sameValue(kind, fieldValue(n, field), valueOf(t));
+}
+
+/* ------------------------------------------------------------------ */
+/* Components                                                          */
+/* ------------------------------------------------------------------ */
+
+/** The System with one component's variant replaced through `fn`; null when there is no such variant. */
+function mapVariant(s: System, component: string, variant: string, fn: (v: Variant) => Variant): System | null {
+  const c = s.components.find((x) => x.id === component);
+  const v = c?.variants.find((x) => x.id === variant);
+  if (!c || !v) return null;
+  const next = fn(v);
+  if (next === v) return s;
+  return stamp({
+    ...s,
+    components: s.components.map((x) => (x.id !== component ? x : {
+      ...x,
+      variants: x.variants.map((y) => (y.id === variant ? next : y)),
+      /* The most-used variant's look is the component's base: it follows. */
+      base: x.variants[0]?.id === variant ? next.look : x.base,
+    })),
+  });
+}
+
+const STATE_LIMIT = { dx: 400, dy: 400, rotate: 360, scale: 4 };
+
+/** A state's look as a person may set it: finite moves within reason, a shadow that is a CSS value. Null for anything else. */
+export function checkState(v: unknown): StateLook | null {
+  if (!v || typeof v !== "object") return null;
+  const o = v as Record<string, unknown>;
+  const n = (k: keyof typeof STATE_LIMIT, rest: number) => {
+    const x = o[k] === undefined ? rest : o[k];
+    return typeof x === "number" && Number.isFinite(x) && Math.abs(x) <= STATE_LIMIT[k] ? x : null;
+  };
+  const dx = n("dx", 0), dy = n("dy", 0), rotate = n("rotate", 0), scale = n("scale", 1);
+  if (dx === null || dy === null || rotate === null || scale === null || scale <= 0) return null;
+  const sh = o.shadow === undefined || o.shadow === null || o.shadow === "" ? null : checkValue("shadow", o.shadow);
+  if (o.shadow && sh === null) return null;
+  return { dx, dy, rotate, scale, shadow: sh as string | null };
+}
+
+/** A variant's state set (or, for null, back to doing nothing). `rest` is the look itself and is not a state here. */
+export function setVariantState(s: System, component: string, variant: string, state: Exclude<StateName, "rest">, look: unknown): System | null {
+  const next = look === null ? null : checkState(look);
+  if (look !== null && !next) return null;
+  return mapVariant(s, component, variant, (v) => (JSON.stringify(v.states[state]) === JSON.stringify(next) ? v : { ...v, states: { ...v.states, [state]: next } }));
+}
+
+/** A new variant of a component, a copy of one it has: its own id, no instances yet. */
+export function addVariant(s: System, component: string, from: string, name: string): { system: System; id: string } | null {
+  const c = s.components.find((x) => x.id === component);
+  const v = c?.variants.find((x) => x.id === from);
+  if (!c || !v) return null;
+  const ids = new Set(c.variants.map((x) => x.id));
+  let k = c.variants.length + 1;
+  while (ids.has(`var_${k}`)) k++;
+  const id = `var_${k}`;
+  const taken = new Set(c.variants.map((x) => x.name.toLowerCase()));
+  let nm = name.trim().slice(0, 80) || `${c.name} ${k}`;
+  for (let j = 2; taken.has(nm.toLowerCase()); j++) nm = `${name.trim() || c.name} ${j}`;
+  const copy: Variant = { ...structuredClone(v), id, name: nm, count: 0 };
+  return { system: stamp({ ...s, components: s.components.map((x) => (x.id === component ? { ...x, variants: [...x.variants, copy] } : x)) }), id };
+}
+
+/** The look a part wears, as a component's slots: each from the field's token where it points at one, else its own value. */
+export function lookOfPart(n: SysNode): LookRefs {
+  const out: LookRefs = {};
+  const put = (slot: LookSlot, field: FieldPath) => {
+    const id = n.sys?.f?.[field];
+    const v = fieldValue(n, field);
+    if (id) out[slot] = { token: id };
+    else if (v !== undefined && v !== "") out[slot] = { value: v };
+  };
+  put("fill", "colour.bg");
+  put("words", "colour.text");
+  put("outline", "edge.colour");
+  put("shadow", "edge.shadow");
+  put("radius", "radius");
+  put("face", "font.stack");
+  put("size", "font.px");
+  return out;
+}
+
+/** A component made from one part: its look is the part's, and the part is its first instance. Null when the System already has a component of this kind and name. */
+export function componentFromPart<N extends SysNode>(s: System, n: N, kind: ComponentKind, name: string): { system: System; node: N; id: string } | null {
+  const ids = new Set(s.components.map((c) => c.id));
+  let id = `cmp_${kind}`;
+  for (let k = 2; ids.has(id); k++) id = `cmp_${kind}_${k}`;
+  const look = lookOfPart(n);
+  const variant: Variant = { id: "var_1", name: "Main", look, states: { hover: null, pressed: null, focus: null, disabled: null }, count: 1 };
+  const comp: SystemComponent = { id, name: name.trim().slice(0, 80) || id, kind, base: look, variants: [variant], parts: [] };
+  const system = stamp({ ...s, components: [...s.components, comp] });
+  const now = n.sys?.s === s.id ? n.sys : { s: s.id };
+  return { system, node: withRefs(n, { ...now, c: { component: id, variant: "var_1" } }), id };
+}
+
+/** The part as an instance of a component's variant (or, for null, of none). */
+export function setInstance<N extends SysNode>(n: N, s: System, c: { component: string; variant: string } | null): N | null {
+  if (c && !s.components.find((x) => x.id === c.component)?.variants.some((v) => v.id === c.variant)) return null;
+  const now = n.sys?.s === s.id ? n.sys : { s: s.id };
+  return withRefs(n, { ...now, c });
 }
 
 /* ------------------------------------------------------------------ */

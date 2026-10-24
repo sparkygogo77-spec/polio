@@ -74,7 +74,7 @@ const stored = () => page.evaluate(() => JSON.parse(localStorage.getItem("builde
 
 /* 1 Generate */
 const names = await side.locator("[role=radio]").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label") ?? e.textContent.trim()));
-check("1 there is a Pictures tab, and no Generate tab", names.length === 6 && names.includes("Pictures") && !names.includes("Generate"), names.join(", "));
+check("1 there is a Pictures tab, and no Generate tab", names.length === 7 && names.includes("Pictures") && !names.includes("Generate"), names.join(", "));
 await tab("Pictures");
 check("1 with nothing picked, the Pictures tab has the drawing tool", (await side.locator("[data-pictures-panel] [data-render-panel]").count()) === 1 && (await side.locator("[data-render-put]").count()) === 0);
 await tab("Element");
