@@ -29,6 +29,7 @@ import type { NodeMedia } from "./shelf";
 import type { NodeWorld } from "./shelf/ui";
 import { exactBox } from "./exactBox";
 import { SvgArt, svgMarkupOf } from "./board/themeDraw";
+import { useResolved } from "./system/draw";
 
 export { items, themeFrom, type Theme } from "./shelf/run";
 
@@ -157,7 +158,9 @@ function StillCut({ node, children }: { node: StudioNode; children: React.ReactN
   return <div data-still-cut="" style={{ width: "100%", flex: "1 0 auto", display: "flex", flexDirection: "column", clipPath: cut }}>{children}</div>;
 }
 
-export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, emit, palette, light, page, layers, pick, pictureAt, surface, partView, motionId, holder }: BlockProps) {
+export function Block({ node: given, t: siteTheme, mode = "board", size, onNavigate, emit, palette, light, page, layers, pick, pictureAt, surface, partView, motionId, holder }: BlockProps) {
+  /* A field pointing at a System token draws the token's value (system/draw.ts). */
+  const node = useResolved(given);
   const def = resolvePart(node.featureId);
   /*
    * The picture, resolved once for the part. The hook runs for every part

@@ -40,6 +40,7 @@ import { flushDocs, writeDocNow } from "@/features/studio/docStore";
 import { keepAll } from "@/features/studio/pictures";
 import { keepAllRuns, mergeRemembered, readRuns, type CaptureRun } from "@/features/studio/captureRuns";
 import { learnedNow, useLearned } from "@/features/studio/shelf/ui";
+import { libraryList, mergeLibrary } from "@/features/studio/system/store";
 
 export const LINKS_KEY = "builder.account.links";
 const TEXTURES_KEY = "builder.savedTextures";
@@ -150,7 +151,7 @@ const base64Of = async (b: Blob): Promise<string> => {
 
 /* ── 1. shelf things ─────────────────────────────────────────────── */
 
-interface Prefs { kind: "polio-account-prefs"; version: 1; textures: { key: string }[]; learned?: unknown; captureRuns?: CaptureRun[]; capturer?: string }
+interface Prefs { kind: "polio-account-prefs"; version: 1; textures: { key: string }[]; learned?: unknown; captureRuns?: CaptureRun[]; capturer?: string; /** The library of Systems (`studio/system/store.ts`): merged by id, the later copy of each kept. */ systems?: unknown[] }
 
 async function syncPrefs(a: Api, man: Map<string, { etag: string }>): Promise<void> {
   let theirs: Prefs | null = null;
@@ -167,6 +168,7 @@ async function syncPrefs(a: Api, man: Map<string, { etag: string }>): Promise<vo
   if (theirs?.learned && typeof theirs.learned === "object") {
     try { useLearned.getState().take(theirs.learned as Parameters<ReturnType<typeof useLearned.getState>["take"]>[0]); } catch { /* the shelf keeps its own */ }
   }
+  mergeLibrary(theirs?.systems);
   const mineRuns = readRuns();
   const runs = mergeRemembered(mineRuns, theirs?.captureRuns);
   if (JSON.stringify(runs) !== JSON.stringify(mineRuns)) keepAllRuns(runs);
@@ -176,7 +178,7 @@ async function syncPrefs(a: Api, man: Map<string, { etag: string }>): Promise<vo
     capturer = theirs.capturer;
     try { localStorage.setItem(CAPTURER_KEY, capturer); } catch { /* kept in the account */ }
   }
-  const next: Prefs = { kind: "polio-account-prefs", version: 1, textures, learned: learnedNow(), captureRuns: runs, ...(capturer ? { capturer } : {}) };
+  const next: Prefs = { kind: "polio-account-prefs", version: 1, textures, learned: learnedNow(), captureRuns: runs, ...(capturer ? { capturer } : {}), systems: libraryList() };
   const text = JSON.stringify(next);
   if (theirs && JSON.stringify(theirs) === text) return;
   await a.put("data/prefs.json", new Blob([text], { type: "application/json" }), "application/json");

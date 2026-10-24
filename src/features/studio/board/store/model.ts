@@ -21,6 +21,7 @@ import type { Picture } from "../../pictures";
 import { type Words } from "../../shelf";
 import type { Plan, Space } from "../../space";
 import { type Tour } from "../../tour";
+import type { NodeSys, System } from "../../system/model";
 
 /**
  * The page's background is a thing you can pick: click the bare frame and
@@ -398,6 +399,13 @@ export interface StudioNode {
   hooks?: Record<string, string> | null;
   /** Where it is in the code repository it was brought in from, and how it looked then (`styleLayer.ts`): the part panel's code link, and what the style layer compares against. */
   source?: import("../../send-out").NodeSource | null;
+  /**
+   * Its place in the site's System (`system/model.ts`): which fields point at
+   * which token, and which component it is an instance of. Absent on every
+   * part not linked, and a part with it draws exactly the values it holds
+   * whenever they are its tokens' values, which taking a System makes so.
+   */
+  sys?: NodeSys | null;
 }
 
 export interface StudioGroup {
@@ -569,4 +577,12 @@ export interface Doc {
   motion: MotionAsset[];
   /** The board as it was brought in (`reimport.ts`): undone with the import that recorded it. */
   taken?: Taken | null;
+  /**
+   * The System this site uses, from the shared library (`system/store.ts`):
+   * many sites can name one, and changing it changes them all. `system` is
+   * this site's copy of it, so the document carries it (backups, another
+   * browser, the published document) and undo can take a token change back.
+   */
+  systemId?: string | null;
+  system?: System | null;
 }

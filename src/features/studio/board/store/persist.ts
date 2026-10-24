@@ -9,6 +9,7 @@ import type { PartCode } from "../../snippet";
 import type { Picture } from "../../pictures";
 import type { StudioState } from "./state";
 import { checkedIn } from "../../states";
+import { readSystem } from "../../system/model";
 
 /* ------------------------------------------------------------------ */
 /* Loading a document                                                  */
@@ -63,6 +64,9 @@ export function docOnly(s: StudioState) {
         swept: s.swept,
         /* The record a later "keep my changes" import reads; part of the site, like the sweep's mark. */
         taken: s.taken ?? null,
+        /* The System it uses, and its copy of it (`system/`). */
+        systemId: s.systemId ?? null,
+        system: s.system ?? null,
         showAllFormat: s.showAllFormat,
         showWires: s.showWires,
         statesOn: s.statesOn ?? NO_STATES,
@@ -135,6 +139,9 @@ export function mergeDoc(persisted: unknown, current: StudioState): StudioState 
               ? (n.pictureVersions as Picture[]).filter((v) => v && typeof v.id === "string" && typeof v.path === "string")
               : null,
           })),
+          /* A document saved before Systems names none; one from elsewhere is read strictly. */
+          systemId: typeof p.systemId === "string" ? p.systemId : null,
+          system: readSystem(p.system),
           recentColours: Array.isArray(p.recentColours) ? p.recentColours : [],
           shapes: (p.shapes ?? current.shapes).map((sh) => ({ ...sh, relation: sh.relation ?? "flow" })),
           // A board saved before spaces existed has none; a broken entry is dropped rather than drawn.
