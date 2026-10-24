@@ -16,6 +16,28 @@ import { ShapeKind, ShapeRelation, StudioNode } from "./model";
 import type { StudioState } from "./state";
 import { ridersOf } from "../../owner";
 import { resolvePalette } from "../../shelf/run";
+import { hoverAfterFill } from "../../hoverLook";
+
+/*
+ * A NEW FILL CARRIES INTO THE HOVER (J, 2026-10-23): a part whose fill
+ * changes has its hover fill moved with it, in the relation the captured
+ * hover had to the old fill (`hoverLook.ts#hoverAfterFill`); one set by hand
+ * in the Hover section stays. A role ("accent") is read through the palette.
+ */
+function hoverFollows(s: Pick<StudioState, "format" | "look">) {
+  let palette: Record<string, string> | null = null;
+  const fillOf = (v: string | null | undefined) => {
+    if (!v) return null;
+    if (/^[a-z]+$/.test(v) && v !== "white" && v !== "black") return (palette ??= resolvePalette(s.format, s.look) as unknown as Record<string, string>)[v] ?? null;
+    return v;
+  };
+  return (n: StudioNode, patch: Partial<StudioNode>): StudioNode => {
+    const next = { ...n, ...patch };
+    if (!("colour" in patch) || "motion" in patch || !n.motion?.hover?.length) return next;
+    const motion = hoverAfterFill(n.motion, fillOf(n.colour?.bg), fillOf(next.colour?.bg));
+    return motion ? { ...next, motion } : next;
+  };
+}
 
 /**
  * WHAT A PART HOLDS GOES WITH IT. A drag and a copy already took a part with the
@@ -144,7 +166,8 @@ export function nodesActions(set: SetStudio, get: GetStudio, push: () => void, p
       /* A style group is edited once: its other parts take the same look (`stateEdits.ts#groupTwins`). */
       const twins = groupTwins(get().nodes, id, patch as Record<string, unknown>);
       const also = new Set(twins?.ids ?? []);
-      set((s) => ({ nodes: s.nodes.map((n) => (n.id === id ? { ...n, ...patch } : also.has(n.id) ? { ...n, ...twins!.patch } : n)) }));
+      const follow = hoverFollows(get());
+      set((s) => ({ nodes: s.nodes.map((n) => (n.id === id ? follow(n, patch) : also.has(n.id) ? follow(n, twins!.patch as Partial<StudioNode>) : n)) }));
     },
 
     updateNodeQuiet: (id, patch) => set((s) => ({ nodes: s.nodes.map((n) => (n.id === id ? { ...n, ...patch } : n)) })),
@@ -152,7 +175,8 @@ export function nodesActions(set: SetStudio, get: GetStudio, push: () => void, p
     updateNodes: (ids, patch) => {
       push();
       const set_ = new Set(ids);
-      set((s) => ({ nodes: s.nodes.map((n) => (set_.has(n.id) ? { ...n, ...patch } : n)) }));
+      const follow = hoverFollows(get());
+      set((s) => ({ nodes: s.nodes.map((n) => (set_.has(n.id) ? follow(n, patch) : n)) }));
     },
 
     /*
