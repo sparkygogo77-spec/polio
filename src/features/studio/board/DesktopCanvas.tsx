@@ -45,7 +45,7 @@ activePage,frameHeight,frameTopReach,groupBounds,pageGroups,pageNodes,pageShapes
 useStudio,type StudioNode
 } from "./store";
 import { ctxProps } from "@/core/context-menu/ctx";
-import { swapInFlow } from "./flowOrder";
+import { tradePlaces } from "./tradePlaces";
 import { play } from "@/core/audio/engine";
 import { haptic } from "@/core/feedback/haptics";
 import { openRadial,pageSpot } from "../RadialMenu";
@@ -1021,11 +1021,7 @@ export function DesktopCanvas() {
       /* Alt+↑ / Alt+↓: the picked part trades places with the one beside it, up or down the page (`flowOrder.ts`). One step of undo. */
       if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
         if (picked.length !== 1) return;
-        const moves = swapInFlow(s.nodes, picked[0]!.id, e.key === "ArrowUp" ? -1 : 1, resolvePalette(s.format, s.look));
-        if (!moves?.size) { play("deny"); return; }
-        s.commit();
-        useStudio.setState({ nodes: s.nodes.map((n) => (moves.has(n.id) ? { ...n, y: n.y + moves.get(n.id)!, ...(n.byHand ? {} : { byHand: true, handFrom: boxOf(n) }) } : n)) });
-        play("tap");
+        play(tradePlaces(picked[0]!.id, e.key === "ArrowUp" ? -1 : 1) ? "tap" : "deny");
         return;
       }
       const step = e.shiftKey ? 10 : 1;

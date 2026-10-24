@@ -46,6 +46,7 @@ import { LivingField } from "./livingField";
 import { Faces, Solid, LinkField } from "./solid";
 import { pushedOnPress } from "../../send-out/motionCss";
 import { PartSamples } from "../../states/ui";
+import { MoveInFlow } from "./moveInFlow";
 
 export function Inspector() {
   const selection = useHeldStudio((s) => s.selection);
@@ -582,6 +583,8 @@ export function Inspector() {
               <Button size="xs" variant="outline" className="flex-1" aria-label="Flush right" onClick={() => update({ x: frameWidth - node.w })}><AlignRight /></Button>
             </Tooltip>
           </div>
+          {/* Up or down the page, past the part beside it in its holder: the panel's door to Alt+↑ / Alt+↓ (`board/tradePlaces.ts`). */}
+          <MoveInFlow id={node.id} />
           </fieldset>
         </PanelSection>
 
