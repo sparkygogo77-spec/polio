@@ -76,6 +76,8 @@ const tree = [
 const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
 const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });
 const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+/* THROTTLE=4 slows the page's CPU four times, as a loaded machine does (the suite runs three tests at once). */
+if (process.env.THROTTLE) await (await page.context().newCDPSession(page)).send("Emulation.setCPUThrottlingRate", { rate: Number(process.env.THROTTLE) });
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 await page.route("https://api.github.com/**", (r) => {
@@ -172,8 +174,24 @@ const order = await side.locator('[aria-label="Side panel"] [role=radio]').evalu
 check("the side panel has a System tab, next to Look", order.indexOf("System") === order.indexOf("Look") + 1, order.join(", "));
 if (!(await tab.count())) { check("the System tab can be pressed", false); await finish(browser); }
 
+/*
+ * THE UNTOUCHED BOARD IS READ ONCE IT HOLDS STILL. A large site's pictures
+ * keep arriving after the parts are placed: each draws as its placeholder
+ * (an outline, 12px in) until its picture decodes. Read before that, every
+ * later look finds hundreds of parts "changed" by nothing the panel did
+ * (gotchi-gg under load: 210 pictures). So two reads 1.5s apart must agree.
+ */
+say("waiting for the board to hold still");
+let board0 = await boardRead();
+let stillFor = 0;
+for (let i = 0; i < 80 && stillFor < 2; i++) {
+  await pause(1500);
+  const next = await boardRead();
+  stillFor = differ(board0, next).length === 0 ? stillFor + 1 : 0;
+  board0 = next;
+}
+check("the untouched board holds still before anything is pressed", stillFor >= 2, `${((Date.now() - T0) / 1000).toFixed(0)}s in`);
 say("reading the untouched board");
-const board0 = await boardRead();
 const px0 = [await shot()];
 for (const ms of [500, 2000, 1500]) { await pause(ms); px0.push(await shot()); }
 await pause(1500);
