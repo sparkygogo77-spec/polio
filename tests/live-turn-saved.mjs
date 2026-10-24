@@ -52,8 +52,11 @@ await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
 await page.evaluate(() => localStorage.clear());
 await seed(page, (pageId) => ({ nodes: [{ id: "c1", pageId, featureId: "cube-3d", label: "Cube", prompt: "", content: "", x: 200, y: 200, w: 420, h: 420, groupId: null, options: {}, priority: "must", custom: false, glyph: null, hue: null, locked: false, link: null, data: "", colour: null, font: null, anim: null, animSpeed: 1, animDelay: 0, animEase: "out", shape: null, outline: null, kind: null, vector: null, role: null, mesh: null, code: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null, plan: null,
   cube: { faces: ["front", "right", "back", "left", "top", "bottom"].map(() => ({ heading: "", body: "", colour: "" })), turn: { x: -18, y: -32 } } }] }));
-await page.goto(`${URL_}/builder/preview`, { waitUntil: "networkidle" });
-await page.waitForTimeout(1000);
+/* The Builder's own Preview: a Preview opened in its own tab only looks and never writes (45676396, "a Preview reached inside the Builder's own tab is unchanged"), so the turn is made where it is kept. */
+await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
+await page.waitForTimeout(1200);
+await page.locator("[data-preview-toggle]").click();
+await page.waitForTimeout(1500);
 const cube = page.locator("[data-live-node] [data-cube]").first();
 check("the cube is on the live page", (await cube.count()) === 1);
 const turnOf = () => page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio")).state.nodes[0].cube?.turn);

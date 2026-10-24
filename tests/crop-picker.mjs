@@ -44,32 +44,33 @@ const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] }
 const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
 await page.goto(`${URL_BASE}/builder`, { waitUntil: "networkidle" });
 await page.waitForTimeout(800);
-await page.evaluate(({ tall, bad }) => {
-  const d = JSON.parse(localStorage.getItem("builder.studio") ?? "{\"state\":{}}");
+/* The picture texture is one row of the page's editor now (PieceTexture, since 1d680d3f): a page wears one picture at a time, so each picture is seeded alone, then the page is pressed in the Colours preview and its picker is looked at. */
+const show = async (src, id) => {
+  await page.evaluate(({ src, id }) => {
+    const d = JSON.parse(localStorage.getItem("builder.studio") ?? "{\"state\":{}}");
   const layer = (id, src) => ({ id, kind: "image", role: "accent", scale: 60, angle: 0, opacity: 1, contrast: 0.45, blend: "normal", hue: 0, target: "page", pattern: false, cutout: false, tolerance: 0.35, weave: 0, on: true, src });
-  d.state.look = { ...(d.state.look ?? {}), texture: [layer("tx_bad", bad), layer("tx_tall", tall)] };
-  localStorage.setItem("builder.studio", JSON.stringify(d));
-}, { tall: TALL, bad: BAD });
-await page.reload({ waitUntil: "networkidle" });
-await page.waitForTimeout(1200);
-const tab = page.locator("[data-side-panel] [role=radio]").filter({ hasText: "Look" }).first();
-if (await tab.count()) await tab.click().catch(() => {});
-await page.waitForTimeout(500);
-const rows = page.locator("[data-look-texture]").getByRole("button").filter({ hasText: /image|picture/i });
-check("two picture layers are listed", (await rows.count()) >= 2, `${await rows.count()} rows`);
+    d.state.look = { ...(d.state.look ?? {}), texture: [layer(id, src)] };
+    localStorage.setItem("builder.studio", JSON.stringify(d));
+  }, { src, id });
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForTimeout(1200);
+  const tab = page.locator("[data-side-panel] [role=radio]").filter({ hasText: "Look" }).first();
+  if (await tab.count()) await tab.click().catch(() => {});
+  await page.waitForTimeout(500);
+  await page.locator("[data-theme-preview]").first().click({ position: { x: 4, y: 4 }, force: true });
+  await page.waitForTimeout(1200);
+};
+const zone = () => page.locator("[data-texture-picture]");
 
 /* 1. The picture that never loads. */
-await rows.nth(0).click();
-await page.waitForTimeout(1500);
+await show(BAD, "tx_bad");
+check("a picture layer is listed, with its picker's place", (await zone().count()) === 1, `${await zone().count()} pictures`);
 const picker = page.locator("[data-crop-picker]").first();
-const refused = page.locator("[data-look-texture] [data-crop-refused]");
-check("a picture the browser cannot decode is said, on the picker's place", (await refused.count()) === 1 && /could not|cannot|not.*shown|not.*load/i.test(await refused.first().innerText()), (await refused.count()) ? await refused.first().innerText() : `no such line; picker ${await picker.count() ? `${Math.round((await picker.boundingBox()).width)} × ${Math.round((await picker.boundingBox()).height)} and blank` : "absent"}`);
-await rows.nth(0).click();
-await page.waitForTimeout(400);
+const refused = page.locator("[data-texture-picture] [data-crop-refused]");
+check("a picture the browser cannot decode is said, on the picker's place", (await refused.count()) === 1 && /could not|cannot|not.*shown|not.*load/i.test(await refused.first().innerText()), (await refused.count()) ? await refused.first().innerText() : "nothing said");
 
 /* 2. The tall picture. */
-await rows.nth(1).click();
-await page.waitForTimeout(1500);
+await show(TALL, "tx_tall");
 const tallBox = await page.locator("[data-crop-picker]").first().boundingBox();
 check("a 1:10 picture's picker is there", !!tallBox && tallBox.width > 100, tallBox ? `${Math.round(tallBox.width)} wide` : "absent");
 check("and held to a height, not ten times the column", !!tallBox && tallBox.height <= 420, tallBox ? `${Math.round(tallBox.height)} tall for ${Math.round(tallBox.width)} wide` : "absent");

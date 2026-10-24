@@ -85,7 +85,8 @@ await ui.waitForTimeout(800);
 await ui.locator("[data-theme-preview]").first().click({ position: { x: 4, y: 4 }, force: true });
 const row = ui.locator("[data-kind-texture]").first();
 await row.waitFor({ timeout: 20000 });
-check("no Flat colour among the textures", (await row.locator('[data-texture-sample="flat"]').count()) === 0 && (await row.locator('[data-texture-sample="image"]').count()) === 1);
+/* The page's row has a Gradient tile (the old Flat's soft wash, sample "flat", 1d680d3f) but no tile called Flat colour: the Background colour above it is one. */
+check("no Flat colour among the textures", (await row.locator("[data-texture-sample]").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label") ?? e.textContent ?? ""))).every((l) => !/^flat/i.test(l.trim())) && (await row.locator('[data-texture-sample="image"]').count()) === 1);
 
 await row.locator('[data-texture-sample="image"]').click();
 await ui.waitForTimeout(500);

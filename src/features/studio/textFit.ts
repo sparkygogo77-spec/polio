@@ -56,6 +56,8 @@ export interface Drawn {
   out?: boolean;
   /** Out of the flow and placed from its holder's foot (`bottom` written, no `top`): it rides that foot as the holder grows. */
   foot?: boolean;
+  /** Placed from the foot in shares of its holder (`units`: `bottom: 13%; height: 36%`): as the holder grows, it moves by the rest of the growth and grows by its share. */
+  footShare?: { bottom: number; height: number };
 }
 
 /** A box that has to move, grow, or both. */
@@ -241,7 +243,17 @@ function fitTree(boxes: readonly Drawn[], grows?: (id: string) => boolean, frame
      * the section grew 731px under a longer heading and the splash stayed where it was, over the heading (the
      * hand-edit pass, 2026-10-22). It still takes no room and moves nothing; it moves by its holder's growth.
      */
-    if (owner && inside) for (const b of sibs) if (b.out && b.foot && put.has(b.id)) shift(b.id, inside);
+    if (owner && inside) for (const b of sibs) {
+      if (!b.out || !b.foot || !put.has(b.id)) continue;
+      /* In shares of the holder, as the page has it: trumpmorty.fun's deserts (bottom 13%, height 36% of the hero) move by
+         the growth less those shares and grow by theirs, where the published page puts them (tests/units-inset-kept.mjs). */
+      const sh = b.footShare;
+      if (!sh) { shift(b.id, inside); continue; }
+      const grow = Math.round(inside * sh.height);
+      shift(b.id, Math.round(inside * (1 - sh.bottom - sh.height)));
+      const p = put.get(b.id)!;
+      put.set(b.id, { ...p, h: p.h + grow, grew: p.grew + grow });
+    }
     return inside;
   };
   place(null, 0);
@@ -473,7 +485,7 @@ export function boardElements(): Map<string, Element> {
 }
 
 /** What a node's box drew at on the board, or null if it is not on screen. */
-export function drawnOnBoard(node: { id: string; x: number; y: number; w: number; h: number; from?: { selector?: string; position?: string; inset?: { top?: number; bottom?: number } | null } | null; units?: { top?: string; bottom?: string } | null; content?: unknown; layout?: { display?: string; direction?: string; align?: string } | null; pad?: { left?: number; right?: number } | null }, onBoard?: Map<string, Element>): Drawn | null {
+export function drawnOnBoard(node: { id: string; x: number; y: number; w: number; h: number; from?: { selector?: string; position?: string; inset?: { top?: number; bottom?: number } | null } | null; units?: { top?: string; bottom?: string; height?: string; of?: { by?: string } | null } | null; content?: unknown; layout?: { display?: string; direction?: string; align?: string } | null; pad?: { left?: number; right?: number } | null }, onBoard?: Map<string, Element>): Drawn | null {
   const el = onBoard ? onBoard.get(node.id) : document.querySelector(`[data-node-id="${node.id}"]`);
   if (!(el instanceof HTMLElement)) return null;
   const path = (node.from?.selector ?? "").trim();
@@ -485,7 +497,9 @@ export function drawnOnBoard(node: { id: string; x: number; y: number; w: number
   const out = node.from?.position === "fixed" || node.from?.position === "absolute";
   const u = node.units, inset = node.from?.inset;
   const foot = node.from?.position === "absolute" && ((!!u?.bottom && !u.top) || (!u && inset?.bottom !== undefined && inset?.top === undefined));
-  return { id: node.id, x: node.x, y: node.y, w: node.w, h: node.h, drew: el.offsetHeight, ...(path ? { path, words, row, ...(pad ? { pad } : {}), ...(out ? { out } : {}), ...(foot ? { foot } : {}) } : {}) };
+  const share = (v?: string) => { const m = /^(-?\d*\.?\d+)%$/.exec((v ?? "").trim()); return m ? Number(m[1]) / 100 : null; };
+  const footShare = foot && u && (u as { of?: { by?: string } }).of?.by === "block" && share(u.bottom) !== null && share((u as { height?: string }).height) !== null ? { bottom: share(u.bottom)!, height: share((u as { height?: string }).height)! } : null;
+  return { id: node.id, x: node.x, y: node.y, w: node.w, h: node.h, drew: el.offsetHeight, ...(path ? { path, words, row, ...(pad ? { pad } : {}), ...(out ? { out } : {}), ...(foot ? { foot } : {}), ...(footShare ? { footShare } : {}) } : {}) };
 }
 
 /* ------------------------------------------------------------------ */

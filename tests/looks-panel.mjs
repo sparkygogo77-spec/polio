@@ -285,7 +285,7 @@ const laid = await page.evaluate(() => {
     const r = e.getBoundingClientRect();
     return { name: e.textContent.trim(), top: Math.round(r.top), bottom: Math.round(r.bottom) };
   });
-  const spill = [...panel.querySelectorAll("[data-background-inspector], [data-look-colour], [data-look-texture]")].map((sec) => {
+  const spill = [...panel.querySelectorAll("[data-background-inspector], [data-look-colour], [data-kind-texture]")].map((sec) => {
     const r = sec.getBoundingClientRect();
     let low = r.bottom;
     for (const kid of sec.children) low = Math.max(low, kid.getBoundingClientRect().bottom);

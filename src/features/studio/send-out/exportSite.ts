@@ -642,7 +642,7 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
     const pic = !!(node as { picture?: unknown }).picture || node.featureId === "picture";
     /* Of the block's inside, as the capture measured it (a frame's border is not part of what `100%` spans), and placed where it stood in it. */
     const ofBox = (u.of as { box?: number[] } | undefined)?.box ?? null;
-    const inner = innerBlock({ left: lenCss(bk.left, W), top, width: lenCss(bk.width, W), height: isHero ? heroH : `${block.h}px` }, block, ofBox);
+    const inner = innerBlock({ left: lenCss(bk.left, W), top, width: lenCss(bk.width, W), height: isHero ? heroH : `${block.h}px` }, block, ofBox, (u.of as { inset?: number[] } | undefined)?.inset ?? null);
     const at0 = ofBox ? { x: ofBox[0]!, y: ofBox[1]! } : { x: block.x, y: block.y };
     const st = layerStyle(u, inner, node.w, node.h, pic && node.w > 0 ? node.h / node.w : null, { x: (node.x ?? 0) - at0.x, y: (node.y ?? 0) - at0.y });
     if (!st) continue;

@@ -81,7 +81,13 @@ await page.keyboard.press("Escape");
 await page.waitForTimeout(300);
 await side("Look");
 await page.waitForTimeout(500);
-const zone = page.locator("[data-look-texture]");
+/* The Texture row of the page's editor (PieceTexture, since 1d680d3f): the page pressed in the Colours preview, its "Picture" tile, and the well that opens. */
+await page.locator("[data-theme-preview]").first().click({ position: { x: 4, y: 4 }, force: true });
+await page.waitForTimeout(400);
+await page.locator('[data-kind-texture] [data-texture-sample="image"]').first().click();
+await page.waitForTimeout(500);
+const zone = page.locator("[data-texture-picture]");
+const well = zone.locator("label").first();
 check("the Texture section is there to drop on", (await zone.count()) === 1);
 const drop = async (name, type, bytes) => {
   const dt = await page.evaluateHandle(({ name, type, bytes }) => {
@@ -89,7 +95,7 @@ const drop = async (name, type, bytes) => {
     dt.items.add(new File([Uint8Array.from(bytes)], name, { type }));
     return dt;
   }, { name, type, bytes: Array.from(bytes) });
-  await zone.dispatchEvent("drop", { dataTransfer: dt });
+  await well.dispatchEvent("drop", { dataTransfer: dt });
   await page.waitForTimeout(1500);
 };
 const before = ((await doc()).look?.texture ?? []).length;
@@ -101,7 +107,8 @@ const zoneSaid = (await zone.locator("[data-picture-refused]").allInnerTexts()).
 check("and the section says so", /cannot open that picture/i.test(zoneSaid), zoneSaid || "nothing said");
 await drop("dot.png", "image/png", PX);
 const real = (await doc()).look?.texture ?? [];
-check("a real picture dropped there still becomes a layer", real.length === before + 1 && real[real.length - 1]?.src?.startsWith("data:image/"), `${real.length - before} layers added`);
+/* The Picture tile already made the page's one picture layer (empty); a real picture dropped on its well fills it. */
+check("a real picture dropped there still becomes a layer", real.length === before && !!real.find((l) => l.kind === "image" && l.src?.startsWith("data:image/")), `${real.length - before} layers added, ${real.filter((l) => l.src?.startsWith("data:image/")).length} with a picture`);
 
 check("no page error along the way", errors.length === 0, errors.join(" | ").slice(0, 200));
 await page.evaluate(() => localStorage.removeItem("builder.studio"));
