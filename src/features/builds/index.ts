@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 
 /* The route's page loads with its route: a static import here put every page of the Builder in every route's script (`tests/route-split.mjs`). */
 const BuildsPage = dynamic<RouteProps>(() => import("./BuildsPage").then((m) => m.BuildsPage));
+const ComparePage = dynamic<RouteProps>(() => import("@/features/studio/compare/ComparePage").then((m) => m.ComparePage));
 
 /**
  * Builds is the front door — and, once a site is published, the only door
@@ -34,6 +35,7 @@ export const builds = defineFeature({
   routes: [
     { path: "/", component: BuildsPage, title: "Builds" },
     { path: "/builds", component: BuildsPage, title: "Builds" },
+    { path: "/builder/compare", component: ComparePage, title: "Compare" },
   ],
   /*
    * No nav tab, and no side entry.
