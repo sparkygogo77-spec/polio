@@ -79,6 +79,12 @@ export interface Project {
   /** The one reminder to back it up or publish it has been shown. */
   nudged?: boolean;
   /**
+   * The site this one was copied from, and when (Duplicate sets it). Compare
+   * reads it to put a copy beside its original in one press
+   * (`studio/compare/`); a "better version" adds its list of changes here.
+   */
+  versionOf?: { project: string; made: number };
+  /**
    * A deployment Go live started and has not seen end. Kept here, not in
    * the page, so a reload or a closed tab does not lose it: the Builder
    * picks it up when it opens again and records the address once it is
@@ -329,7 +335,7 @@ export const useBuilds = create<Builds>()(
           /* A copy never shares its original's publish target: two sites on
              one repository and branch replace each other's live site. Its
              first publish makes a repository of its own (`sharedTarget`). */
-          projects: [{ ...from, id: copy, name: `${from.name} copy`, updatedAt: Date.now(), live: undefined, pending: undefined, published: undefined, repo: undefined, bound: undefined, backedUpAt: undefined, nudged: undefined }, ...s.projects],
+          projects: [{ ...from, id: copy, name: `${from.name} copy`, updatedAt: Date.now(), versionOf: { project: from.id, made: Date.now() }, live: undefined, pending: undefined, published: undefined, repo: undefined, bound: undefined, backedUpAt: undefined, nudged: undefined }, ...s.projects],
         }));
       },
 
