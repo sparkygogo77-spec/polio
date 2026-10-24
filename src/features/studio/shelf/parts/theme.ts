@@ -367,6 +367,8 @@ export interface NodeSaid {
   wrap?: boolean;
   /** True when the page holds its words to one line (`white-space: nowrap`). */
   nowrap?: boolean;
+  /** True when its words were let go of one line by an edit (`text.wrap: "wrap"`, `growToWords.ts#widenInColumn`): longer than its column, they wrap inside it. */
+  free?: boolean;
 }
 
 /** Did this node paint that role for itself? */
@@ -429,7 +431,7 @@ export function hasBox(n: NodeBox): boolean {
 
 /** The theme, set the way this part's words are set: parts that read `t.textAlign` follow it. */
 export function applyText(t: Theme, text: NodeText | null | undefined): Theme {
-  const wrap = text?.wrap === "nowrap" ? { nowrap: true } : text?.wrap ? { wrap: true } : {};
+  const wrap = text?.wrap === "nowrap" ? { nowrap: true } : text?.wrap ? { wrap: true, ...(text.wrap === "wrap" ? { free: true } : {}) } : {};
   if (text?.wrap && !text.align) return { ...t, said: { ...t.said, ...wrap } };
   if (!text?.align) return t;
   const a = text.align;
