@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
-import { AlignCenter, AlignLeft, AlignRight, Bookmark, Frame, Group, Image as ImageIconLucide, Lightbulb, Lock, Megaphone, MoreHorizontal, Palette as PaletteIcon, Pencil, Play, Sparkles, Trash2, Type, Unlock } from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, Bookmark, MousePointer2, Frame, Group, Image as ImageIconLucide, Lightbulb, Lock, Megaphone, MoreHorizontal, Palette as PaletteIcon, Pencil, Play, Sparkles, Trash2, Type, Unlock } from "lucide-react";
 import { getFeature, categoryOf, type FeatureOption } from "../../shelf";
 import { isLinkable } from "../../shelf/ui";
 import { BACKGROUND_ID, NODE_SHAPES, pageGroups, pageNodes, pageShapes, activePage, useHeldStudio, useStudio, type StudioNode } from "../../board/store";
@@ -46,6 +46,8 @@ import { LivingField } from "./livingField";
 import { Faces, Solid, LinkField } from "./solid";
 import { pushedOnPress } from "../../send-out/motionCss";
 import { PartSamples } from "../../states/ui";
+import { HoverField } from "./hoverField";
+import { fillByHand, hasOwnHover } from "../../hoverLook";
 
 export function Inspector() {
   const selection = useHeldStudio((s) => s.selection);
@@ -638,6 +640,13 @@ export function Inspector() {
           <PartEffects node={node} kind={kind} nodes={nodes} />
           {node.worn || wordsOnly ? null : <LivingField node={node} />}
         </PanelSection>
+
+        {/* HOVER: the look its own hover gives it, captured or set, edited in place (`hoverField.tsx`). */}
+        {!node.worn && hasOwnHover(node.motion) ? (
+          <PanelSection id="hover" title="Hover" icon={<MousePointer2 />} note={fillByHand(node.motion) ? "set by you" : "as captured"}>
+            <HoverField node={node} />
+          </PanelSection>
+        ) : null}
 
         {/* MORE, folded: what a part needs once in a while. Its name and prompt,
             saving it as a component, and where a picture of it is sent. */}

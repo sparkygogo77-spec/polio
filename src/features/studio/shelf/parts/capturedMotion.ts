@@ -51,7 +51,7 @@ export interface MotionTransition { property: string; duration?: string; timing?
  * is `base`. On a pseudo-element's own part, `of` says whose state paints
  * it: the element that bears it (`host`) or one that element sits in.
  */
-export interface MotionState { selector?: string; self?: boolean; state?: string; style?: Record<string, string>; pseudo?: string; base?: Record<string, string>; of?: string }
+export interface MotionState { selector?: string; self?: boolean; state?: string; style?: Record<string, string>; pseudo?: string; base?: Record<string, string>; of?: string; /** Its fill was set by hand in the side panel's Hover section (`hoverLook.ts`): a new fill on the part leaves it alone. */ hand?: boolean }
 /** What a node does over time (sink `node.motion`). */
 export interface NodeMotion {
   animation?: MotionAnimation[];
