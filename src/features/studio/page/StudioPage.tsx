@@ -30,6 +30,7 @@ import { useShelfLowered } from "../cardCarry";
 import { Inspector } from "../panels/ui";
 import { LookPanel } from "../look/ui";
 import { MotionPanel } from "../panels/ui";
+import { SystemPanel } from "../panels/ui";
 import { PicturesPanel } from "../pictures/ui";
 import { FormatPanel } from "../panels/ui";
 import { PagesPanel } from "../PagesPanel";
@@ -407,6 +408,7 @@ export function StudioPage() {
                 : sideTab === "format" ? <FormatPanel />
                 : sideTab === "pages" ? <PagesPanel />
                 : sideTab === "motion" ? <MotionPanel />
+                : sideTab === "system" ? <SystemPanel />
                 : sideTab === "pictures" ? <PicturesPanel />
                 : <LookPanel />}
             </div>

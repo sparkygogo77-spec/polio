@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { Clapperboard, Image as ImageIcon, Layers, Palette as PaletteIcon, Settings2, Sparkles } from "lucide-react";
+import { Blocks, Clapperboard, Image as ImageIcon, Layers, Palette as PaletteIcon, Settings2, Sparkles } from "lucide-react";
 import { cn } from "@/core/lib/cn";
 import { Button } from "@/core/ui/button";
 
@@ -32,6 +32,8 @@ export const SIDE_TABS = [
   { value: "format", label: "Format", icon: <Settings2 />, hue: 200 },
   { value: "pages", label: "Pages", icon: <Layers />, hue: 230 },
   { value: "look", label: "Look", icon: <PaletteIcon />, hue: 320 },
+  /* The site's tokens and components (panels/SystemPanel.tsx), next to Look as the create-system proposal has it. */
+  { value: "system", label: "System", icon: <Blocks />, hue: 95 },
   { value: "motion", label: "Motion", icon: <Clapperboard />, hue: 170 },
   /* The drawing tool on a tab of its own (PicturesPanel.tsx). It spent a while
      folded at the foot of each part's Element panel, where with nothing picked
