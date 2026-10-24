@@ -32,6 +32,7 @@ import Link from "next/link";
 import {
   ArrowRight,
   Check,
+  Columns2,
   Compass,
   Copy,
   Download,
@@ -62,6 +63,7 @@ import { ctxProps } from "@/core/context-menu/ctx";
 import { useTour } from "@/features/tour/store";
 import { docOf, docOfStored, shapeOf, repoLabel as labelOf, sharedTargetSays, sourceOf, sourceWords, targetKey, targetWords, useBuilds, type Project } from "./store";
 import { SitePreview } from "@/features/studio/SitePreview";
+import { compareHref } from "@/features/studio/compare/model";
 import { Dialog } from "@/core/ui/dialog";
 import { SiteThumb, ThumbMaker } from "./thumbs";
 import { changeState } from "./publishState";
@@ -268,6 +270,13 @@ function SiteCard({ project, active }: { project: Project; active: boolean }) {
           <Tooltip content="Download a backup: one file with this site and its pictures">
             <Button variant="ghost" size="iconXs" aria-label={`Download a backup of ${project.name}`} data-card-backup="" loading={backingUp} onClick={() => void backup()}>
               <Download />
+            </Button>
+          </Tooltip>
+          <Tooltip content={project.versionOf ? "Compare with the site it was copied from" : "Compare with another site, side by side or with a slider"}>
+            <Button asChild variant="ghost" size="iconXs">
+              <Link href={project.versionOf ? compareHref(project.versionOf.project, project.id) : compareHref(project.id)} aria-label={project.versionOf ? `Compare ${project.name} with its original` : `Compare ${project.name} with another site`} data-card-compare="">
+                <Columns2 />
+              </Link>
             </Button>
           </Tooltip>
           <Tooltip content="Preview: the site drawn live, closed with Escape">

@@ -149,6 +149,8 @@ export function snapshot(s: StudioState): Doc {
     look: s.look,
     motion: s.motion,
     taken: s.taken ?? null,
+    systemId: s.systemId ?? null,
+    system: s.system ?? null,
   };
 }
 
