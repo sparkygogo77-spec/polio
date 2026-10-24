@@ -19,6 +19,7 @@
  * Pure.
  */
 import type { MotionState, NodeMotion } from "./shelf/parts/capturedMotion";
+import { oklchToRgb, parseColor, rgbToOklch } from "./look/lookparts/colour";
 
 export interface Rgba { r: number; g: number; b: number; a: number }
 
@@ -45,6 +46,13 @@ export function readColour(v: string | null | undefined): Rgba | null {
   }
   if (/^white$/i.test(s)) return { r: 255, g: 255, b: 255, a: 1 };
   if (/^black$/i.test(s)) return { r: 0, g: 0, b: 0, a: 1 };
+  /* The app's own form (a palette role resolves to `oklch(l c h)`). */
+  const ok = /^oklch\(/i.test(s) ? parseColor(s) : null;
+  if (ok) {
+    const [r, g, b] = oklchToRgb(ok);
+    const alpha = /\/\s*([\d.]+)(%?)\s*\)$/.exec(s);
+    return { r: r * 255, g: g * 255, b: b * 255, a: alpha ? (alpha[2] ? +alpha[1]! / 100 : +alpha[1]!) : 1 };
+  }
   return null;
 }
 
@@ -169,4 +177,54 @@ export function withHoverLift(m: NodeMotion | null | undefined, px: number): Nod
     else delete st.transform;
     return st;
   });
+}
+
+/* ------------------------------------------------------------------ */
+/* Hover follows fill                                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * J (2026-10-23): when a part's fill changes, its hover colour follows: a
+ * lighter or darker version of the new fill, in the same relation the
+ * captured hover had to the old one. The relation is read in OKLCH, where a
+ * step of lightness looks the same at every hue: the hover's lightness and
+ * chroma against the old fill's, put on the new fill's, the new fill's hue,
+ * the hover's own alpha. A hover fill set by hand (`hand`) is kept, and so
+ * is one whose old fill is unknown or see-through (nothing to relate to).
+ */
+const toOk = (c: Rgba) => rgbToOklch(c.r / 255, c.g / 255, c.b / 255);
+
+/** The hover colour `hover` had against `was`, put on `now`. */
+export function followFill(hover: Rgba, was: Rgba, now: Rgba): Rgba {
+  const h = toOk(hover), w = toOk(was), n = toOk(now);
+  const l = Math.max(0, Math.min(1, n.l + (h.l - w.l)));
+  const c = Math.max(0, w.c > 0.02 ? n.c * (h.c / w.c) : n.c + (h.c - w.c));
+  const [r, g, b] = oklchToRgb({ l, c: Math.min(c, 0.37), h: n.h });
+  return { r: r * 255, g: g * 255, b: b * 255, a: hover.a };
+}
+
+/**
+ * The motion after the part's fill went from `wasFill` to `nowFill` (CSS
+ * colours, roles already resolved), or null when the hover stays as it is.
+ */
+export function hoverAfterFill(m: NodeMotion | null | undefined, wasFill: string | null | undefined, nowFill: string | null | undefined): NodeMotion | null {
+  const was = readColour(wasFill), now = readColour(nowFill);
+  if (!m?.hover?.length || !was || !now || was.a < 0.05 || now.a < 0.05) return null;
+  if (Math.round(was.r) === Math.round(now.r) && Math.round(was.g) === Math.round(now.g) && Math.round(was.b) === Math.round(now.b)) return null;
+  let moved = false;
+  const hover = m.hover.map((r) => {
+    if (!own(r) || r.hand) return r;
+    const st = { ...(r.style ?? {}) };
+    let did = false;
+    for (const k of FILL) {
+      const h = readColour(st[k]);
+      if (!h) continue;
+      st[k] = hexOf(followFill(h, was, now));
+      did = true;
+    }
+    if (!did) return r;
+    moved = true;
+    return { ...r, style: st };
+  });
+  return moved ? { ...m, hover } : null;
 }
