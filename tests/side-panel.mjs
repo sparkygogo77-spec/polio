@@ -124,7 +124,7 @@ await page.reload({ waitUntil: "networkidle" });
 await page.waitForTimeout(1500);
 check("the width is kept in this browser", Math.abs((await width()) - 480) <= 4, `${await width()}px after a reload`);
 const words = await side.locator("[data-tab-word]").evaluateAll((els) => els.filter((e) => !e.classList.contains("sr-only")).length);
-check("every tab says its name", words === 6, `${words} of 6 named`);
+check("every tab says its name", words === 7, `${words} of 7 named`);
 
 /* ------------------------------------------------ Element, nothing picked */
 await tab("Element");
