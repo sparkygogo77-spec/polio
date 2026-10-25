@@ -68,17 +68,30 @@ export async function buildApp(tag, files, { keepDefaults = [] } = {}) {
   };
 }
 
-/** Serves a built app with `next start` on a port; `stop()` ends it. */
-export async function serveApp(dir, port) {
+/** A port nothing is listening on now (the suite runs other servers; a fixed one may be taken). */
+async function freePort() {
+  const { createServer } = await import("node:net");
+  return new Promise((done, fail) => { const s = createServer(); s.once("error", fail); s.listen(0, "127.0.0.1", () => { const { port } = s.address(); s.close(() => done(port)); }); });
+}
+
+/**
+ * Serves a built app with `next start` on a free port, and waits until its
+ * home page answers 200 (up to two minutes: a cold CI machine is slow).
+ * `ok` false, with the server's own log, when it never does; `stop()` ends it.
+ */
+export async function serveApp(dir) {
+  const port = await freePort();
   const next = join(ROOT, "node_modules", "next", "dist", "bin", "next");
   const p = spawn(process.execPath, [next, "start", "-p", String(port), "-H", "127.0.0.1"], { cwd: dir, env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" } });
-  let log = "";
+  let log = "", exited = false;
   p.stdout.on("data", (d) => (log += d));
   p.stderr.on("data", (d) => (log += d));
+  p.on("exit", () => (exited = true));
   const url = `http://127.0.0.1:${port}`;
-  for (let i = 0; i < 100; i++) {
-    try { const r = await fetch(url); if (r.status < 500) break; } catch { /* not up yet */ }
-    await new Promise((r) => setTimeout(r, 200));
+  let ok = false;
+  for (let i = 0; i < 240 && !exited; i++) {
+    try { const r = await fetch(url); if (r.status === 200 && (await r.text()).includes("<html")) { ok = true; break; } } catch { /* not up yet */ }
+    await new Promise((r) => setTimeout(r, 500));
   }
-  return { url, log: () => log, stop: () => p.kill() };
+  return { ok, url, log: () => log, stop: () => p.kill() };
 }
