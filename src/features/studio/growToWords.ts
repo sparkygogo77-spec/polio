@@ -106,7 +106,8 @@ export function heldRowsGrow(id: string): void {
     if ((!held && tops.length !== 1) || !(r > l)) return;
     const over = (Math.max(0, box.left - l) + Math.max(0, r - box.right)) / zoom;
     if (!(over > 0.5)) return;
-    widenInColumn(id, n.w + over);
+    /* Widened, not wrapped: a size change keeps its rows (one line is almost always preferred); only typed words wrap in their column. Through the column, share.xyz's label made bigger went onto two rows. */
+    useStudio.setState((st) => ({ nodes: st.nodes.map((x) => (x.id === id ? { ...x, w: Math.ceil(x.w + over) } : x)) }));
   })));
 }
 
