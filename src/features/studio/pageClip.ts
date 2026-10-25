@@ -31,6 +31,29 @@ export function pageClip(n: { x: number; y: number; w: number; h?: number; art?:
   return `polygon(${px(L)} ${px(T)}, ${px(R)} ${px(T)}, ${px(R)} 100000px, ${px(L)} 100000px)`;
 }
 
+/**
+ * THE BOX STANDS WHERE THE PART IS DRAWN. A part its own translation moves
+ * (thesolface's frog, `translateX(-50%)`: recorded at x 1049, drawn 345px to
+ * the left) was marked at its box, so the selection, the hover ring and the
+ * handles ran 345px past the frog (J, 2026-10-24, EDIT-ISSUES #35). The board
+ * stands the whole part at its box plus the shift and draws it unshifted:
+ * the same place on the screen, now inside its own marks. The stored box and
+ * the export keep the site's numbers. Not when a motion of its own rewrites
+ * that property (a spin's keyframes own `transform`): there the site draws
+ * the keyframes, not the shift (`tests/boxes-hug.mjs`).
+ */
+export function drawnShift<A extends { transform?: string; translate?: string }>(art: A | null | undefined, owns?: (prop: "transform" | "translate") => boolean): { tx: number; ty: number; art: A | null | undefined } {
+  if (!art) return { tx: 0, ty: 0, art };
+  /* Each property alone: a float that owns `translate` leaves the frog's `transform` shift standing. */
+  const mine = { transform: owns?.("transform") ? undefined : art.transform, translate: owns?.("translate") ? undefined : art.translate };
+  const { tx, ty } = shiftOf(mine);
+  if (!tx && !ty) return { tx: 0, ty: 0, art };
+  const rest: A = { ...art };
+  if (mine.transform && /^matrix\(/.test(mine.transform.trim())) delete rest.transform;
+  if (mine.translate && /^(-?[\d.]+)px(?:\s+(-?[\d.]+)px)?$/.test(mine.translate.trim())) delete rest.translate;
+  return { tx, ty, art: rest };
+}
+
 /** How far a part's own transform and translate move it, when that is all they do; a turn or a scale is not read. */
 function shiftOf(art: { transform?: string; translate?: string } | null | undefined): { tx: number; ty: number } {
   let tx = 0, ty = 0;
