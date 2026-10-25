@@ -2,10 +2,14 @@
  * The Agents dock: the page the helper serves at /dock and the Builder shows
  * as a frame. Every press here becomes one contract message (helper/contract.ts),
  * checked before it leaves; every message in is checked before it is drawn.
- * For now the far end is the fake runner (helper/fake.ts), played in the page.
+ * The far end is the real helper that serves this page (live.ts): paired
+ * once with a code shown on the PC, then one stream of contract messages.
+ * Site calls from a lane's agent arrive on the same stream and are posted to
+ * the Builder (the frame's parent) only; its answer goes back to the helper.
  *
+ *   ?fake=1     play the fake runner (helper/fake.ts) in the page instead
  *   ?delay=ms   space the fake runner's messages out (900 by default)
- *   ?demo=0     leave out the sample rows (sample.ts)
+ *   ?demo=0     leave out the sample rows (sample.ts; fake only)
  *   ?tab=pc     open on "Everything Claude is doing" (pcview.ts; ?pc=live reads the real PC)
  *
  * window.__dock holds what the dock sent, for the test.
@@ -15,14 +19,17 @@ import {
   type Chip, type Control, type ControlDo, type Lane, type LaneSpend, type MergeLine, type PartAction, type PlanUse, type Plan, type Request, type Spend, type Target,
 } from "../contract.ts";
 import { fakeRunner, fakeScript, type FakeRunner } from "../fake.ts";
-import { takeContext } from "./context.ts";
+import { BUILDER_ORIGINS, takeContext } from "./context.ts";
+import { liveHelper, type SiteCall } from "./live.ts";
 import { fakeSource, liveSource, mountPcView } from "./pcview.ts";
 import { ringSvg } from "./ring.ts";
 import { PC_MEMORY, PC_NOW, SAMPLE_LANES, SAMPLE_MERGES, SAMPLE_SPEND } from "./sample.ts";
 
 const qs = new URLSearchParams(location.search);
 const DELAY = Number(qs.get("delay") ?? 900);
-const DEMO = qs.get("demo") !== "0";
+const FAKE = qs.get("fake") === "1";
+const DEMO = FAKE && qs.get("demo") !== "0";
+const BUILDER = BUILDER_ORIGINS[0]!;
 
 const $ = <T extends Element = HTMLElement>(sel: string) => document.querySelector(sel) as T;
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -35,7 +42,7 @@ const lanes = new Map<string, Row>();
 const ui = new Map<string, Ui>();
 const merges = new Map<string, MergeLine & { undoAsked?: boolean; askUndo?: boolean }>();
 const spends = new Map<string, Spend>();
-let chips: Chip[] = fakeScript().flatMap((m) => (m.kind === "request" ? m.chips : []));
+let chips: Chip[] = FAKE ? fakeScript().flatMap((m) => (m.kind === "request" ? m.chips : [])) : [];
 /** The part action the Builder's right-click chose, until J sends or drops it. */
 let action: PartAction | null = null;
 const contextsRefused: string[] = [];
@@ -45,8 +52,13 @@ let startPlan: (() => void) | null = null;
 const sent: Control[] = [];
 const pcSent: unknown[] = [];
 const asks: { lane: string; what: "undo-merge" }[] = [];
+/** Site calls posted to the Builder and not yet answered, by id. */
+const siteWaiting = new Map<string, SiteCall>();
+const siteLog: { id: string; lane: string; op: unknown; ok?: boolean }[] = [];
+let plannedFirst = true;
 (window as unknown as { __dock: object }).__dock = {
-  sent, pcSent, asks, lanes, contextsRefused,
+  sent, pcSent, asks, lanes, contextsRefused, siteLog,
+  get live() { return !FAKE; },
   get request() { return request; },
   get chips() { return chips; },
   get action() { return action; },
@@ -61,7 +73,51 @@ function send(lane: string, d: ControlDo, text?: string) {
   const p = problems(c);
   if (p.length) { console.warn("dock: not sent", p); return; }
   sent.push(c);
-  runner?.send(c);
+  if (FAKE) { runner?.send(c); return; }
+  void live.control(c).then((r) => {
+    if (r.ok) return;
+    hint(`The helper said no: ${r.error ?? "unknown"}`);
+    uiOf(lane).waiting = false;
+    drawLane(lane);
+  });
+}
+
+// ---- the real helper ----------------------------------------------------------
+
+const live = liveHelper({
+  message(m) {
+    if (m.kind === "plan") { if (request && m.requestId === request.id) drawPlan(m, plannedFirst); return; }
+    if (m.kind === "request" || m.kind === "control") return;
+    take(m);
+  },
+  site(call) {
+    const r = call.request;
+    if (r.source !== "polio-dock" || r.kind !== "site" || window.parent === window) {
+      void live.siteReply({ source: "polio-builder", kind: "site", v: 1, id: r.id, ok: false, says: "the dock isn't inside the Builder" });
+      return;
+    }
+    siteWaiting.set(r.id, call);
+    siteLog.push({ id: r.id, lane: call.lane, op: r.op });
+    window.parent.postMessage(r, BUILDER);
+  },
+  state(s, why) {
+    $("[data-pair]").hidden = s !== "pair";
+    $("[data-helper]").textContent = s === "live" ? "on your PC, paired" : s === "pair" ? "pair with your PC first" : `helper not reachable${why ? ` (${why})` : ""}, trying again`;
+    document.body.dataset.helperState = s;
+  },
+}, {});
+
+async function pairStart() {
+  const r = await live.pairStart();
+  $("[data-pair-say]").textContent = r.ok === false ? `The helper said no: ${r.error}` : "A code is showing on your PC (the tray, or the helper's window). Type it here.";
+}
+
+async function pairSend() {
+  const code = $<HTMLInputElement>("[data-pair-code]").value.replace(/\s+/g, "");
+  if (!code) return;
+  const r = await live.pair(code);
+  $("[data-pair-say]").textContent = r.ok ? "Paired." : `Not paired: ${r.error ?? "wrong code"}`;
+  if (r.ok) $<HTMLInputElement>("[data-pair-code]").value = "";
 }
 
 // ---- the prompt box and the plan card ------------------------------------
@@ -90,6 +146,16 @@ const ACTION_WORDS: Record<PartAction, string> = {
  * and picks the target. It starts nothing; J still presses Plan it.
  */
 window.addEventListener("message", (e: MessageEvent) => {
+  // The Builder's answer to a site call: only from the parent, only one we sent.
+  const d = e.data as { source?: unknown; kind?: unknown; id?: unknown } | null;
+  if (d && d.kind === "site" && d.source === "polio-builder") {
+    if (e.origin !== BUILDER || e.source !== window.parent || typeof d.id !== "string" || !siteWaiting.has(d.id)) return;
+    siteWaiting.delete(d.id);
+    const entry = siteLog.find((x) => x.id === d.id);
+    if (entry) entry.ok = (d as { ok?: unknown }).ok === true;
+    void live.siteReply(d);
+    return;
+  }
   const got = takeContext(e.origin, e.data);
   if ("refused" in got) { contextsRefused.push(got.refused); return; }
   chips = got.chips;
@@ -113,12 +179,33 @@ function planIt() {
   if (p.length) return hint(p.join("; "));
   hint(null);
   request = r;
+  plannedFirst = planFirst;
   $<HTMLButtonElement>("[data-plan-it]").disabled = true;
-  runner = fakeRunner({ delayMs: DELAY });
-  void listen(runner, planFirst);
+  if (FAKE) {
+    runner = fakeRunner({ delayMs: DELAY });
+    void listen(runner, planFirst);
+    return;
+  }
+  hint("The lead is planning it…");
+  void live.request(r).then((got) => {
+    if (request !== r) return;
+    if (!got.ok) { hint(`The helper said no: ${got.error}`); $<HTMLButtonElement>("[data-plan-it]").disabled = false; return; }
+    hint(null);
+    drawPlan(got.plan, planFirst);
+  });
 }
 
+/** Start on a real plan: plan-first lanes wait as only-you until J approves each. */
+function startReal() {
+  const plan = currentPlan;
+  if (!plan) return;
+  for (const l of plan.lanes) send(l.lane, "approve");
+}
+let currentPlan: Plan | null = null;
+
 function drawPlan(plan: Plan, planFirst: boolean) {
+  if (currentPlan && JSON.stringify(currentPlan) === JSON.stringify(plan) && !$("[data-plan-slot]").hidden) return;
+  currentPlan = plan;
   const slot = $("[data-plan-slot]");
   slot.hidden = false;
   const rows = plan.lanes.map((l) => `
@@ -388,12 +475,16 @@ document.addEventListener("click", (e) => {
   const chip = t.closest<HTMLElement>("[data-chip]");
   if (chip) { chips = chips.filter((_, i) => i !== Number(chip.dataset.chip)); drawChips(); return; }
   if (t.closest("[data-plan-it]")) return planIt();
+  if (t.closest("[data-pair-start]")) { void pairStart(); return; }
+  if (t.closest("[data-pair-send]")) { void pairSend(); return; }
   if (t.closest("[data-start]")) {
     t.closest<HTMLElement>(".go")!.outerHTML = `<p class="quiet">Started.</p>`;
-    startPlan?.(); startPlan = null; return;
+    if (FAKE) { startPlan?.(); startPlan = null; } else startReal();
+    return;
   }
   if (t.closest("[data-change-plan]")) {
-    runner = null; startPlan = null;
+    runner = null; startPlan = null; currentPlan = null;
+    if (!FAKE) for (const l of lanes.values()) if (l.requestId === request?.id && l.state === "only-you") send(l.lane, "decline");
     $("[data-plan-slot]").hidden = true;
     $<HTMLButtonElement>("[data-plan-it]").disabled = false;
     return;
@@ -412,6 +503,7 @@ if (DEMO) {
   for (const m of SAMPLE_SPEND) take(m);
   drawPc();
 } else {
+  if (!FAKE) $("[data-helper]").textContent = "connecting to the helper…";
   $("[data-pc]").innerHTML = `<li class="quiet">Read from Windows once the helper runs.</li>`;
 }
 drawChips();
@@ -420,4 +512,6 @@ drawSpend();
 drawMark();
 $("[data-running-count]").textContent ||= "(0)";
 showTab(qs.get("tab") === "pc" ? "pc" : "agents");
+if (FAKE) $("[data-helper]").textContent = "fake runner (?fake=1)";
+else live.start();
 document.body.setAttribute("data-dock-ready", "");

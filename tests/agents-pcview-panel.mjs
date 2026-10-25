@@ -48,7 +48,7 @@ try {
   const page = await ctx.newPage();
   page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
   page.on("console", (m) => { if (m.type() === "error") errors.push(`console: ${m.text()}`); });
-  await page.goto(`${BASE}/dock?tab=pc&pc=fake`);
+  await page.goto(`${BASE}/dock?fake=1&tab=pc&pc=fake`);
   await page.waitForSelector("[data-pcview-ready]", { timeout: 5000 }).catch(() => {});
 
   check("the tab is there and open", await page.locator('nav [data-tab="pc"]').count() === 1 && await page.locator('[data-tab-body="pc"]').isVisible());
@@ -107,7 +107,7 @@ try {
 
   // the Agents tab is still the default
   const p2 = await ctx.newPage();
-  await p2.goto(`${BASE}/dock?demo=0`);
+  await p2.goto(`${BASE}/dock?fake=1&demo=0`);
   await p2.waitForSelector("[data-dock-ready]");
   check("the Agents tab is the default", await p2.locator("[data-prompt-box]").isVisible() && !(await p2.locator('[data-tab-body="pc"]').isVisible()));
   await p2.click('nav [data-tab="pc"]');

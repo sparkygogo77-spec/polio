@@ -5,6 +5,7 @@
  *   node helper/server/main.ts [--repo <polio clone>] [--handovers <Pleo/handovers>]
  *        [--agents <folder for lane worktrees>] [--claude <path to claude.exe>]
  *        [--at-once 3] [--tokens-per-day N] [--tokens-per-request N]
+ *        [--port 47821] [--state <state folder>]   (a test helper: another port and folder)
  *
  * - Every run is on J's plan: the unmodified `claude` CLI under his own
  *   sign-in, on the PC or as a cloud session. There is no API-key way. The
@@ -26,6 +27,9 @@
  *   piped: it reads `@pair <code>` and `@ready <port>`, and writes
  *   `pause-all`, `resume-all` and `quit` (with --tray, the helper also quits
  *   when the tray's pipe closes).
+ * - A PC lane gets the site tools (helper/mcp/site.ts, through --mcp-config)
+ *   and its own lane ticket, so it can read and change the site J has open,
+ *   through the paired dock only (POST /site, tickets.ts).
  * - Every child process starts hidden (windowsHide), so no console window
  *   flashes on J's screen.
  * - Ctrl+C, `quit` or the tray's Quit stops every lane the helper started,
@@ -54,6 +58,7 @@ import { mergeStep, type MergeJob, type MergeStep } from "../merge/route.ts";
 import { readGithubToken } from "../merge/token.ts";
 import { Pairing } from "./pairing.ts";
 import { startHelperServer, HELPER_PORT, type RunnerLike } from "./server.ts";
+import { SiteTickets, siteMcpConfig, withSiteTickets } from "./tickets.ts";
 
 // ---- after green: merge, then the live check ---------------------------------
 
@@ -260,19 +265,24 @@ if (import.meta.main) {
     "tokens-per-day": { type: "string" },
     "tokens-per-request": { type: "string" },
     tray: { type: "boolean", default: false },
+    port: { type: "string" },
+    state: { type: "string" },
   } });
 
   const count = (s: string | undefined) => (s === undefined ? undefined : Number(s));
   const repo = resolve(values.repo!);
   const handoversDir = resolve(values.handovers ?? join(dirname(repo), "handovers"));
   const agentsDir = resolve(values.agents ?? join(dirname(repo), "agents"));
-  const stateDir = join(process.env.LOCALAPPDATA ?? join(homedir(), ".local", "share"), "PolioHelper");
+  const stateDir = resolve(values.state ?? join(process.env.LOCALAPPDATA ?? join(homedir(), ".local", "share"), "PolioHelper"));
+  const port = values.port ? Number(values.port) : HELPER_PORT;
   const command = { file: values.claude! };
+  const tickets = new SiteTickets();
+  const pcCommand = { file: values.claude!, args: ["--mcp-config", siteMcpConfig(stateDir)] };
   const baseName = values.base!.replace(/^origin\//, "");
 
   const coordinator = new Coordinator({
     runner: {
-      adapters: { pc: pcPlanAdapter({ command }), cloud: cloudAdapter({ command }) },
+      adapters: { pc: withSiteTickets(pcPlanAdapter({ command: pcCommand }), tickets, `http://127.0.0.1:${port}/site`), cloud: cloudAdapter({ command }) },
       stateDir,
       spend: new SpendBook({ caps: { tokensPerDay: count(values["tokens-per-day"]), tokensPerRequest: count(values["tokens-per-request"]) } }),
       workspace: (lane, where, from) => where === "pc" ? addWorktree({ repo, root: agentsDir, lane, base: from }) : repo,
@@ -310,7 +320,7 @@ if (import.meta.main) {
   });
 
   const pairing = new Pairing({ show: (code) => console.log(`\n  Pair with polio-two.vercel.app?  Code: ${code.slice(0, 3)} ${code.slice(3)}\n@pair ${code}`) });
-  const helper = await startHelperServer({ runner, pairing, port: HELPER_PORT });
+  const helper = await startHelperServer({ runner, pairing, tickets, port });
   console.log(`Polio Helper on http://127.0.0.1:${helper.port} (on your plan, ${coordinator.atOnce} lanes at once)\n@ready ${helper.port}`);
 
   const quit = async () => { clearInterval(every); await coordinator.stopAll(); await helper.close(); process.exit(0); };

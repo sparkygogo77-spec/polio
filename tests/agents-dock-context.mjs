@@ -65,7 +65,7 @@ const browser = await chromium.launch({ executablePath: existsSync(AT) ? AT : un
 const errors = [];
 const page = await (await browser.newContext({ viewport: { width: 420, height: 1200 } })).newPage();
 page.on("pageerror", (e) => errors.push(e.message));
-await page.goto(`${BASE}/dock?delay=0&demo=0`);
+await page.goto(`${BASE}/dock?fake=1&delay=0&demo=0`);
 await page.waitForSelector("[data-dock-ready]");
 
 const post = (origin, data) => page.evaluate(([o, d]) => window.dispatchEvent(new MessageEvent("message", { origin: o, data: d })), [origin, data]);
