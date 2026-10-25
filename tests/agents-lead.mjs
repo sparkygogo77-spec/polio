@@ -69,7 +69,7 @@ if (Q && L && O && B) {
   function fakeAdapter(where) {
     const runs = new Map();
     const a = {
-      where, pays: where === "pc" ? "plan" : "cloud", can: { pause: true, stop: true, tokens: true },
+      where, pays: where === "pc" ? "plan" : "cloud", can: { pause: true, stop: true, tokens: where === "pc" },
       runs, started: [],
       start(spec) {
         const queue = [], waiters = [];
@@ -240,6 +240,10 @@ if (Q && L && O && B) {
     check("a design-heavy lane runs on Opus, a contained one on Sonnet",
       t.pc.runs.get("pc-one").spec.model === L.OPUS && t.cloud.runs.get("cloud-one").spec.model === L.SONNET);
     check("no Fable", ![L.OPUS, L.SONNET].some((m) => /fable/i.test(m)));
+    t.cloud.runs.get("cloud-one").finish();
+    await until(() => t.seen.some((m) => m.kind === "spend"));
+    const cloudSpend = t.seen.filter((m) => m.kind === "spend").flatMap((m) => m.lanes).filter((l) => l.lane === "cloud-one");
+    check("a cloud lane is never shown measured (left out, or tokens null: on the plan, not measured)", cloudSpend.every((l) => l.tokens === null || l.tokens === undefined), JSON.stringify(cloudSpend[0] ?? "left out"));
     let threw = false;
     try { B.briefFor({ req: req("x"), lane: c1, rules: "# no rules here", base: "b", after: [], model: L.SONNET }); } catch { threw = true; }
     check("a brief without J's rules is refused, not sent", threw);
