@@ -11,11 +11,20 @@
  * Plain unions and const lists, no enums: tests import this file straight
  * through node's type stripping.
  *
- *   dock -> runner   request, control
- *   runner -> dock   plan, lane, merge, spend
+ *   dock -> runner   request, control, pc-stop, pc-stop-idle
+ *   runner -> dock   plan, lane, merge, spend, pc, pc-stopped
+ *
+ * Version 2 added "Everything Claude is doing" (helper/pc): the `pc` snapshot
+ * of every Claude process on the PC, and J's Stop for one process tree or for
+ * everything idle.
  */
 
-export const CONTRACT_VERSION = 1;
+/**
+ * 2 (2026-10-25, J: "no api, only plan usage and tokens"): every run is on
+ * J's plan. Spend is tokens only, no dollars; a cloud lane's tokens are null
+ * (not measured); a spend line may carry the plan-limit reading.
+ */
+export const CONTRACT_VERSION = 2;
 
 export const TARGETS = ["site", "builder-ui", "backend"] as const;
 export type Target = (typeof TARGETS)[number];
@@ -49,8 +58,11 @@ export type ControlDo = (typeof CONTROLS)[number];
  */
 export const J_ONLY: readonly ControlDo[] = ["pause", "resume", "stop", "approve", "decline"];
 
-/** How a run is paid: J's Claude plan, an API key, or a cloud session. */
-export const PAYS = ["plan", "api", "cloud"] as const;
+/**
+ * Where J's plan is used: a `claude -p` run on the PC, or a cloud session
+ * (which also counts toward the plan). There is no API-key way (J, v2).
+ */
+export const PAYS = ["plan", "cloud"] as const;
 export type Pays = (typeof PAYS)[number];
 
 export const MERGE_STATUS = ["waiting-ci", "stacked", "merged", "live", "checked", "check-failed"] as const;
@@ -138,17 +150,28 @@ export type MergeLine = {
 export type Tokens = { in: number; out: number };
 
 /**
- * Tokens are counted the same way for every run, so plan runs and paid runs
- * can be set side by side. A plan run also says what share of the plan's
- * usage window it took; an API or cloud run says what it cost in dollars.
+ * Spend is tokens, never dollars. A PC lane's tokens are counted from its
+ * stream; a cloud session's can't be read, so they are null, and the dock
+ * says "on your plan, not measured".
  */
 export type LaneSpend = {
   lane: string;
   pays: Pays;
-  tokens: Tokens;
+  tokens: Tokens | null;
   seconds: number;
-  planShare: number | null;
-  usd: number | null;
+};
+
+/**
+ * How much of J's plan limit is used, as Claude Code last reported it (its
+ * rate-limit event). It is the whole account's, not one lane's.
+ */
+export type PlanUse = {
+  /** 0 to 1. */
+  used: number;
+  /** When the limit window resets, Unix seconds, if it was said. */
+  resetsAt: number | null;
+  /** allowed, allowed_warning (near the limit) or rejected (at it). */
+  status: "allowed" | "allowed_warning" | "rejected";
 };
 
 export type Spend = {
@@ -156,11 +179,109 @@ export type Spend = {
   kind: "spend";
   requestId: string;
   lanes: LaneSpend[];
-  /** The request's tokens: the sum of its lanes'. */
+  /** The request's tokens: the sum of its measured lanes'. */
   tokens: Tokens;
+  /** The plan-limit reading, or null when Claude Code hasn't sent one. */
+  plan: PlanUse | null;
 };
 
-export type Message = Request | Plan | Lane | Control | MergeLine | Spend;
+// ---- everything Claude is doing on the PC (v2) ----------------------------
+
+/** What a process is for, in the reader's words (helper/pc/label.ts). */
+export const PC_KINDS = [
+  "app", "session", "terminal-tab", "shell", "console", "dev-server", "browser",
+  "build", "test", "git", "npm", "node", "labelled", "other",
+] as const;
+export type PcKind = (typeof PC_KINDS)[number];
+
+/** How a session's claude.exe was tied to the app's session list. */
+export const PC_MATCH = ["resume", "start-time", "label", "none"] as const;
+export type PcMatch = (typeof PC_MATCH)[number];
+
+export const PC_GROUPS = ["app", "terminal", "session", "left"] as const;
+export type PcGroupKind = (typeof PC_GROUPS)[number];
+
+/** A process shows "idle for N min" from this many minutes on. */
+export const PC_IDLE_MINUTES = 10;
+
+export type PcItem = {
+  pid: number;
+  /** Start time, ms since 1970. With pid it names one process, so a reused pid is never stopped. */
+  created: number;
+  parentPid: number;
+  /** 0 for the group's root, 1 for its children, and so on. */
+  depth: number;
+  kind: PcKind;
+  /** Plain words: "Builder copy for lane export, port 3091". */
+  label: string;
+  /** The process name and a short, key-blanked part of its command line. */
+  detail: string;
+  port: number | null;
+  folder: string | null;
+  /** Percent of the whole PC since the last read; null on the first read. */
+  cpu: number | null;
+  memBytes: number;
+  idleMinutes: number | null;
+  /** Who started it, in words: a session's title, "the Claude desktop app", "you". */
+  startedBy: string;
+  /** False for the desktop app itself: the panel never offers to end it. */
+  stoppable: boolean;
+};
+
+export type PcGroup = {
+  /** "app", "terminal", "left", or the session's id ("pid-<n>" when it isn't matched). */
+  id: string;
+  kind: PcGroupKind;
+  title: string;
+  folder: string | null;
+  match: PcMatch | null;
+  startedAt: number;
+  idleMinutes: number | null;
+  cpu: number | null;
+  memBytes: number;
+  items: PcItem[];
+};
+
+export type PcCloudSession = { id: string; title: string; url: string | null; state: string };
+
+export type PcNow = {
+  v: number;
+  kind: "pc";
+  at: number;
+  memory: { usedBytes: number; totalBytes: number };
+  totals: { processes: number; sessions: number; cpu: number | null; memBytes: number };
+  groups: PcGroup[];
+  /** Cloud sessions, where the runner can see them; otherwise why not. */
+  cloud: { visible: boolean; reason: string | null; sessions: PcCloudSession[] };
+};
+
+/** J presses Stop on one item or one session: that process and its tree end. */
+export type PcStop = {
+  v: number;
+  kind: "pc-stop";
+  by: "j";
+  pid: number;
+  created: number;
+  /** A session's own claude.exe ends only after J's second yes. */
+  confirmSession: boolean;
+};
+
+/** J presses "Stop all idle": every idle item, never a session or the app. */
+export type PcStopIdle = { v: number; kind: "pc-stop-idle"; by: "j"; minutes: number };
+
+export type PcStopped = {
+  v: number;
+  kind: "pc-stopped";
+  pid: number | null;
+  /** The pids that ended. */
+  ended: number[];
+  /** Why nothing ended, in plain words; null when it worked. */
+  refused: string | null;
+  /** The press was a session's own claude.exe without the second yes. */
+  needsConfirm: boolean;
+};
+
+export type Message = Request | Plan | Lane | Control | MergeLine | Spend | PcNow | PcStop | PcStopIdle | PcStopped;
 
 // ---- checks -------------------------------------------------------------
 // Each returns the problems it found, empty when the message is good, so a
@@ -195,6 +316,42 @@ function laneProblems(m: Obj): string[] {
   const expected = m.stepsDone === STEPS.length ? null : STEPS[m.stepsDone];
   if (m.stepNow !== expected) out.push(`stepNow must be ${JSON.stringify(expected)} after ${m.stepsDone} steps`);
   if ((m.state === "done") !== (m.stepsDone === STEPS.length)) out.push("done means all 8 steps, and all 8 steps means done");
+  return out;
+}
+
+const isCpu = (x: unknown) => x === null || (typeof x === "number" && x >= 0);
+
+function pcProblems(m: Obj): string[] {
+  const out: string[] = [];
+  if (!isCount(m.at)) out.push("at missing");
+  if (!isObj(m.memory) || !isCount(m.memory.usedBytes) || !isCount(m.memory.totalBytes)) out.push("memory needs usedBytes and totalBytes");
+  if (!isObj(m.totals) || !isCount(m.totals.processes) || !isCount(m.totals.sessions) || !isCount(m.totals.memBytes) || !isCpu(m.totals.cpu)) out.push("totals need processes, sessions, cpu and memBytes");
+  if (!isObj(m.cloud) || typeof m.cloud.visible !== "boolean" || !Array.isArray(m.cloud.sessions)) out.push("cloud needs visible and sessions");
+  else if (!m.cloud.visible && !isStr(m.cloud.reason)) out.push("cloud that isn't visible says why");
+  if (!Array.isArray(m.groups)) return [...out, "groups must be a list"];
+  const seen = new Set<number>();
+  m.groups.forEach((g, i) => {
+    const at = `groups[${i}]`;
+    if (!isObj(g)) return void out.push(`${at} must be an object`);
+    if (!isStr(g.id) || !isStr(g.title)) out.push(`${at}: id and title missing`);
+    if (!oneOf(PC_GROUPS, g.kind)) out.push(`${at}: unknown group kind ${JSON.stringify(g.kind)}`);
+    if (g.match !== null && !oneOf(PC_MATCH, g.match)) out.push(`${at}: unknown match`);
+    if (!isCount(g.memBytes) || !isCpu(g.cpu)) out.push(`${at}: memBytes and cpu missing`);
+    if (!Array.isArray(g.items)) return void out.push(`${at}: items must be a list`);
+    let sum = 0;
+    g.items.forEach((it, j) => {
+      const iat = `${at}.items[${j}]`;
+      if (!isObj(it)) return void out.push(`${iat} must be an object`);
+      if (!isCount(it.pid) || !isCount(it.created) || !isCount(it.parentPid) || !isCount(it.depth)) out.push(`${iat}: pid, created, parentPid and depth must be whole numbers`);
+      if (!oneOf(PC_KINDS, it.kind)) out.push(`${iat}: unknown kind ${JSON.stringify(it.kind)}`);
+      if (!isStr(it.label) || !isStr(it.startedBy)) out.push(`${iat}: label and startedBy missing`);
+      if (it.kind === "app" && it.stoppable !== false) out.push(`${iat}: the desktop app is never stoppable`);
+      if (seen.has(it.pid as number)) out.push(`${iat}: pid ${it.pid} is listed twice`);
+      seen.add(it.pid as number);
+      sum += Number(it.memBytes) || 0;
+    });
+    if (isCount(g.memBytes) && g.memBytes !== sum) out.push(`${at}: memBytes must be the sum of its items'`);
+  });
   return out;
 }
 
@@ -262,18 +419,40 @@ function kindProblems(m: Obj): string[] {
         const at = `lanes[${i}]`;
         if (!isObj(l)) return void out.push(`${at} must be an object`);
         if (!isStr(l.lane)) out.push(`${at}: lane missing`);
-        if (!oneOf(PAYS, l.pays)) out.push(`${at}: pays must be plan, api or cloud`);
-        out.push(...tokenProblems(l.tokens, at));
+        if (!oneOf(PAYS, l.pays)) out.push(`${at}: pays must be plan or cloud`);
+        if (l.pays === "plan" || l.tokens !== null) out.push(...tokenProblems(l.tokens, at));
         if (!isCount(l.seconds)) out.push(`${at}: seconds missing`);
-        const share = typeof l.planShare === "number" && l.planShare >= 0 && l.planShare <= 1;
-        const usd = typeof l.usd === "number" && l.usd >= 0;
-        if (l.pays === "plan" && !share) out.push(`${at}: a plan run needs planShare, 0 to 1`);
-        if (l.pays !== "plan" && !usd) out.push(`${at}: an ${l.pays} run needs usd`);
+        if ("usd" in l || "planShare" in l) out.push(`${at}: spend is tokens only, no dollars`);
         if (isObj(l.tokens)) { sumIn += Number(l.tokens.in) || 0; sumOut += Number(l.tokens.out) || 0; }
       });
       if (isObj(m.tokens) && (m.tokens.in !== sumIn || m.tokens.out !== sumOut)) out.push("request tokens must be the sum of its lanes'");
+      if ("usd" in m) out.push("spend is tokens only, no dollars");
+      if (m.plan !== null) {
+        const p = m.plan;
+        const ok = isObj(p) && typeof p.used === "number" && p.used >= 0 && p.used <= 1
+          && (p.resetsAt === null || isCount(p.resetsAt)) && ["allowed", "allowed_warning", "rejected"].includes(p.status as string);
+        if (!ok) out.push("plan must be null, or used 0 to 1 with resetsAt and status");
+      }
       return out;
     }
+    case "pc":
+      return pcProblems(m);
+    case "pc-stop":
+      if (m.by !== "j") out.push("pc-stop is J's only");
+      if (!isCount(m.pid) || m.pid === 0) out.push("pid missing");
+      if (!isCount(m.created)) out.push("created missing (it guards against a reused pid)");
+      if (typeof m.confirmSession !== "boolean") out.push("confirmSession must be true or false");
+      return out;
+    case "pc-stop-idle":
+      if (m.by !== "j") out.push("pc-stop-idle is J's only");
+      if (!isCount(m.minutes) || m.minutes < 1) out.push("minutes must be 1 or more");
+      return out;
+    case "pc-stopped":
+      if (m.pid !== null && !isCount(m.pid)) out.push("pid must be a number or null");
+      if (!Array.isArray(m.ended) || !m.ended.every(isCount)) out.push("ended must be a list of pids");
+      if (m.refused !== null && !isStr(m.refused)) out.push("refused must be words or null");
+      if (typeof m.needsConfirm !== "boolean") out.push("needsConfirm must be true or false");
+      return out;
     default:
       return [`unknown kind ${JSON.stringify(m.kind)}`];
   }
