@@ -275,9 +275,11 @@ export function setInstance<N extends SysNode>(n: N, s: System, c: { component: 
 /* Copies                                                              */
 /* ------------------------------------------------------------------ */
 
-/** A copy to diverge: its own id, the same tokens and components (same ids, so the parts' pointers carry over), saying whose copy it is. */
+/** A copy to diverge: its own id, the same tokens and components (same ids, so the parts' pointers carry over), saying whose copy it is. Never the house style itself. */
 export function fork(s: System, name?: string, at = Date.now()): System {
-  return { ...structuredClone(s), id: newSystemId(), name: (name ?? `${s.name} (own copy)`).trim().slice(0, 120), from: "copied", forkOf: s.id, rev: 1, editedAt: at };
+  const { house: _h, ...copy } = structuredClone(s);
+  void _h;
+  return { ...copy, id: newSystemId(), name: (name ?? `${s.name} (own copy)`).trim().slice(0, 120), from: "copied", forkOf: s.id, rev: 1, editedAt: at };
 }
 
 /** Parts that pointed at one System, pointing at another (a fork of it): the same tokens by id. */

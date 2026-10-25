@@ -2,7 +2,7 @@
 import type { Taken } from "../../bring-in";
 import type { SiteHead } from "../../siteHead";
 import { type FormatValues } from "../../format";
-import { type AnimEase, type AuraStyle, type Look } from "../../look";
+import { type AnimEase, type AuraStyle, type Look, type RoleId } from "../../look";
 import { type MotionAsset } from "../../motion";
 import type { NodeLink } from "../../shelf";
 import type { WorkUse } from "../../shelf";
@@ -585,4 +585,10 @@ export interface Doc {
    */
   systemId?: string | null;
   system?: System | null;
+  /**
+   * The palette roles this site takes from its System; null or absent, all
+   * of them. A site pointed at the house style on its own (`system/api.ts`)
+   * takes only the roles it already wears, so pointing moves nothing.
+   */
+  systemRoles?: RoleId[] | null;
 }

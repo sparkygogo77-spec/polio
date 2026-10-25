@@ -21,6 +21,7 @@
  *   usedBy(id)              the open site's parts pointing at a token, or
  *                           instances of a component
  *   newSystem(name?)        a new, empty System for the open site
+ *   setHouse(id | null)     the house style: what a site with no System uses
  *   setVariantState, addVariant, makeComponent    a component's variants
  *
  * The React side: `useSiteSystem()` (the open site's System, live) and
@@ -39,13 +40,13 @@
 import * as React from "react";
 import { useStudio, type StudioNode } from "../board/store";
 import { resolvePalette } from "../shelf/run";
-import { ROLES, type Palette } from "../look";
+import { ROLES, type Palette, type RoleId } from "../look";
 import { componentsOf, KIND_WORD, type CompNode } from "../components";
 import { emptySystem, readSystem, type FieldPath, type StateLook, type StateName, type System, type TokenKind } from "./model";
 import { materialise, rolesOf, sameValue } from "./resolve";
 import { linksHold, takeSystem, withSys, type TakeNode, type TakeReport } from "./take";
 import * as L from "./link";
-import { libraryList, newer, useSystems } from "./store";
+import { houseOf, libraryList, markHouse, newer, useSystems } from "./store";
 
 /* ------------------------------------------------------------------ */
 /* Keeping the document, its copy and the library one                  */
@@ -56,12 +57,13 @@ const seen = new WeakSet<System>();
 let applying = 0;
 const quietly = (fn: () => void) => { applying++; try { fn(); } finally { applying--; } };
 
-/** The open site's palette with each role a token holds set to it, or the same look when each already shows it. */
+/** The open site's palette with each role a token holds set to it (of the roles the site takes, `systemRoles`), or the same look when each already shows it. */
 function lookWith(st: ReturnType<typeof useStudio.getState>, s: System): typeof st.look {
   const shown = resolvePalette(st.format, st.look);
   const want = rolesOf(s);
+  const takes = st.systemRoles ?? ROLES;
   let palette = st.look.palette;
-  for (const r of ROLES) {
+  for (const r of takes) {
     const v = want[r];
     if (v && !sameValue("colour", shown[r], v)) palette = { ...(palette ?? {}), [r]: v } as typeof palette;
   }
@@ -76,12 +78,40 @@ function written(st: ReturnType<typeof useStudio.getState>, s: System): Partial<
   return { ...(m.changed.length ? { nodes: m.nodes as StudioNode[] } : {}), ...(look !== st.look ? { look } : {}) };
 }
 
+/**
+ * THE HOUSE STYLE BY DEFAULT (J, 2026-10-24: one house style all his sites
+ * share). A site with no System points at the house style, without an undo
+ * step of its own. A blank site wears it whole. A site with parts on it (an
+ * import, a site made before) takes from it only the palette roles it
+ * already wears and links nothing, so pointing moves nothing; "Take from
+ * this site" still gives it a System of its own.
+ */
+function pointAtHouse(st: ReturnType<typeof useStudio.getState>, house: System): void {
+  const blank = st.nodes.length === 0;
+  const shown = resolvePalette(st.format, st.look);
+  const want = rolesOf(house);
+  const roles = blank ? null : ROLES.filter((r) => !!want[r] && sameValue("colour", shown[r], want[r]));
+  seen.add(house);
+  const at = { ...st, systemId: house.id, system: house, systemRoles: roles };
+  useStudio.setState({ systemId: house.id, system: house, systemRoles: roles, ...(written(at, house) ?? {}) });
+}
+
+/** On the house style the way `pointAtHouse` left it: nothing linked to it, so a document put on the board in its place is pointed afresh. */
+function onHouseOnly(st: ReturnType<typeof useStudio.getState>): boolean {
+  const h = houseOf();
+  return !!h && st.systemId === h.id && !st.nodes.some((n) => n.sys?.s === h.id);
+}
+
 /** See the header. Safe to call at any time; does nothing when all three agree. */
-export function reconcile(): void {
+export function reconcile(from: "doc" | "library" = "doc"): void {
   if (applying) return;
   const st = useStudio.getState();
   const id = st.systemId;
-  if (!id) return;
+  if (!id) {
+    const house = houseOf();
+    if (house) quietly(() => pointAtHouse(st, house));
+    return;
+  }
   const lib = useSystems.getState().byId[id];
   const mine = st.system && st.system.id === id ? st.system : null;
   quietly(() => {
@@ -92,7 +122,8 @@ export function reconcile(): void {
       if (w) useStudio.setState(w);
       return;
     }
-    if (mine && seen.has(mine)) {
+    /* Only a change to the document can be an undo or a redo: when the library moved (another site, a sync), its copy is the newer one. */
+    if (from === "doc" && mine && seen.has(mine)) {
       /* Taken back by undo or brought again by redo: that copy is the System now. */
       const next: System = { ...mine, rev: Math.max(mine.rev, lib.rev) + 1, editedAt: Math.max(Date.now(), lib.editedAt + 1) };
       seen.add(next);
@@ -126,11 +157,18 @@ export function installSystem(): () => void {
   });
   const offLibrary = useSystems.subscribe((l, p) => {
     const id = useStudio.getState().systemId;
-    if (!applying && id && l.byId[id] !== p.byId[id]) reconcile();
+    if (!applying && (id ? l.byId[id] !== p.byId[id] : houseOf(l.byId) !== houseOf(p.byId))) reconcile("library");
   });
+  /* Every import ends here (`loadDoc`): a site on the house style only by default takes it afresh, as the document it now holds. */
+  const onLoaded = () => {
+    const st = useStudio.getState();
+    if (applying || !onHouseOnly(st)) return;
+    quietly(() => pointAtHouse(st, houseOf()!));
+  };
+  window.addEventListener("studio:doc-loaded", onLoaded);
   reconcile();
   (window as unknown as { __polioSystem?: unknown }).__polioSystem = testHook;
-  return () => { offStudio(); offLibrary(); installed = false; delete (window as unknown as { __polioSystem?: unknown }).__polioSystem; };
+  return () => { offStudio(); offLibrary(); window.removeEventListener("studio:doc-loaded", onLoaded); installed = false; delete (window as unknown as { __polioSystem?: unknown }).__polioSystem; };
 }
 
 /* ------------------------------------------------------------------ */
@@ -141,7 +179,7 @@ export function installSystem(): () => void {
  * One undo step: the checkpoint first (`patchNodes` takes it), then the
  * parts, the palette and the document's System, then the library.
  */
-function step(next: System, nodes: (now: readonly StudioNode[]) => readonly StudioNode[] = (n) => n, systemId = next.id): void {
+function step(next: System, nodes: (now: readonly StudioNode[]) => readonly StudioNode[] = (n) => n, systemId = next.id, roles?: RoleId[] | null): void {
   const st = useStudio.getState();
   const after = materialise(nodes(st.nodes), next).nodes as StudioNode[];
   const changed = new Set(after.filter((n, i) => n !== st.nodes[i]).map((n) => n.id));
@@ -155,8 +193,9 @@ function step(next: System, nodes: (now: readonly StudioNode[]) => readonly Stud
       return patch;
     });
     seen.add(next);
-    const now = useStudio.getState();
-    useStudio.setState({ systemId, system: next, look: lookWith(now, next) });
+    /* `roles` undefined keeps the roles the site takes; null, for a site that chose this System, takes all of them. */
+    const now = roles === undefined ? useStudio.getState() : { ...useStudio.getState(), systemRoles: roles };
+    useStudio.setState({ systemId, system: next, ...(roles === undefined ? {} : { systemRoles: roles }), look: lookWith(now, next) });
     useSystems.getState().put(next);
   });
 }
@@ -194,7 +233,7 @@ export function takeFromSite(o: { dry?: boolean; name?: string } = {}): TakeAnsw
     const link = taken.links.get(n.id) ?? null;
     /* Parts pointing at the site's old System let go of it; everything else is untouched. */
     return link ? withSys(n, link) : n.sys && (n.sys.s === keep || !keep) ? withSys(n, null) : n;
-  }));
+  }), taken.system.id, null);
   return { ok: true, report: taken.report, system: taken.system };
 }
 
@@ -247,7 +286,7 @@ export function forkSite(name?: string): System | Refused {
 export function pointSiteAt(id: string): System | Refused {
   const s = useSystems.getState().byId[id];
   if (!s) return { ok: false, says: "No such System in the library." };
-  step(s);
+  step(s, undefined, s.id, null);
   return s;
 }
 
@@ -258,7 +297,7 @@ export function newSystem(name?: string): System {
   const st = useStudio.getState();
   const s = emptySystem(name?.trim() || st.brief?.name?.trim() || "New system", "theme");
   const keep = st.systemId;
-  step(s, (now) => (keep ? now.map((n) => (n.sys?.s === keep ? withSys(n, null) : n)) : now));
+  step(s, (now) => (keep ? now.map((n) => (n.sys?.s === keep ? withSys(n, null) : n)) : now), s.id, null);
   return s;
 }
 
@@ -302,6 +341,25 @@ export function useSiteSystem(): { system: System | null; counts: Map<string, nu
   return { system, counts };
 }
 
+/** Make a library System the house style, or (null) none: every site with no System of its own then uses it. Not an undo step: the library is not one site's. */
+export function setHouse(id: string | null): void { markHouse(id); }
+
+/** A new site's theme was just rolled (`newSite.ts`): a site on the house style wears its roles over it. */
+export function wearSystem(): void {
+  const st = useStudio.getState();
+  const s = siteSystem();
+  if (!s) return;
+  const look = lookWith(st, s);
+  if (look !== st.look) quietly(() => useStudio.setState({ look }));
+}
+
+/** The house style, live, and whether the open site uses it. */
+export function useHouse(): { house: System | null; mine: boolean } {
+  const house = useSystems((l) => houseOf(l.byId));
+  const id = useStudio((s) => s.systemId ?? null);
+  return { house, mine: !!house && house.id === id };
+}
+
 export function useLibrary(): System[] {
   const byId = useSystems((l) => l.byId);
   return React.useMemo(() => Object.values(byId).sort((a, b) => b.editedAt - a.editedAt), [byId]);
@@ -319,7 +377,10 @@ const testHook = {
   system: () => siteSystem(),
   doc: () => { const s = useStudio.getState(); return { systemId: s.systemId ?? null, rev: s.system?.rev ?? null }; },
   setToken, renameToken, addToken, removeToken, linkPart, unlinkPart, detachPart, forkSite, pointSiteAt, usedBy,
-  newSystem, setVariantState, addVariant, makeComponent,
+  newSystem, setVariantState, addVariant, makeComponent, setHouse,
+  house: () => houseOf()?.id ?? null,
+  /** The open site as the System sees it: which System, which palette roles it takes, the palette, how many parts are linked. */
+  site: () => { const s = useStudio.getState(); return { systemId: s.systemId ?? null, roles: s.systemRoles ?? null, palette: s.look.palette ?? {}, linked: s.nodes.filter((n) => n.sys).length, nodes: s.nodes.length }; },
   /** Fields that point at a token whose value they do not hold now (should be none). */
   broken: () => { const s = siteSystem(); return s ? linksHold(useStudio.getState().nodes, s) : []; },
   library: () => libraryList().map((s) => ({ id: s.id, name: s.name, rev: s.rev })),

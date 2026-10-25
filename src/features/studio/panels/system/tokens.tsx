@@ -52,7 +52,7 @@ function TokenName({ token }: { token: AnyToken }) {
 export function TokenRow({ kind, token, counts, note, children }: { kind: TokenKind; token: AnyToken; counts: Map<string, number>; note?: React.ReactNode; children?: React.ReactNode }) {
   const label = `${token.name}, ${KIND_WORD[kind]}`;
   return (
-    <div data-token-row={token.id} data-token-kind={kind} className="group flex min-w-0 items-center gap-1.5 py-0.5">
+    <div data-token-row={token.id} data-token-kind={kind} className="group flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 py-0.5">
       <TokenName token={token} />
       <TokenValue kind={kind} value={valueOf(token)} label={label} onCommit={(v) => { const r = setToken(token.id, v); return !("ok" in r && r.ok === false); }} />
       {note}

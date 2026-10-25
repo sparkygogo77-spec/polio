@@ -37,7 +37,7 @@ export function SystemPanel() {
       <SystemBar system={system} />
       {!system ? (
         <p data-system-none="" className="text-small text-fg-muted">
-          This site has no System yet. Take one from the site: its colours, type, space, corners, shadows, motion and components, with nothing on the board moved.
+          This site has no System yet, and there is no house style. Take one from the site: its colours, type, space, corners, shadows, motion and components, with nothing on the board moved.
         </p>
       ) : open ? (
         <ComponentEditor s={system} id={open} onBack={() => setOpen(null)} />

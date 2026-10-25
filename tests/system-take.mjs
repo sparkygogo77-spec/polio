@@ -156,7 +156,8 @@ check("the System hook is there", await page.evaluate(() => !!window.__polioSyst
 /** Every part on the board: its box, and the painted style of it and of everything it draws, as the browser computed them. */
 const PROPS = ["color", "background-color", "background-image", "border-top-color", "border-top-width", "border-radius", "box-shadow", "padding", "gap", "font-size", "font-family", "font-weight", "line-height", "letter-spacing", "transition", "opacity", "transform"];
 /* What moves of itself (a breathing critter, a pulsing dot) is held at its first frame for each look, so a look is of the parts, not of the moment. */
-const hold = (p) => p.evaluate(() => { for (const a of document.getAnimations()) { try { a.pause(); a.currentTime = 0; } catch { /* a finished one */ } } });
+/* A loop or a reveal is held at its start. A transition is a style on its way to where it settles: finished, not rewound (rewound, it holds the old value, in the colour format transitions blend in, and a board read again later differs). */
+const hold = (p) => p.evaluate(() => { for (const a of document.getAnimations()) { try { if (a instanceof CSSTransition) a.finish(); else { a.pause(); a.currentTime = 0; } } catch { /* a finished one */ } } });
 const boardRead = async () => { await hold(page); return page.evaluate((PROPS) => {
   const out = {};
   for (const el of document.querySelectorAll("[data-node-id]")) {

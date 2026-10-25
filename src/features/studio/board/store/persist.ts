@@ -1,7 +1,7 @@
 "use client";
 import { unpackFrom } from "../../docStore";
 import { pictureLayersOff, storedStacks, withOptions } from "../../docTake";
-import { defaultLight, delayMs, emptyLook, speedK } from "../../look";
+import { ROLES, defaultLight, delayMs, emptyLook, speedK, type RoleId } from "../../look";
 import { newMotion, SLEEVES } from "../../motion";
 import { normaliseSketch, type OutlineClip } from "../../pictures";
 import type { Worn } from "../../wornModel";
@@ -67,6 +67,7 @@ export function docOnly(s: StudioState) {
         /* The System it uses, and its copy of it (`system/`). */
         systemId: s.systemId ?? null,
         system: s.system ?? null,
+        systemRoles: s.systemRoles ?? null,
         showAllFormat: s.showAllFormat,
         showWires: s.showWires,
         statesOn: s.statesOn ?? NO_STATES,
@@ -142,6 +143,7 @@ export function mergeDoc(persisted: unknown, current: StudioState): StudioState 
           /* A document saved before Systems names none; one from elsewhere is read strictly. */
           systemId: typeof p.systemId === "string" ? p.systemId : null,
           system: readSystem(p.system),
+          systemRoles: Array.isArray(p.systemRoles) ? (p.systemRoles as unknown[]).filter((r): r is RoleId => typeof r === "string" && (ROLES as readonly string[]).includes(r)) : null,
           recentColours: Array.isArray(p.recentColours) ? p.recentColours : [],
           shapes: (p.shapes ?? current.shapes).map((sh) => ({ ...sh, relation: sh.relation ?? "flow" })),
           // A board saved before spaces existed has none; a broken entry is dropped rather than drawn.

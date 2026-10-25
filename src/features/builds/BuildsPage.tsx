@@ -148,6 +148,7 @@ function SiteCard({ project, active }: { project: Project; active: boolean }) {
           : "border-border bg-panel hover:-translate-y-0.5 hover:border-border-strong hover:shadow-[0_22px_44px_-24px_rgb(0_0_0/0.75)] motion-reduce:hover:translate-y-0",
       )}
       {...ctxProps("builds", "project", project.id)}
+      data-build-id={project.id}
     >
       {/* The site. Pressing it is the same as pressing Open or Switch: the
           picture is the door, and a picture you cannot press is a poster. */}

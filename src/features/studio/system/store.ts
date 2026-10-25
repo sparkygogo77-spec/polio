@@ -62,6 +62,29 @@ export const useSystems = create<Library>()(
   ),
 );
 
+/** The house style: the System marked last, or null when none is. */
+export function houseOf(byId: Record<string, System> = useSystems.getState().byId): System | null {
+  let best: System | null = null;
+  for (const s of Object.values(byId)) if (s.house && (!best || s.house > (best.house ?? 0))) best = s;
+  return best;
+}
+
+/** Mark one System the house style, and only it (null: none is). Each System whose mark changes is a new copy, so the account carries it. */
+export function markHouse(id: string | null, at = Date.now()): void {
+  const byId = useSystems.getState().byId;
+  const next = { ...byId };
+  let n = 0;
+  for (const s of Object.values(byId)) {
+    const want = s.id === id;
+    if (want === !!s.house && (!want || houseOf(byId)?.id === id)) continue;
+    const { house: _h, ...rest } = s;
+    void _h;
+    next[s.id] = { ...rest, ...(want ? { house: at } : {}), rev: s.rev + 1, editedAt: Math.max(at, s.editedAt + 1) };
+    n++;
+  }
+  if (n) useSystems.setState({ byId: next });
+}
+
 /** Every System held, the most recently changed first. */
 export function libraryList(): System[] {
   return Object.values(useSystems.getState().byId).sort((a, b) => b.editedAt - a.editedAt);
