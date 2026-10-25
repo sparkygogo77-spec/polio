@@ -372,7 +372,43 @@ export function readDoc(key: string): string | null | Promise<string | null> {
     void idbSet(key, text);
     return text;
   }
-  return idbGet(key);
+  return pointedAt(key, raw);
+}
+
+/** How long a read waits for IndexedDB to hold what the pointer names: as long as a tab catching up does (`load.ts#catchUp`). */
+const SETTLE_TRIES = 40;
+const SETTLE_MS = 250;
+/**
+ * THE DOCUMENT A POINTER NAMES, OR THE LATEST ONE THAT SURVIVED.
+ *
+ * The pointer is written at once and IndexedDB a moment later, so a tab that
+ * is closed or reloaded in that moment (or held so busy the moment ran long:
+ * a big import drawing its pictures) leaves a pointer stamped with a write
+ * IndexedDB never got. The next tab read the older copy, held its stamp,
+ * found the pointer's different, and took itself for a tab behind another:
+ * nothing it did was saved, and "This site was saved in another tab" stood
+ * over the board of a site no other tab had open (gotchi.gg, share.xyz,
+ * `tests/variations.mjs`). So the read waits for IndexedDB to catch up, as a
+ * tab behind another does; when it never does, the tab that wrote the
+ * pointer is gone and what IndexedDB holds is the latest there is. It is
+ * read under the pointer's stamp, and written back so, so the key agrees with
+ * itself again and the next save carries on from it.
+ */
+async function pointedAt(key: string, pointer: string): Promise<string | null> {
+  let want = stampOf(pointer);
+  let text = await idbGet(key);
+  for (let i = 0; want !== null && stampOf(text) !== want && i < SETTLE_TRIES; i++) {
+    await new Promise((done) => setTimeout(done, SETTLE_MS));
+    const now = readMirror(key);
+    /* Written again meanwhile: a whole document or nothing is read as always; a new pointer is waited on afresh. */
+    if (now === null || !isPointer(now)) return readDoc(key);
+    if (now !== pointer) { pointer = now; want = stampOf(now); i = 0; }
+    text = await idbGet(key);
+  }
+  if (text === null || want === null || stampOf(text) === want) return text;
+  const kept = stamped(text, want);
+  await idbSet(key, kept);
+  return kept;
 }
 
 const pending = new Map<string, string | null>();
