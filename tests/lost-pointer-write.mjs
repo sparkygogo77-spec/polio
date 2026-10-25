@@ -72,9 +72,8 @@ const seed = async (pointerN, idbN) => {
 
 /* 1. The pointer's write lands a moment after the board starts reading. */
 await seed(9, 3);
-const opening = page.goto(`${URL_BASE}/builder`, { waitUntil: "domcontentloaded" });
-await opening;
-await page.waitForTimeout(1200);
+await page.goto(`${URL_BASE}/builder`, { waitUntil: "domcontentloaded" });
+await page.waitForTimeout(400);
 await idbPut(envelope(9, 0));
 await page.waitForFunction((n) => typeof window.__studioPublishDoc === "function" && window.__studioPublishDoc().nodes.length === n, N0, { timeout: 30000 }).catch(() => {});
 check("a write IndexedDB gets a moment late is waited for: the board opens on it", (await onBoard()) === N0, `${await onBoard()} parts, ${N0} in that write, ${N0 - 2} in the older copy`);

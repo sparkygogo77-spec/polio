@@ -412,8 +412,12 @@ export function readDoc(key: string): string | null | Promise<string | null> {
   return pointedAt(key, raw);
 }
 
-/** How long a read waits for IndexedDB to hold what the pointer names: as long as a tab catching up does (`load.ts#catchUp`). */
-const SETTLE_TRIES = 40;
+/**
+ * How long a read waits for IndexedDB to hold what the pointer names: a
+ * moment, for another tab's write on its way. A write cut off by its tab
+ * closing never lands, and the board is not left empty waiting for it.
+ */
+const SETTLE_TRIES = 6;
 const SETTLE_MS = 250;
 /**
  * THE DOCUMENT A POINTER NAMES, OR THE LATEST ONE THAT SURVIVED.
@@ -425,9 +429,9 @@ const SETTLE_MS = 250;
  * found the pointer's different, and took itself for a tab behind another:
  * nothing it did was saved, and "This site was saved in another tab" stood
  * over the board of a site no other tab had open (gotchi.gg, share.xyz,
- * `tests/variations.mjs`). So the read waits for IndexedDB to catch up, as a
- * tab behind another does; when it never does, the tab that wrote the
- * pointer is gone and what IndexedDB holds is the latest there is. It is
+ * `tests/variations.mjs`). So the read waits a moment for IndexedDB to catch
+ * up; when it does not, the tab that wrote the pointer is gone and what
+ * IndexedDB holds is the latest there is. It is
  * read under the pointer's stamp, and written back so, so the key agrees with
  * itself again and the next save carries on from it.
  */
@@ -450,6 +454,8 @@ async function pointedAt(key: string, pointer: string): Promise<string | null> {
 
 const pending = new Map<string, string | null>();
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
+/** Keys with a write waiting its turn behind the one in flight. */
+const queued = new Set<string>();
 /** Per key, when the oldest write not yet in IndexedDB was made. */
 const waitingSince = new Map<string, number>();
 /** The longest a write waits for IndexedDB while more keep coming. */
@@ -460,10 +466,14 @@ function flushKey(key: string): void {
   waitingSince.delete(key);
   const t = timers.get(key);
   if (t) { clearTimeout(t); timers.delete(key); }
-  if (!pending.has(key)) return;
-  const value = pending.get(key) ?? null;
-  pending.delete(key);
+  /* One write per key waits its turn, and takes the latest document when it starts: a slow write ahead of it never piles up copies behind it. */
+  if (!pending.has(key) || queued.has(key)) return;
+  queued.add(key);
   inFlight = inFlight.then(async () => {
+    queued.delete(key);
+    if (!pending.has(key)) return;
+    const value = pending.get(key) ?? null;
+    pending.delete(key);
     const kept = await idbSet(key, value);
     if (!pending.has(key)) said(key, kept || mirrored.get(key) ? { state: "saved", at: Date.now() } : { state: "failed", at: Date.now() });
   });
@@ -493,14 +503,16 @@ export function writeDoc(key: string, value: string | null, again = false): void
   if (t) clearTimeout(t);
   /*
    * A moment after the last write, or at most a second after the first one not
-   * yet in IndexedDB: a big import drawing its pictures wrote more often than
-   * every 120 ms for two minutes, so a wait that only ever started again kept
-   * IndexedDB two minutes behind the pointer, and a reload in that time lost it
-   * all (`pointedAt`, `tests/lost-pointer-write.mjs`).
+   * yet in IndexedDB. A wait that started again on every write, run by a page
+   * too busy to run timers (a big import drawing its pictures, saving every
+   * few hundred milliseconds), kept IndexedDB minutes behind the pointer, and
+   * a reload in that time lost it all (`pointedAt`, `tests/lost-pointer-write.mjs`).
    */
   if (!waitingSince.has(key)) waitingSince.set(key, Date.now());
-  const wait = Math.max(0, Math.min(120, waitingSince.get(key)! + FLUSH_MAX_MS - Date.now()));
-  timers.set(key, setTimeout(() => flushKey(key), wait));
+  const wait = waitingSince.get(key)! + FLUSH_MAX_MS - Date.now();
+  /* Overdue: written now, not on a timer. A page busy drawing an import ran no timer for twenty seconds while it kept saving. */
+  if (wait <= 0) { flushKey(key); return; }
+  timers.set(key, setTimeout(() => flushKey(key), Math.min(120, wait)));
 }
 /** A document written and in IndexedDB before this returns: for moving one between keys, so stamped as moved in. */
 export async function writeDocNow(key: string, value: string | null): Promise<void> {
