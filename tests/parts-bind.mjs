@@ -237,7 +237,8 @@ const boardRead = async () => { await hold(); return page.evaluate((PROPS) => {
   const out = {};
   for (const el of document.querySelectorAll("[data-studio-scroll] [data-node-id]")) {
     const r = el.getBoundingClientRect();
-    const styles = [el, ...el.querySelectorAll("*")].slice(0, 60).map((e) => { const cs = getComputedStyle(e); return PROPS.map((p) => cs.getPropertyValue(p)).join("|"); });
+    /* The Builder's own marks under the mouse (its dashed outline, the part's name chip) are not the part. */
+    const styles = [el, ...el.querySelectorAll("*:not([data-hover-mark]):not([class*='group-hover:'])")].slice(0, 60).map((e) => { const cs = getComputedStyle(e); return PROPS.map((p) => cs.getPropertyValue(p)).join("|"); });
     out[el.getAttribute("data-node-id")] = `${Math.round(r.x * 10)},${Math.round(r.y * 10)},${Math.round(r.width * 10)},${Math.round(r.height * 10)}#${styles.join(";")}`;
   }
   return out;
@@ -251,7 +252,7 @@ const docNow = () => page.evaluate(() => window.__studioHistory.doc().nodes);
 const depth = () => page.evaluate(() => window.__studioUndoDepth());
 const tab = (name) => page.locator(`[data-side-panel] [aria-label="Side panel"] [role=radio][aria-label="${name}"]`).click();
 const blur = () => page.evaluate(() => document.activeElement?.blur?.());
-const select = async (id) => { await page.evaluate((x) => window.__studioSelect([x]), id); await pause(600); };
+const select = async (id) => { await page.evaluate((x) => window.__studioSelect(x ? [x] : []), id); await pause(600); };
 
 say("waiting for the board to hold still");
 let board0 = await boardRead();
@@ -318,7 +319,9 @@ if (layer) {
 if (byHand) {
   await page.evaluate(([id, key, v]) => { const n = window.__studioHistory.doc().nodes.find((x) => x.id === id); window.__studioHistory.act("updateNode", id, { colour: { ...(n.colour ?? {}), [key]: v } }); }, [fillOf(byHand).node, keyOf(byHand), CYAN]);
   await select(byHand.host);
-  check("changed by hand, the row says its fill is its own", ((await row.first().getAttribute("data-instance-own")) ?? "").split(" ").includes("fill") && !(await row.locator("[data-instance-reset]").isDisabled()));
+  let ownSaid = "";
+  for (let i = 0; i < 10 && !ownSaid; i++) { ownSaid = ((await row.locator("[data-instance-own]").count()) ? await row.locator("[data-instance-own]").first().getAttribute("data-instance-own") : ""); if (!ownSaid) await pause(500); }
+  check("changed by hand, the row says its fill is its own", ownSaid.split(" ").includes("fill") && !(await row.locator("[data-instance-reset]").isDisabled()), `row: ${JSON.stringify(ownSaid)}, row of ${await row.first().getAttribute("data-instance-row")}, api: ${JSON.stringify(await S((S, id) => S.overridesOfPart(id), byHand.host))}, fill ${JSON.stringify((await docNow()).find((n) => n.id === fillOf(byHand).node)?.colour)}`);
 }
 if (held) {
   await select(held.host);
@@ -326,12 +329,14 @@ if (held) {
   await pause(500);
   check("Change just this one: the row says it keeps its own look", /its own look/.test(await row.first().innerText()));
 }
-await select(first.host);
+/* Read with nothing picked: a picked part draws the Builder's own chip inside it. */
+await select(null);
 await page.mouse.move(2, 2);
 await pause(900);
 const boardB = await boardRead();
 const docB = await docNow();
 const depthB = await depth();
+await select(first.host);
 
 /* Edit the component: the System tab, on this variant; its fill set there. */
 await row.locator("[data-instance-edit]").click();
@@ -373,8 +378,11 @@ await page.keyboard.press("Control+z");
 await pause(1200);
 await page.mouse.move(2, 2);
 await pause(900);
-const backU = differ(boardB, await boardRead());
-check("one Ctrl+Z takes it all back, on the board", backU.length === 0 && (await depth()) === depthB, `${backU.length} differ, depth ${await depth()}`);
+await select(null);
+const boardU = await boardRead();
+const backU = differ(boardB, boardU);
+for (const id of backU.slice(0, 1)) { const a = boardB[id].split(/[;#|]/), b = boardU[id].split(/[;#|]/); console.log("       undo diff", id, a.map((x, i) => (x !== b[i] ? `${i}: ${x} -> ${b[i]}` : null)).filter(Boolean).slice(0, 6).join(" ; ")); }
+check("one Ctrl+Z takes it all back, on the board", backU.length === 0 && (await depth()) === depthB, `${backU.length} differ ${backU.slice(0, 3)} (instances: ${backU.map((id) => list.findIndex((it) => it.parts.includes(id)))}), depth ${await depth()}`);
 const libU = await S((S, a) => JSON.stringify(S.system().components.find((c) => c.id === a.c).variants.find((x) => x.id === a.v).look.fill), { c: first.component, v: first.variant });
 check("…and in the System", !libU.includes("255, 0, 255"), libU);
 
@@ -386,7 +394,7 @@ if (byHand) {
   await pause(900);
   const n = (await docNow()).find((x) => x.id === fillOf(byHand).node);
   const was = docB.find((x) => x.id === fillOf(first).node).colour?.[keyOf(first)];
-  check("Reset restores the one changed by hand to its variant", n.colour?.[keyOf(byHand)] === was && !(await row.first().getAttribute("data-instance-own")), `${n.colour?.[keyOf(byHand)]} vs ${was}`);
+  check("Reset restores the one changed by hand to its variant", n.colour?.[keyOf(byHand)] === was && (await row.locator("[data-instance-own]").count()) === 0, `${n.colour?.[keyOf(byHand)]} vs ${was}`);
 }
 if (held) {
   await select(held.host);
