@@ -338,7 +338,9 @@ else {
   await page.waitForTimeout(1500);
   const back = await page.evaluate((id) => window.__polioSystem.system().tokens.colour.find((t) => t.id === id)?.value, pick.id);
   check("one undo takes the token back, in the library too", back === pick.value, `${back} (was ${pick.value})`);
-  const board2 = await boardRead();
+  /* A part far below the view draws what comes back a little later (the board draws far parts late): up to 10s for it. */
+  let board2 = await boardRead();
+  for (let i = 0; i < 10 && Object.keys(board1).some((id) => board1[id] !== board2[id]); i++) { await page.waitForTimeout(1000); board2 = await boardRead(); }
   const still = Object.keys(board1).filter((id) => board1[id] !== board2[id]);
   check("and the board is as it was", still.length === 0, `${still.length} parts differ ${still.slice(0, 5).join(", ")}`);
 }
