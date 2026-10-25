@@ -69,6 +69,19 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     text: "Move and Hover are on the wheel too, in its tray",
     since: "#402",
   },
+  /* The PR number is not known when the branch is pushed: "agents-entry" stands in for it. */
+  {
+    id: "agents",
+    find: "[data-agents-button]",
+    text: "Agents: ask for a change and watch the agents work, in a dock on the right",
+    since: "agents-entry",
+  },
+  {
+    id: "ask-agents",
+    find: '[data-tray-item="ask-agents"]',
+    text: "Ask agents about this part: change it, suggest features, check security, build its backend, explain",
+    since: "agents-entry",
+  },
 ];
 
 /**
