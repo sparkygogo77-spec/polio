@@ -11,6 +11,12 @@
  * held; choosing one points the site at it (`pointSiteAt`: nothing is linked
  * until a take). "Own copy" gives the site a copy of its own to change apart
  * (`forkSite`), with every pointer kept.
+ *
+ * THE HOUSE STYLE (J, 2026-10-24: one house style all his sites share). The
+ * toggle beside the picker makes the System shown the house style, one at a
+ * time. A site with no System of its own uses it, and the panel says so in
+ * plain words; Own copy breaks away from it, Take from this site gives the
+ * site its own.
  */
 import * as React from "react";
 import { Copy, Download, FilePlus2 } from "lucide-react";
@@ -18,7 +24,8 @@ import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { Dialog } from "@/core/ui/dialog";
 import { Select } from "@/core/ui/select";
-import { forkSite, newSystem, pointSiteAt, takeFromSite, useLibrary, type TakeAnswer } from "../../system/api";
+import { Switch } from "@/core/ui/switch";
+import { forkSite, newSystem, pointSiteAt, setHouse, takeFromSite, useHouse, useLibrary, type TakeAnswer } from "../../system/api";
 import type { System } from "../../system/model";
 import { useStudio } from "../../board/store";
 
@@ -84,8 +91,9 @@ export function TakeDialog({ open, onOpenChange }: { open: boolean; onOpenChange
 /** The head: which System, Take from this site, New, Own copy. */
 export function SystemBar({ system }: { system: System | null }) {
   const library = useLibrary();
+  const { house, mine } = useHouse();
   const [taking, setTaking] = React.useState(false);
-  const options = library.map((s) => ({ value: s.id, label: s.name }));
+  const options = library.map((s) => ({ value: s.id, label: s.id === house?.id ? `${s.name} (house style)` : s.name }));
   if (system && !options.some((o) => o.value === system.id)) options.unshift({ value: system.id, label: system.name });
   return (
     <div data-system-bar="" className="space-y-1.5">
@@ -113,6 +121,17 @@ export function SystemBar({ system }: { system: System | null }) {
             </Button>
           ) : null}
         </div>
+      ) : null}
+      {system ? (
+        <label className="flex items-center gap-1.5 text-small text-fg-muted" title="The System every site uses until it takes or copies its own. One at a time.">
+          <Switch size="sm" data-house-toggle="" aria-label="House style" checked={mine} onCheckedChange={(on) => setHouse(on ? system.id : null)} />
+          House style
+        </label>
+      ) : null}
+      {mine ? (
+        <p data-house-says="" className="text-small text-fg">
+          This site uses the house style, “{house?.name}”. Changing it here changes every site on it. Own copy breaks away; Take from this site makes this site its own.
+        </p>
       ) : null}
       <TakeDialog open={taking} onOpenChange={setTaking} />
     </div>

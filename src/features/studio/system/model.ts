@@ -116,6 +116,12 @@ export interface System {
   rev: number;
   /** When it last changed: the account keeps the later of two copies (`sync.ts`). */
   editedAt: number;
+  /**
+   * When it was made the house style: the one System every site uses unless
+   * it takes its own (J, 2026-10-24). One at a time; where two copies both
+   * say so (two browsers), the later mark is the house style (`store.ts#houseOf`).
+   */
+  house?: number;
   tokens: SystemTokens;
   components: SystemComponent[];
 }
@@ -258,6 +264,7 @@ export function readSystem(v: unknown): System | null {
     taken: isObj(v.taken) && str(v.taken.site) ? { site: v.taken.site, host: str(v.taken.host) ? v.taken.host : null } : null,
     rev: num(v.rev) ? v.rev : 1,
     editedAt: num(v.editedAt) ? v.editedAt : 0,
+    ...(num(v.house) && v.house > 0 ? { house: v.house } : {}),
     tokens: {
       colour: list<ColourToken>(t.colour, (e) => str(e.value)),
       type: { faces: list<FaceToken>(type.faces, (e) => str(e.stack)), scale, steps: list<SizeToken>(type.steps, (e) => num(e.px)) },

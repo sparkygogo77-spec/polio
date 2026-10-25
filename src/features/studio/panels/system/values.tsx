@@ -72,7 +72,8 @@ export function ColourBox({ value, onCommit, label }: { value: string; onCommit:
 export function TokenValue({ kind, value, onCommit, label }: { kind: TokenKind; value: string | number; onCommit: (v: string | number) => boolean; label: string }) {
   if (kind === "colour") {
     return (
-      <span className="flex min-w-0 flex-1 items-center gap-1">
+      /* Never narrower than a colour's words: the row wraps first (tokens.tsx). */
+      <span className="flex min-w-[8.5rem] flex-1 items-center gap-1">
         <ColourBox value={String(value)} label={label} onCommit={(hex) => { if (!onCommit(hex)) play("deny"); }} />
         <CommitInput mono label={label} value={value} onCommit={(v) => onCommit(v)} className="flex-1" />
       </span>
@@ -86,7 +87,7 @@ export function TokenValue({ kind, value, onCommit, label }: { kind: TokenKind; 
       </span>
     );
   }
-  return <CommitInput mono label={label} value={value} onCommit={(v) => onCommit(v)} className="flex-1" />;
+  return <CommitInput mono label={label} value={value} onCommit={(v) => onCommit(v)} className="min-w-[8.5rem] flex-1" />;
 }
 
 /* ------------------------------------------------------------------ */

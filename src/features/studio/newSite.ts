@@ -10,6 +10,7 @@
  */
 import { defaultRoll, type ThemeRollSettings } from "./look";
 import { useStudio } from "./board/store";
+import { wearSystem } from "./system/api";
 import { readPhilosophy, rollTheme, type SiteTheme } from "./siteTheme";
 import { pickTryThese } from "./tryThese";
 import type { StyleKit } from "./look";
@@ -31,6 +32,8 @@ export function rollOnto(opts: { seed?: number; kits?: readonly StyleKit[]; site
 /** A new site's first page: a sample page in a theme of its own. */
 export function startNewSite(name?: string, seed?: number): SiteTheme {
   const theme = rollOnto({ seed, siteName: name, fresh: true });
+  /* On the house style (a blank site points at it, system/api.ts): its colours over the rolled theme's. */
+  wearSystem();
   useStudio.setState({ past: [], future: [] });
   return theme;
 }
