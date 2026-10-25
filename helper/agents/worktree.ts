@@ -13,7 +13,7 @@ export function addWorktree({ repo, root, lane, base }: { repo: string; root: st
   if (!LANE_NAME.test(lane)) throw new Error(`lane name ${JSON.stringify(lane)} must be lower-case letters, digits and dashes`);
   const dir = join(root, lane);
   if (existsSync(join(dir, ".git"))) return dir;
-  const git = (...args: string[]) => execFileSync("git", ["-C", repo, ...args], { stdio: "pipe" }).toString();
+  const git = (...args: string[]) => execFileSync("git", ["-C", repo, ...args], { stdio: "pipe", windowsHide: true }).toString();
   const branch = `claude/${lane}`;
   const has = git("branch", "--list", branch).trim().length > 0;
   git("worktree", "add", ...(has ? [dir, branch] : ["-b", branch, dir, base]));

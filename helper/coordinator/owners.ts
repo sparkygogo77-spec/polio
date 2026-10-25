@@ -111,7 +111,7 @@ export function ownedPatterns(changed: string[], added: string[], isNewDir: (dir
 export type Git = (...args: string[]) => string;
 
 export function gitIn(repo: string): Git {
-  return (...args) => execFileSync("git", ["-C", repo, ...args], { stdio: ["ignore", "pipe", "ignore"], maxBuffer: 64 << 20 }).toString();
+  return (...args) => execFileSync("git", ["-C", repo, ...args], { stdio: ["ignore", "pipe", "ignore"], maxBuffer: 64 << 20, windowsHide: true }).toString();
 }
 
 /**
