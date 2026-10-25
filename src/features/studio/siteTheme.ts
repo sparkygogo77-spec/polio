@@ -393,6 +393,34 @@ function labOf(rgb: string): [number, number, number] {
   return [0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s, 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s, 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s];
 }
 
+/**
+ * A captured colour in OKLCH, with its alpha: `rgb()`, `rgba()` or a hex,
+ * as parts and tokens hold them. Null for anything else (a named colour, a
+ * gradient), which a re-roll then leaves as it is (`variations/tokens.ts`).
+ */
+export function oklchOf(css: string): (Oklch & { alpha: number }) | null {
+  const s = css.trim().toLowerCase();
+  let rgb: number[] | null = null, alpha = 1;
+  const m = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)(?:\s*[,/]\s*([\d.]+%?))?\s*\)$/.exec(s);
+  if (m) {
+    rgb = [Number(m[1]), Number(m[2]), Number(m[3])];
+    if (m[4] != null) alpha = m[4].endsWith("%") ? Number(m[4].slice(0, -1)) / 100 : Number(m[4]);
+  } else {
+    const h = /^#([0-9a-f]{3,8})$/.exec(s)?.[1];
+    if (h && (h.length === 3 || h.length === 4)) { rgb = [0, 1, 2].map((i) => parseInt(h[i]! + h[i]!, 16)); if (h.length === 4) alpha = parseInt(h[3]! + h[3]!, 16) / 255; }
+    else if (h && (h.length === 6 || h.length === 8)) { rgb = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); if (h.length === 8) alpha = parseInt(h.slice(6, 8), 16) / 255; }
+  }
+  if (!rgb || rgb.some((v) => !Number.isFinite(v)) || !Number.isFinite(alpha)) return null;
+  const [L, a, b] = labOf(`rgb(${rgb.map((v) => Math.round(Math.max(0, Math.min(255, v)))).join(", ")})`);
+  return { l: L, c: Math.hypot(a, b), h: ((Math.atan2(b, a) * 180) / Math.PI + 360) % 360, alpha: Math.max(0, Math.min(1, alpha)) };
+}
+
+/** An OKLCH colour back as the form parts hold: `rgb()`, or `rgba()` when it is see-through. */
+export function cssOf(col: Oklch, alpha = 1): string {
+  const rgb = rgbOf(col);
+  return alpha >= 0.999 ? rgb : rgb.replace("rgb(", "rgba(").replace(")", `, ${+alpha.toFixed(3)})`);
+}
+
 function point(accent: string, radiusShare: number, border: number, shadow: ShadowStyle, depth: number): Point {
   const [L, a, b] = labOf(accent);
   return [a * 3, b * 3, L * 0.5, Math.min(1, radiusShare), Math.min(4, border) / 4, ...SHADOW_AT[shadow].map((v) => v * 0.6), Math.min(14, depth) / 14];
