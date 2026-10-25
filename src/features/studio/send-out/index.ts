@@ -18,3 +18,5 @@ export { assetPath, globalsCss, layoutTsx as cleanLayoutTsx, pagesOut, pascal, r
 export type { ExportedPage, ExportedPart, PagesInput, PagesNode, PagesOut, PagesReport, StillPlaced } from "./pagesOut.ts";
 export { CX_TS, UI_DIR, componentTsx, galleryTsx, libraryNames, libraryOut, stateClasses } from "./libraryOut.ts";
 export type { LibraryName } from "./libraryOut.ts";
+export { exactGlobalsCss, exactLayoutTsx, exactOut, publishedRoles, roleBridge } from "./exactOut.ts";
+export type { ExactInput } from "./exactOut.ts";
