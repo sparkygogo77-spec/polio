@@ -14,7 +14,9 @@
  *      the board opens on that write, not the older copy;
  *   2. a pointer whose write never lands: the board opens on what IndexedDB
  *      holds, no "another tab" bubble, the key made to agree with itself,
- *      and the next change is saved.
+ *      and the next change is saved;
+ *   3. saves that keep coming faster than the wait before IndexedDB still
+ *      reach it within a second, so the pointer is never far ahead.
  *
  *   npx next start -p 3013
  *   node tests/lost-pointer-write.mjs http://127.0.0.1:3013
@@ -92,6 +94,24 @@ await page.evaluate((doc) => window.__studioLoadDoc(doc), SMALL);
 await page.waitForTimeout(1200);
 const after = await mirrorStamp();
 check("…and the next change is saved, as this tab's", !!after && !after.startsWith("gonetab1:") && (await idbStamp()) === after, `localStorage ${after}, IndexedDB ${await idbStamp()}`);
+
+/* 3. Saves that keep coming, faster than the wait before IndexedDB (a big import drawing its pictures), still reach it. */
+const before = await idbStamp();
+const landedDuring = await page.evaluate(async (doc) => {
+  const stampIn = () => new Promise((done) => {
+    const req = indexedDB.open("builder.docs", 1);
+    req.onsuccess = () => { const g = req.result.transaction("docs", "readonly").objectStore("docs").get("builder.studio"); g.onsuccess = () => { const t = String(g.result ?? "").slice(-120); const i = t.lastIndexOf('"by":"'); req.result.close(); done(i < 0 ? null : t.slice(i + 6, t.indexOf('"', i + 6))); }; };
+    req.onerror = () => done(null);
+  });
+  const seen = new Set();
+  for (let i = 0; i < 60; i++) {
+    window.__studioLoadDoc({ ...doc, nodes: doc.nodes.map((n, k) => (k === 0 ? { ...n, label: `burst ${i}` } : n)) });
+    await new Promise((r) => setTimeout(r, 50));
+    if (i % 10 === 9) seen.add(await stampIn());
+  }
+  return [...seen];
+}, SMALL);
+check("saves coming every 50 ms for 3 s reach IndexedDB while they keep coming", landedDuring.some((s) => s && s !== before), `before ${before}, seen during: ${landedDuring.join(", ")}`);
 check("no page errors", errors.length === 0, errors.join(" | ").slice(0, 300));
 
 await browser.close();

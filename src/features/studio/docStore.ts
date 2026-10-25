@@ -329,6 +329,7 @@ export function whenOtherTabWrites(key: string, fn: () => void): () => void {
     if (k !== key && k !== null) return;
     if (pending.has(key) && behind(key)) {
       pending.delete(key);
+      waitingSince.delete(key);
       const t = timers.get(key);
       if (t) { clearTimeout(t); timers.delete(key); }
     }
@@ -413,9 +414,14 @@ async function pointedAt(key: string, pointer: string): Promise<string | null> {
 
 const pending = new Map<string, string | null>();
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
+/** Per key, when the oldest write not yet in IndexedDB was made. */
+const waitingSince = new Map<string, number>();
+/** The longest a write waits for IndexedDB while more keep coming. */
+const FLUSH_MAX_MS = 1000;
 let inFlight: Promise<void> = Promise.resolve();
 const mirrored = new Map<string, boolean>();
 function flushKey(key: string): void {
+  waitingSince.delete(key);
   const t = timers.get(key);
   if (t) { clearTimeout(t); timers.delete(key); }
   if (!pending.has(key)) return;
@@ -449,7 +455,16 @@ export function writeDoc(key: string, value: string | null, again = false): void
   pending.set(key, text);
   const t = timers.get(key);
   if (t) clearTimeout(t);
-  timers.set(key, setTimeout(() => flushKey(key), 120));
+  /*
+   * A moment after the last write, or at most a second after the first one not
+   * yet in IndexedDB: a big import drawing its pictures wrote more often than
+   * every 120 ms for two minutes, so a wait that only ever started again kept
+   * IndexedDB two minutes behind the pointer, and a reload in that time lost it
+   * all (`pointedAt`, `tests/lost-pointer-write.mjs`).
+   */
+  if (!waitingSince.has(key)) waitingSince.set(key, Date.now());
+  const wait = Math.max(0, Math.min(120, waitingSince.get(key)! + FLUSH_MAX_MS - Date.now()));
+  timers.set(key, setTimeout(() => flushKey(key), wait));
 }
 /** A document written and in IndexedDB before this returns: for moving one between keys, so stamped as moved in. */
 export async function writeDocNow(key: string, value: string | null): Promise<void> {
@@ -457,6 +472,7 @@ export async function writeDocNow(key: string, value: string | null): Promise<vo
   const { whole, landed } = writeMirror(key, text);
   heldAfter(key, text, landed);
   pending.delete(key);
+  waitingSince.delete(key);
   const t = timers.get(key);
   if (t) { clearTimeout(t); timers.delete(key); }
   const kept = await idbSet(key, text);
