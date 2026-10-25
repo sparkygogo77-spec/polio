@@ -69,6 +69,18 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     text: "Move and Hover are on the wheel too, in its tray",
     since: "#402",
   },
+  {
+    id: "builds-start",
+    find: "[data-start-row]",
+    text: "Start something: import a site, start from an idea, make variations, a blank site, or the agents, from Builds",
+    since: "builds-home",
+  },
+  {
+    id: "builds-status",
+    find: "[data-site-status]",
+    text: "Each site's card says where it is live, its last export, which style it uses, its copies, and the agents on it",
+    since: "builds-home",
+  },
   /* The PR number is not known when the branch is pushed: "agents-entry" stands in for it. */
   {
     id: "agents",

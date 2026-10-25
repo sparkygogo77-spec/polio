@@ -16,6 +16,7 @@
 import * as React from "react";
 import { GitBranch, Plus, Sparkles, X } from "lucide-react";
 import { useBuilds } from "@/features/builds/store";
+import { startAsked } from "@/features/builds/start";
 import { useHeldStudio } from "./board/store";
 import { isStarter } from "./starterPage";
 import { VOID } from "@/core/ui/void";
@@ -33,6 +34,8 @@ export function NewSiteOffer() {
   /* The sample page a new site opens on is not work of his: the offer still stands over it. */
   const parts = useHeldStudio((s) => s.nodes.filter((n) => !isStarter(n.id)).length);
   const [idea, setIdea] = React.useState(false);
+  /* Builds' "Start from an idea" makes a blank site and opens the Builder with `?start=idea` (`builds/start.ts`). */
+  React.useEffect(() => { if (startAsked("idea")) setIdea(true); }, []);
   const dialog = <IdeaDialog open={idea} onOpenChange={setIdea} />;
   /* One shape either way, so the dialog keeps what it made when the offer goes. */
   if (!project || project.repo || project.offered || parts > 0) return <>{null}{dialog}</>;

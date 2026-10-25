@@ -29,6 +29,7 @@ import * as React from "react";
 import { Camera, ExternalLink, Loader2, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/core/ui/button";
 import { Input } from "@/core/ui/input";
+import { startAsked } from "@/features/builds/start";
 import { Dialog } from "@/core/ui/dialog";
 import { Tooltip } from "@/core/ui/tooltip";
 import { useActions } from "@/core/actions";
@@ -381,6 +382,8 @@ export function CaptureSiteDoor({ hidden = false }: { hidden?: boolean } = {}) {
   const [open, setOpen] = React.useState(false);
   React.useEffect(() => {
     const on = () => setOpen(true);
+    /* Builds' "Import a site" opens the Builder with `?start=capture` (`builds/start.ts`). */
+    if (startAsked("capture")) on();
     window.addEventListener("studio:capture-site", on);
     return () => window.removeEventListener("studio:capture-site", on);
   }, []);

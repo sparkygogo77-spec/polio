@@ -104,6 +104,12 @@ export interface Project {
     /** The board's `editedAt` when its pages were written for this push: a later edit is not in it. */
     editedAt?: number;
   };
+  /**
+   * The last export that went through (`ExportDialog.tsx`): when, which
+   * mode (exact look or clean code), and where (a zip, or the repository).
+   * The Builds card reads it; nothing opens the repository to find out.
+   */
+  exported?: { at: number; mode: "exact" | "clean"; to: "zip" | "repo"; repo?: string | null };
 }
 
 /** What a project's document says about itself, for the row that lists it. */
@@ -154,6 +160,8 @@ interface Builds {
   setPending: (id: string, pending: Project["pending"]) => void;
   /** A push from this site went through, to this repository and branch. */
   setPublished: (id: string, repo: string, branch: string, more?: { sha?: string; commitUrl?: string; editedAt?: number }) => void;
+  /** An export of this site went through, in this mode, to a zip or its repository. */
+  setExported: (id: string, mode: "exact" | "clean", to: "zip" | "repo", repo?: string | null) => void;
   /** Write the open document back to its own slot. */
   save: () => Promise<void>;
 }
@@ -335,7 +343,7 @@ export const useBuilds = create<Builds>()(
           /* A copy never shares its original's publish target: two sites on
              one repository and branch replace each other's live site. Its
              first publish makes a repository of its own (`sharedTarget`). */
-          projects: [{ ...from, id: copy, name: `${from.name} copy`, updatedAt: Date.now(), versionOf: { project: from.id, made: Date.now() }, live: undefined, pending: undefined, published: undefined, repo: undefined, bound: undefined, backedUpAt: undefined, nudged: undefined }, ...s.projects],
+          projects: [{ ...from, id: copy, name: `${from.name} copy`, updatedAt: Date.now(), versionOf: { project: from.id, made: Date.now() }, live: undefined, pending: undefined, published: undefined, exported: undefined, repo: undefined, bound: undefined, backedUpAt: undefined, nudged: undefined }, ...s.projects],
         }));
       },
 
@@ -401,6 +409,9 @@ export const useBuilds = create<Builds>()(
 
       setPublished: (id, repo, branch, more) =>
         set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, published: { at: Date.now(), repo, branch, ...(more ?? {}) } } : p)) })),
+
+      setExported: (id, mode, to, repo) =>
+        set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, exported: { at: Date.now(), mode, to, ...(repo ? { repo } : {}) } } : p)) })),
     }),
     {
       name: "builder.builds",
