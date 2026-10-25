@@ -92,15 +92,17 @@ const pause = (page, ms = 600) => page.waitForTimeout(ms);
 const nodeCount = (page) => page.evaluate(() => window.__studioHistory?.doc().nodes.length ?? 0).catch(() => 0);
 const builds = async (page) => { await page.goto(`${BASE}/builds`, { waitUntil: "networkidle" }); await pause(page, 900); };
 const toBuilder = async (page) => { await page.goto(`${BASE}/builder`, { waitUntil: "networkidle" }); await pause(page, 2000); };
-async function blankSite(page) { await builds(page); await page.locator("[data-builds-blank]").click(); await pause(page, 1500); await toBuilder(page); }
-async function newSite(page) { await builds(page); await page.getByRole("button", { name: "New site" }).first().click(); await pause(page, 1500); await toBuilder(page); }
-/* By id: a site brought in takes its repository's name. */
+/* A new site, or a switch, begins once the site being left is saved: a large one (parasite's 9000 parts) takes seconds, and going on before it lands leaves the old site open. */
+const activeNow = (page) => page.evaluate(() => JSON.parse(localStorage.getItem("builder.builds") ?? "{}").state?.activeId ?? null);
+async function untilActive(page, ok) { for (let i = 0; i < 120 && !ok(await activeNow(page)); i++) await pause(page, 500); await pause(page, 500); }
+async function blankSite(page) { await builds(page); const was = await activeNow(page); await page.locator("[data-builds-blank]").click(); await untilActive(page, (id) => id && id !== was); await toBuilder(page); }
+async function newSite(page) { await builds(page); const was = await activeNow(page); await page.getByRole("button", { name: "New site" }).first().click(); await untilActive(page, (id) => id && id !== was); await toBuilder(page); }
+/* By id: a site brought in takes its repository's name, and two imports of one capture share it. */
 const projects = (page) => page.evaluate(() => JSON.parse(localStorage.getItem("builder.builds") ?? "{}").state ?? {});
 async function switchTo(page, id) {
   await builds(page);
-  const name = (await projects(page)).projects?.find((p) => p.id === id)?.name;
-  await page.getByRole("button", { name: `Switch to ${name}`, exact: true }).click();
-  await pause(page, 1500);
+  await page.locator(`[data-build-id="${id}"]`).getByRole("button", { name: /^Switch to / }).click();
+  await untilActive(page, (now) => now === id);
   await toBuilder(page);
 }
 const siteName = async (page) => (await projects(page)).activeId ?? null;
@@ -149,7 +151,10 @@ const boardRead = async (page) => { await hold(page); return page.evaluate((PROP
   }
   return out;
 }, PROPS); };
-const differ = (a, b) => Object.keys(a).filter((id) => a[id] !== b[id]).concat(Object.keys(b).filter((id) => !(id in a)));
+/* A box within half a pixel is the same box: text laid out under the board's scale lands a tenth of a pixel either side of a rounding edge from one visit to the next (trendtrader's paragraphs). The painted styles must match exactly. */
+const sameBox = (p, q) => { const u = p.split(","), v = q.split(","); return u.length === v.length && u.every((n, i) => Math.abs(n - v[i]) <= 5); };
+const same = (p, q) => { if (p === q) return true; if (!p || !q) return false; const [bp, sp] = p.split("#"), [bq, sq] = q.split("#"); return sp === sq && sameBox(bp, bq); };
+const differ = (a, b) => Object.keys(a).filter((id) => !same(a[id], b[id])).concat(Object.keys(b).filter((id) => !(id in a)));
 /**
  * Parts of `b` unlike `a`, read again where they differ: a part that moves of
  * itself (a fade, a blink) shows both states, and is the same part when one
@@ -160,7 +165,7 @@ async function unlike(page, a, b) {
   for (let i = 0; i < 10 && left.length; i++) {
     await pause(page, 1100);
     const again = await boardRead(page);
-    left = left.filter((id) => a[id] !== again[id]);
+    left = left.filter((id) => !same(a[id], again[id]));
   }
   return left;
 }
@@ -169,7 +174,7 @@ function onlyOpacity(a, b, id) {
   if (!a[id] || !b[id]) return false;
   const skip = new Set([PROPS.indexOf("opacity"), PROPS.indexOf("transform")]);
   const strip = (v) => v.split("#")[1].split(";").map((e) => e.split("|").filter((_, j) => !skip.has(j)).join("|")).join(";");
-  return a[id].split("#")[0] === b[id].split("#")[0] && strip(a[id]) === strip(b[id]);
+  return sameBox(a[id].split("#")[0], b[id].split("#")[0]) && strip(a[id]) === strip(b[id]);
 }
 /** What differs on one part: its box, or the first painted style that does (element, property, before → after). */
 function why(a, b, id) {
@@ -188,9 +193,24 @@ function why(a, b, id) {
 /** The board once two reads 1.5s apart agree: a large site's pictures arrive after its parts (tests/system-panel.mjs). */
 async function stillBoard(page) {
   let b = await boardRead(page);
-  for (let i = 0, still = 0; i < 80 && still < 2; i++) { await pause(page, 1500); const n = await boardRead(page); still = differ(b, n).length ? 0 : still + 1; b = n; }
+  for (let i = 0, still = 0; i < 80 && (still < 2 || (await picturesOwed(page)) > 0); i++) { await pause(page, 1500); const n = await boardRead(page); still = differ(b, n).length ? 0 : still + 1; b = n; }
   return b;
 }
+/**
+ * Parts drawn on the board whose picture has not arrived yet. An import keeps
+ * its pictures one by one after the parts land, and behind a large site that
+ * can stall for longer than two still reads (trumpmorty's footer band, after
+ * parasite): read then, the board is short a picture it is about to draw.
+ */
+const picturesOwed = (page) => page.evaluate(() => {
+  const pics = new Set(window.__studioHistory.doc().nodes.filter((n) => n.picture).map((n) => n.id));
+  return [...document.querySelectorAll("[data-studio-scroll] [data-node-id]")].filter((el) => {
+    if (!pics.has(el.getAttribute("data-node-id"))) return false;
+    const b = el.getBoundingClientRect();
+    if (!b.width && !b.height) return false;
+    return ![el, ...el.querySelectorAll("*")].some((e) => (e.tagName === "IMG" && e.src.startsWith("blob:")) || getComputedStyle(e).backgroundImage.includes("blob:"));
+  }).length;
+}).catch(() => 0);
 /* The page frame from its own corner, the same size every time: where the Builder puts it on screen is not the site. */
 const frameClip = (page) => page.evaluate(() => { const r = document.querySelector("[data-frame]")?.getBoundingClientRect(); if (!r) return null; const x = Math.max(0, r.left), y = Math.max(0, r.top); return { x, y, width: Math.min(innerWidth, r.right) - x, height: Math.min(640, innerHeight - y) }; });
 const shot = async (page) => { await hold(page); const clip = await frameClip(page); return sharp(await page.screenshot({ animations: "disabled", ...(clip ? { clip } : {}) })).raw().toBuffer({ resolveWithObject: true }); };
