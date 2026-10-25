@@ -66,7 +66,14 @@ export function readPress(e: PressEvent, p: Point, tool: Tool, st: StudioState, 
     };
   };
 
-  const lifted = hit && !e.shiftKey && !st.selection.includes(hit.id) ? ownerOf(st.nodes, hit, pal) : null;
+  /*
+   * A PICKED HOLDER ITS PARTS COVER WHOLE IS GRABBED ANYWHERE ON IT (EDIT-ISSUES #17). Sol face's header button group is
+   * all buttons: every press on it picked a button, and the group moved only by its edge, where its resize bars are.
+   * Once it is picked (Escape from a button, or the list), one press inside it keeps it and a drag moves it with what
+   * it holds; the second press goes in, as on any holder (`tests/covered-holder-grab.mjs`).
+   */
+  const kept = hit && !e.shiftKey && !twice && st.selection.length === 1 ? coveredHolder(st, st.selection[0]!, hit) : null;
+  const lifted = kept ?? (hit && !e.shiftKey && !st.selection.includes(hit.id) ? ownerOf(st.nodes, hit, pal) : null);
   /*
    * THE SECOND PRESS GOES IN. The first press on a part inside a control or a card picks the control; the second of
    * two picks the part under the hand. Words had their own way in (they open), and a part that holds others its own
@@ -98,6 +105,21 @@ export function readPress(e: PressEvent, p: Point, tool: Tool, st: StudioState, 
     },
     hitId, hit, id, node, ids, groupHandle, resizeHandle, shapeId,
   };
+}
+
+/** The picked part, when it holds `hit` and the parts it holds leave none of it bare to press on. */
+function coveredHolder(st: StudioState, pickedId: string, hit: StudioNode): StudioNode | null {
+  const held = st.nodes.find((n) => n.id === pickedId);
+  if (!held || held.id === hit.id || held.locked || isWrapper(st.nodes, held) || !holds(held, hit)) return null;
+  const shown = shownOnBoard(st);
+  const kids = st.nodes.filter((n) => n.id !== held.id && shown(n) && n.w > 0 && n.h > 0 && holds(held, n));
+  /* Read on a grid across it, inside its edge: every point lies on one of its parts. */
+  const N = 12, pad = 2;
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+    const x = held.x + pad + ((held.w - 2 * pad) * (i + 0.5)) / N, y = held.y + pad + ((held.h - 2 * pad) * (j + 0.5)) / N;
+    if (!kids.some((k) => x >= k.x && x <= k.x + k.w && y >= k.y && y <= k.y + k.h)) return null;
+  }
+  return held;
 }
 
 /** A locked group's resize: the group as one box, its members as they were. */
