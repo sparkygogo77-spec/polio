@@ -133,7 +133,8 @@ async function bring(page, sink) {
 /* Reading a board                                                      */
 /* ------------------------------------------------------------------ */
 const PROPS = ["color", "background-color", "background-image", "border-top-color", "border-top-width", "border-radius", "box-shadow", "padding", "gap", "font-size", "font-family", "font-weight", "line-height", "letter-spacing", "transition", "opacity", "transform"];
-const hold = (p) => p.evaluate(() => { for (const a of document.getAnimations()) { try { a.pause(); a.currentTime = 0; } catch { /* a finished one */ } } });
+/* A loop or a reveal is held at its start. A transition is a style on its way to where it settles: finished, not rewound (rewound, it holds the old value, in the colour format transitions blend in, and a board read again later differs). */
+const hold = (p) => p.evaluate(() => { for (const a of document.getAnimations()) { try { if (a instanceof CSSTransition) a.finish(); else { a.pause(); a.currentTime = 0; } } catch { /* a finished one */ } } });
 const boardRead = async (page) => { await hold(page); return page.evaluate((PROPS) => {
   const out = {};
   /* Boxes from the page frame's corner: what is above the board (a strip the Builder shows on a first visit) is not the site. */
