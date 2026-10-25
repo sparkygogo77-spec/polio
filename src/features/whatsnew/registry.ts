@@ -24,7 +24,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
   {
     id: "parts-bind",
     find: "[data-instance-row]",
-    text: "A part that is a component says so: edit the component and every one of them follows, change just this one, or reset it",
+    text: "A part that is a component says so: edit the component and they all follow, or change just this one",
     since: "parts-bind",
   },
   {
