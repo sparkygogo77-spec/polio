@@ -103,9 +103,14 @@ if (Sv && Pa && R && S) {
     const stopBuilder = await call("POST", "/control", { origin: BUILDER, token, body: { v: 1, kind: "control", lane: "x", do: "stop", by: "j" } });
     check("Stop from the Builder page is refused, token or not", stopBuilder.status === 403);
 
-    const page = await call("GET", "/dock");
+    const moved = await call("GET", "/dock");
+    const page = await call("GET", "/dock/");
     check("the dock page loads with no Origin, framable only by the Builder",
-      page.status === 200 && page.headers["content-security-policy"] === `frame-ancestors ${BUILDER}`);
+      moved.status === 302 && page.status === 200 && page.headers["content-security-policy"]?.startsWith(`frame-ancestors ${BUILDER};`), page.headers["content-security-policy"]);
+    const contract = await call("GET", "/contract.ts", { origin: DOCK });
+    check("the dock's imports are served, types stripped", contract.status === 200 && contract.text.includes("CONTRACT_VERSION") && !/:\s*readonly ControlDo\[\]/.test(contract.text));
+    const inner = await Promise.all(["/agents/runner.ts", "/server/pairing.ts", "/dock/../server/server.ts", "/dock/%2e%2e/agents/env.ts"].map((p) => call("GET", p)));
+    check("nothing else under helper/ is served", inner.every((r) => r.status === 403 || r.status === 404), inner.map((r) => r.status).join(" "));
 
     const out = await call("POST", "/unpair", { origin: DOCK, token });
     const after = await call("GET", "/stream", { origin: DOCK, token });

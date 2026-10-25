@@ -25,6 +25,8 @@
  */
 import { createServer, type IncomingMessage, type ServerResponse, type Server } from "node:http";
 import { existsSync, readFileSync } from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
+import { extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { problems, type Message } from "../contract.ts";
 import type { Runner } from "../agents/runner.ts";
@@ -34,6 +36,9 @@ export const BUILDER_ORIGIN = "https://polio-two.vercel.app";
 export const HELPER_PORT = 47821;
 const MAX_BODY = 1 << 20;
 const DOCK_PAGE = fileURLToPath(new URL("../dock/index.html", import.meta.url));
+/** One plain file name inside helper/dock: no folders, no dot-dot. */
+const DOCK_FILE = /^\/dock\/[a-z0-9-]+\.(ts|css|js|mjs|svg)$/;
+const TYPES: Record<string, string> = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".mjs": "text/javascript", ".ts": "text/javascript", ".svg": "image/svg+xml" };
 
 export type HelperServer = { server: Server; port: number; close(): Promise<void> };
 
@@ -92,17 +97,27 @@ export async function startHelperServer(opts: {
       return refuse(res, 403, "the Builder page can't drive the helper: the dock does");
     }
 
-    if (who === "none") {
-      if (method === "GET" && (path === "/" || path === "/dock")) {
-        const html = existsSync(DOCK_PAGE) ? readFileSync(DOCK_PAGE) : Buffer.from(PLACEHOLDER);
-        res.writeHead(200, {
-          "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff",
-          "content-security-policy": `frame-ancestors ${builder}`, "referrer-policy": "no-referrer",
-        });
-        return res.end(html);
-      }
-      return refuse(res, 403, "a request with no Origin can't use the helper");
+    // The dock's own files: a page load or its module imports. Nothing else
+    // under helper/ is served.
+    if (method === "GET" && (path === "/" || path === "/dock")) {
+      res.writeHead(302, { location: "/dock/" });
+      return res.end();
     }
+    if (method === "GET" && (path === "/dock/" || DOCK_FILE.test(path) || path === "/contract.ts" || path === "/fake.ts")) {
+      const file = path === "/dock/" ? DOCK_PAGE : fileURLToPath(new URL(`..${path}`, import.meta.url));
+      const kind = extname(file);
+      const page = path === "/dock/" && !existsSync(DOCK_PAGE);
+      if (!page && !existsSync(file)) return refuse(res, 404, "no such file");
+      let text = page ? PLACEHOLDER : readFileSync(file, "utf8");
+      if (kind === ".ts") text = stripTypeScriptTypes(text, { mode: "strip" });
+      res.writeHead(200, {
+        "content-type": `${TYPES[kind] ?? "text/plain"}; charset=utf-8`, "cache-control": "no-store", "x-content-type-options": "nosniff",
+        "content-security-policy": `frame-ancestors ${builder}; default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:`,
+        "referrer-policy": "no-referrer",
+      });
+      return res.end(text);
+    }
+    if (who === "none") return refuse(res, 403, "a request with no Origin can't use the helper");
 
     // From here on: the dock.
     if (method === "POST" && path === "/pair/start") return send(res, 200, opts.pairing.start());
