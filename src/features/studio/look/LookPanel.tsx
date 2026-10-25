@@ -608,6 +608,8 @@ function LightSection() {
 
 export function LookPanel() {
   const captured = useHeldStudio((s) => !!s.look.paletteFrom || s.nodes.some((n) => !!n.from));
+  /* A site built from an idea (`idea/versions.ts`, ids `dr_`) has its theme and Make variations too: lock what J likes, randomize the rest. */
+  const drafted = useHeldStudio((s) => !captured && s.nodes.some((n) => n.id.startsWith("dr_")));
   return (
     <div data-look-panel="" className="no-bars flex h-full min-h-0 flex-col overflow-y-auto">
       {/*
@@ -624,6 +626,7 @@ export function LookPanel() {
           captured site was never painted from, come after. */}
       {/* A site made here leads with the theme it was rolled from (`ThemePanel.tsx`). */}
       {captured ? <VariationsLink /> : <ThemeSection />}
+      {drafted ? <VariationsLink /> : null}
       {/* One colour section for every site, then the faces, then the rest (owner: "Colours, Fonts, then anything else"). */}
       <SiteColoursSection captured={captured} paletteRoles={<PaletteRoles captured={captured} />} />
       {/* Saved by name and put back with one press (owner: "i also should be able to save color palletes"). */}
