@@ -19,9 +19,11 @@ interface AgentsState {
   ask: { partId: string; x: number; y: number } | null;
   /** Bumped on every open, so the frame is handed its context again even when it already shows. */
   seq: number;
+  /** A big agent change made a Duplicate first (`bridge.ts`): the before, to Compare with. */
+  compare: { href: string; name: string } | null;
 }
 
-export const useAgents = create<AgentsState>(() => ({ open: false, action: null, partId: null, reach: "checking", ask: null, seq: 0 }));
+export const useAgents = create<AgentsState>(() => ({ open: false, action: null, partId: null, reach: "checking", ask: null, seq: 0, compare: null }));
 
 export function openDock(action: PartAction | null = null, partId: string | null = null) {
   useAgents.setState((s) => ({ open: true, action, partId, ask: null, seq: s.seq + 1 }));
