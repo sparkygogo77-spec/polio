@@ -11,7 +11,9 @@
  * - fewer than `atOnce` lanes are running (3 by default, 5 at most).
  *
  * Once handed over, the runner's own rules apply: the 4 GB memory gate,
- * one build at a time, spend and the cap. Lanes start through the runner's
+ * one build at a time, token counts and the token cap (no dollars: every
+ * lane is on J's plan, and a cloud lane's tokens stay unmeasured, never
+ * estimated here). Lanes start through the runner's
  * adapters, which the queue wraps only to give each lane its brief and its
  * model. The queue speaks the same calls the server uses (submit, control,
  * subscribe, snapshot, stopAll), and every message it sends passes the
