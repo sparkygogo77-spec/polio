@@ -36,6 +36,8 @@ export function serveDock({ port = 3151 } = {}) {
     if (!own.includes(req.headers.host ?? "")) { res.writeHead(403).end("not this host"); return; }
     if (req.method !== "GET") { res.writeHead(405).end(); return; }
     const path = new URL(req.url ?? "/", "http://x").pathname;
+    // Browsers ask for this on their own; answer so the page logs no 404.
+    if (path === "/favicon.ico") { res.writeHead(204, { "cache-control": "max-age=86400" }).end(); return; }
     // The page lives at /dock/, so its own files and ../fake.ts resolve.
     if (path === "/" || path === "/dock") { res.writeHead(302, { location: `/dock/${new URL(req.url ?? "/", "http://x").search}` }).end(); return; }
     const rel = path === "/dock/" ? "dock/index.html" : decodeURIComponent(path).replace(/^\/+/, "");
