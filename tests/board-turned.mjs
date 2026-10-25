@@ -51,7 +51,8 @@ const page = await ctx.newPage();
 await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
 await page.waitForTimeout(2500);
 await page.mouse.move(2, 2);
-const r = await page.evaluate(() => { const e = document.querySelector('[data-node-id="chip"]'); if (!e) return null; const b = e.getBoundingClientRect(); return { x: b.left, y: b.top, w: b.width }; });
+/* Where the chip is drawn: the board stands a part its own shift moves where it is drawn (EDIT-ISSUES #35), so its drawn box, not its stored one, is where the drop has taken it. */
+const r = await page.evaluate(() => { const e = document.querySelector('[data-node-id="chip"] [data-part-drawn] > *'); if (!e) return null; const b = e.getBoundingClientRect(); return { x: b.left, y: b.top, w: b.width }; });
 check("the chip is on the board", !!r, JSON.stringify(r));
 if (r) {
   const k = r.w / 78;
@@ -61,7 +62,7 @@ if (r) {
     const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
     const g = c.getContext("2d"); g.drawImage(img, 0, 0);
     return pts.map(([x, y]) => [...g.getImageData(Math.round(x), Math.round(y), 1, 1).data.slice(0, 3)]);
-  }, { src: `data:image/png;base64,${png}`, pts: [[r.x + 39 * k, r.y + (35 + DROP - 5) * k], [r.x + 39 * k, r.y + (DROP + 5) * k]] });
+  }, { src: `data:image/png;base64,${png}`, pts: [[r.x + 39 * k, r.y + (35 - 5) * k], [r.x + 39 * k, r.y + 5 * k]] });
   const green = (c) => c[1] > 150 && c[0] < 80 && c[2] < 80;
   check("5px above the chip's moved foot is the chip, not cut away to the card behind", green(low), `rgb(${low})`);
   check("control: just under its moved top is the chip too", green(top), `rgb(${top})`);

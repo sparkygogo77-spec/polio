@@ -3,7 +3,7 @@ import { RemakeOnPart } from "../RemakePicture";
 import * as React from "react";
 import { getFeature,categoryOf } from "../shelf";
 import { isOverlay } from "../shelf/ui";
-import { pageClip } from "../pageClip";
+import { drawnShift,pageClip } from "../pageClip";
 import { appAreaLabel,appAreaName,holderIds,isWrapper,wordsOf } from "../owner";
 import { leadsOf } from "../shelf";
 import { Block,themeFrom } from "../blocks";
@@ -198,6 +198,16 @@ export function holeMask(holes: string): React.CSSProperties {
     maskComposite: Array(boxes.length + 1).fill("exclude").join(","),
   } as React.CSSProperties;
 }
+/** The part's own turn and scale as a style for its rings, or null when it has none (or a lasting motion owns it). */
+function turnOf(art: { transform?: string; origin?: string; rotate?: string; scale?: string } | null | undefined, moves: string): React.CSSProperties | null {
+  if (!art) return null;
+  const tf = !moves.includes("transform") && art.transform && art.transform !== "none" && art.transform !== "matrix(1, 0, 0, 1, 0, 0)" ? art.transform : undefined;
+  const one = (v: string | undefined) => (typeof v === "string" && v.trim() && v.trim() !== "none" && !/[{};<>\\]/.test(v) ? v.trim() : undefined);
+  const rotate = one(art.rotate), scale = one(art.scale);
+  if (!tf && !rotate && !scale) return null;
+  return { ...(tf ? { transform: tf } : {}), ...(rotate ? { rotate } : {}), ...(scale ? { scale } : {}), ...(art.origin ? { transformOrigin: art.origin } : {}) };
+}
+
 export const NodeView = React.memo(function NodeView({ node, name, selected, inHeldGroup, theme, palette, zoom, light, page, layers, flash, decide, stack, at }: { node: StudioNode; name: string; selected: boolean; inHeldGroup?: boolean; theme: ReturnType<typeof themeFrom>; palette: Palette; zoom: number; light?: Light; page: { w: number; h: number }; layers?: TextureLayer[]; flash?: boolean; decide?: Decision["why"] | null; /** How it stands: the ride a pinned part (or one inside it) takes with the view, and its level over the flow (`themeDraw.tsx#stacksOf`). */ stack?: { translate?: string; z: number }; /** Its element path's code, when a motion rule names a path it stands under (`capturedMotion.ts#codesWorn`). */ at?: string }) {
   // What a picked part is marked in: the far side of its own aura or fill.
   // Not the app's accent, which was the loudest thing on the board and sat
@@ -314,7 +324,20 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
   /* Its words and picture as the step picked has them ("You lost.", FINAL, the match's chart): the board's drawing only, the part keeps its own. */
   const stepLook = useStudio((s) => looksOnBoard(s).get(node.id));
   /* …in the box the state draws it in, so words that wrap there wrap here (the tour's text: four lines, not one). */
-  const drawn = React.useMemo(() => (stepLook || place ? ({ ...node, ...stepLook, ...(place ? { w: place.w, h: place.h } : {}) } as StudioNode) : node), [node, stepLook, place]);
+  /* What its own motions rewrite ("transform translate"), so a shift they own is left to them (`pageClip.ts#drawnShift`). */
+  const moves = useStudio((s) => {
+    /* Only a motion that lasts: a one-off rise (mochi's "rise", to `none`) hands the part back to its own shift when it ends. */
+    const names = new Set((node.motion?.animation ?? []).filter((a) => a.iterations === "infinite" || /forwards|both/.test(a.fill ?? "")).map((a) => a.name));
+    if (!names.size) return "";
+    const kf = ((s.look as { keyframes?: { name: string; frames: { style?: Record<string, string> }[] }[] }).keyframes ?? []).filter((k) => names.has(k.name));
+    const props = new Set(kf.flatMap((k) => k.frames.flatMap((f) => Object.keys(f.style ?? {}))));
+    return ["transform", "translate"].filter((p) => props.has(p)).join(" ");
+  });
+  /* Stood where it is drawn: its box, marks and handles carry its own shift, and the drawing inside goes without it (EDIT-ISSUES #35). */
+  const shift = React.useMemo(() => drawnShift(node.art, (p) => moves.includes(p)), [node.art, moves]);
+  /* Turned or scaled by its own transform (sol face's stickers, mochi's icons at 1.22): its rings turn with it, so they hug what is drawn; the handles stay on its box. */
+  const turn = React.useMemo(() => turnOf(shift.art, moves), [shift.art, moves]);
+  const drawn = React.useMemo(() => (stepLook || place || shift.tx || shift.ty ? ({ ...node, ...stepLook, ...(place ? { w: place.w, h: place.h } : {}), ...(shift.tx || shift.ty ? { art: shift.art } : {}) } as StudioNode) : node), [node, stepLook, place, shift]);
   /* Its own shadow, drawn whole past the box that cuts its words (`shadowReach`). */
   const shadowRoom = shadowReach(drawn.edge?.shadow);
   // What his prompt named and this part is not drawing: read only while it is picked. See `useUnshown`.
@@ -366,7 +389,7 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
       /* A dimmed screen pinned over the whole window (PST's intro tour) is never grabbed off the board, picked or not: a press goes to what is on it, its card (J, 2026-10-06: dragging moved the dim). It is still picked from the Panels list or the layers. */
       className={cn("group absolute cursor-grab active:cursor-grabbing", ((node as { inert?: boolean }).inert && !selected && !wordsOf(node)) || isScreenShade(node, page.w) || wrapper ? "pointer-events-none" : "pointer-events-auto", node.locked && "cursor-not-allowed", flash && "node-snap")}
       style={{
-        left: place?.x ?? node.x, top: place?.y ?? node.y, width: place?.w ?? node.w,
+        left: (place?.x ?? node.x) + shift.tx, top: (place?.y ?? node.y) + shift.ty, width: place?.w ?? node.w,
         /* A minimum, not a height: the part grows past it when its words
            need the room. `parts/primitives.tsx` holds the reasoning. */
         minHeight: place?.h ?? node.h, display: "flex", flexDirection: "column",
@@ -423,7 +446,7 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
       */}
       {selected && node.art?.clipPath ? (
         <div data-cut-ghost="" aria-hidden inert className="pointer-events-none absolute inset-0 flex flex-col" style={{ opacity: 0.25 }}>
-          <Block node={{ ...node, art: { ...node.art, clipPath: undefined } }} t={theme} palette={palette} light={light} page={page} layers={layers} mode="board" />
+          <Block node={{ ...node, art: { ...drawn.art, clipPath: undefined } }} t={theme} palette={palette} light={light} page={page} layers={layers} mode="board" />
         </div>
       ) : null}
       {/* the part itself, at real size */}
@@ -481,8 +504,8 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
           borderRadius: liftRadius,
           // Thin, and *inside* the part: the aura's own hairline sits on the
           // edge, so a mark drawn there would cover the thing being edited.
-          outline: selected && !hugs ? `${(1.5 / zoom).toFixed(2)}px solid ${mark}` : "1px solid transparent",
-          outlineOffset: selected && !hugs ? `${(-1.5 / zoom).toFixed(2)}px` : 0,
+          outline: selected && !hugs && !turn ? `${(1.5 / zoom).toFixed(2)}px solid ${mark}` : "1px solid transparent",
+          outlineOffset: selected && !hugs && !turn ? `${(-1.5 / zoom).toFixed(2)}px` : 0,
           // The aura, on the shape itself: `drop-shadow` follows what is
           // actually painted, and what is painted here is already cut to the
           // drawn line.
@@ -490,7 +513,7 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
           /* The glow of a part pointed at, on what it paints, after its own aura (globals.css `[data-point-mark]`): none until then. */
           filter: `${hugAura?.filter ?? ""} var(--point-glow, )`.trim(),
           // Cut at the page's edge, as the site is (`pageClip.ts`).
-          clipPath: pageClip(node, page.w),
+          clipPath: pageClip({ ...node, x: node.x + shift.tx, y: node.y + shift.ty, art: drawn.art }, page.w),
           ...(shadowRoom ? { overflowClipMargin: `${shadowRoom}px` } : null),
         }}
       >
@@ -561,8 +584,12 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
         thing, one of them in the colour this app keeps for Delete.
       */}
       {selected ? null : (
-        <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100" style={{ outline: `1px dashed oklch(0.75 0.15 ${hue} / 0.8)` }} />
+        <div data-hover-mark="" className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100" style={{ outline: `1px dashed oklch(0.75 0.15 ${hue} / 0.8)`, ...turn }} />
       )}
+      {/* The picked mark of a turned part, turned with it (EDIT-ISSUES #35). */}
+      {selected && !hugs && turn ? (
+        <div data-turned-mark="" aria-hidden className="pointer-events-none absolute inset-0" style={{ outline: `${(1.5 / zoom).toFixed(2)}px solid ${mark}`, outlineOffset: `${(-1.5 / zoom).toFixed(2)}px`, ...turn }} />
+      ) : null}
 
       {/* What is this, and when would you want it? Answered without clicking, and out of the way once it is picked. */}
       {feature && !selected ? (
