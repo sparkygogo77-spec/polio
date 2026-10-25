@@ -6,6 +6,7 @@
  *
  *   ?delay=ms   space the fake runner's messages out (900 by default)
  *   ?demo=0     leave out the sample rows (sample.ts)
+ *   ?tab=pc     open on "Everything Claude is doing" (pcview.ts; ?pc=live reads the real PC)
  *
  * window.__dock holds what the dock sent, for the test.
  */
@@ -14,6 +15,7 @@ import {
   type Chip, type Control, type ControlDo, type Lane, type MergeLine, type Plan, type Request, type Spend, type Target,
 } from "../contract.ts";
 import { fakeRunner, fakeScript, type FakeRunner } from "../fake.ts";
+import { fakeSource, liveSource, mountPcView } from "./pcview.ts";
 import { ringSvg } from "./ring.ts";
 import { PC_MEMORY, PC_NOW, SAMPLE_BASE, SAMPLE_LANES, SAMPLE_MERGES, SAMPLE_SPEND } from "./sample.ts";
 
@@ -38,9 +40,10 @@ let runner: FakeRunner | null = null;
 let request: Request | null = null;
 let startPlan: (() => void) | null = null;
 const sent: Control[] = [];
+const pcSent: unknown[] = [];
 const asks: { lane: string; what: "undo-merge" }[] = [];
 (window as unknown as { __dock: object }).__dock = {
-  sent, asks, lanes,
+  sent, pcSent, asks, lanes,
   get request() { return request; },
 };
 
@@ -315,10 +318,25 @@ function drawPc() {
     (theirs.length ? `<li class="divider">not started by the helper, left alone</li>${theirs.map(row).join("")}` : "");
 }
 
+// ---- tabs: Agents, and Everything Claude is doing ---------------------------
+
+let pcView: ReturnType<typeof mountPcView> | null = null;
+function showTab(tab: string) {
+  document.querySelectorAll<HTMLElement>("[data-tab-body]").forEach((b) => { b.hidden = b.dataset.tabBody !== tab; });
+  document.querySelectorAll<HTMLElement>("nav [data-tab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === tab)));
+  if (tab === "pc" && !pcView) {
+    const live = qs.get("pc") === "live";
+    pcView = mountPcView($("[data-pcview]"), live ? liveSource() : fakeSource(), { sent: pcSent, everyMs: live ? 5000 : 0 });
+    void pcView.refresh().then(() => document.body.setAttribute("data-pcview-ready", ""));
+  }
+}
+
 // ---- start ------------------------------------------------------------------
 
 document.addEventListener("click", (e) => {
   const t = e.target as HTMLElement;
+  const tab = t.closest<HTMLElement>("[data-tab]");
+  if (tab) { showTab(tab.dataset.tab!); return; }
   const chip = t.closest<HTMLElement>("[data-chip]");
   if (chip) { chips = chips.filter((_, i) => i !== Number(chip.dataset.chip)); drawChips(); return; }
   if (t.closest("[data-plan-it]")) return planIt();
@@ -353,4 +371,5 @@ drawFeed();
 drawSpend();
 drawMark();
 $("[data-running-count]").textContent ||= "(0)";
+showTab(qs.get("tab") === "pc" ? "pc" : "agents");
 document.body.setAttribute("data-dock-ready", "");

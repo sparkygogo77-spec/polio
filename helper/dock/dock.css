@@ -133,3 +133,33 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--step); }
 .pc li { display: grid; grid-template-columns: 1.4fr 1fr 0.5fr 0.7fr 0.8fr; gap: 4px; padding: 2px 0; font-variant-numeric: tabular-nums; }
 .pc li.theirs { color: var(--fg-faint); }
 .pc li.divider { display: block; color: var(--fg-faint); font-size: 10px; border-top: 1px dashed var(--border); margin-top: 4px; padding-top: 4px; }
+
+/* tabs: Agents, and Everything Claude is doing */
+.tabs { display: flex; gap: 4px; }
+.tabs button { flex: 1; background: transparent; border-color: var(--border); color: var(--fg-muted); }
+.tabs button[aria-selected="true"] { background: var(--elevated); border-color: var(--step); color: var(--fg); }
+.tab-body { display: grid; gap: 10px; }
+.tab-body[hidden] { display: none; }
+button.small { padding: 1px 7px; font-size: 11px; }
+.see-all { margin-top: 8px; }
+
+/* everything Claude is doing */
+.pcview { display: grid; gap: 8px; }
+.pc-totals b { font-size: 13px; }
+.pc-group { border: 1px solid var(--border); border-radius: 6px; background: var(--bg); }
+.pc-group > summary { cursor: pointer; padding: 6px 8px; display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.pc-group > summary .title { font-weight: 600; }
+.pc-group[data-kind="app"] > summary .title, .pc-group[data-kind="terminal"] > summary .title { color: var(--fg-muted); }
+.group-head, .pc-group > p { padding: 0 8px 4px; margin: 0; display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.pc-items { padding: 0 6px 6px; display: grid; gap: 2px; }
+.pc-item { padding: 4px 6px 4px calc(6px + var(--depth) * 12px); border-radius: 4px; display: grid; gap: 1px; }
+.pc-item:hover { background: var(--panel); }
+.pc-item .kind { font: 10px var(--mono); color: var(--fg-faint); text-transform: uppercase; }
+.pc-item .nums { display: flex; gap: 10px; font: 11px var(--mono); }
+.pc-item .detail { font: 10px var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pc-item[data-kind="app"] .what b, .pc-item[data-kind="console"] .what b { font-weight: 400; color: var(--fg-muted); }
+.idle { color: var(--amber); font-size: 11px; border: 1px solid oklch(0.82 0.16 80 / 0.4); border-radius: 4px; padding: 0 4px; }
+.pc-cloud ul { display: grid; gap: 2px; }
+.pc-item .what { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.pc-item { position: relative; padding-right: 52px; }
+.pc-item .what [data-pc-stop] { position: absolute; right: 6px; top: 4px; }
