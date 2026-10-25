@@ -57,7 +57,7 @@ export function startJob(file: string, args: string[], opts: JobOptions): Job {
       cwd: opts.cwd, env: { ...opts.env, POLIO_JOB_SPEC: spec }, stdio: "pipe", windowsHide: true,
     });
   } else {
-    child = spawn(file, args, { cwd: opts.cwd, env: opts.env, stdio: "pipe", detached: true });
+    child = spawn(file, args, { cwd: opts.cwd, env: opts.env, stdio: "pipe", detached: true, windowsHide: true });
   }
   const exited = new Promise<number | null>((resolve) => {
     child.once("exit", (code) => resolve(code));
