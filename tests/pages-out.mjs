@@ -13,7 +13,7 @@
  *      Polio's header; no inline style anywhere; no absolute position except
  *      on the parts the reader could not group; token classes in use;
  *   2. `next build` passes;
- *   3. served and drawn at 1440, the share of parts within 2px of their board
+ *   3. served and drawn at the board's width (1440, or 1425 for a site captured with a scrollbar), the share of parts within 2px of their board
  *      box (printed, and held to a floor), and the count still placed by
  *      hand, each listed in the POLIO.md section with its reason. Boxes are
  *      layout boxes, as the board's are: a part's own translate, turn or
@@ -48,7 +48,6 @@ const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(A
 
 const [BASE, ...captures] = process.argv.slice(2);
 const sources = process.env.PAGES_DUMP ? process.env.PAGES_DUMP.split(",").map((d) => () => dumpedSite(d)) : captures.map((c) => () => importedSite(browser, BASE, c));
-let port = Number(process.env.PAGES_PORT ?? 3092);
 
 for (const load of sources) {
   const site = await load();
@@ -77,8 +76,10 @@ for (const load of sources) {
   if (!app.ok) continue;
 
   /* 3. Drawn at 1440, against the board. */
-  const srv = await serveApp(app.dir, port++);
-  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  const srv = await serveApp(app.dir);
+  check("the built app is served", srv.ok, srv.ok ? "" : srv.log().split("\n").slice(-6).join(" / "));
+  if (!srv.ok) { srv.stop(); continue; }
+  const page = await browser.newPage({ viewport: { width: board.frameWidth ?? 1440, height: 900 } });
   await page.goto(srv.url, { waitUntil: "load" });
   const H = await page.evaluate(() => document.documentElement.scrollHeight);
   for (let y = 0; y < H; y += 800) { await page.evaluate((y) => window.scrollTo(0, y), y); await page.waitForTimeout(40); }
@@ -93,7 +94,7 @@ for (const load of sources) {
   const within = errs.filter((e) => e.e <= 2).length / Math.max(1, errs.length);
   const bad = errs.filter((e) => e.e > 2).sort((a, b) => b.e - a.e);
   console.log(`       within 2px: ${r1(within * 100)}% of ${errs.length} parts drawn; worst ${bad.slice(0, 8).map((b) => `${b.id}${b.placed ? " (placed)" : ""} ${Number.isFinite(b.e) ? r1(b.e) : "absent"}`).join(", ")}`);
-  check(`at 1440, at least ${FLOOR * 100}% of parts land within 2px of the board`, within >= FLOOR, `${r1(within * 100)}%`);
+  check(`at the board's width, at least ${FLOOR * 100}% of parts land within 2px of the board`, within >= FLOOR, `${r1(within * 100)}%`);
   const md = stillPlacedMd(report);
   check("POLIO.md lists every part still placed by hand, with its reason", report.placed.every((p) => md.includes(`\`${p.id}\``)) && md.includes(`${report.placed.length} are still placed by hand`), `${report.placed.length} placed`);
   await page.close();

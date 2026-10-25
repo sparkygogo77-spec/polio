@@ -170,9 +170,16 @@ function flowDecls(f: Flow, border: Sides = NO_SIDES): [string, string][] {
   return d;
 }
 
-function itemDecls(it: LayoutItem, parent: Flow): [string, string][] {
+/**
+ * One item's place in its holder's flow. `pull` is how far the first item
+ * starts, and the last ends, inside the holder's border along the flow: on
+ * the board a part may run over its holder's border, which padding cannot
+ * say (it cannot go below 0), so the item says it as a negative margin.
+ */
+function itemDecls(it: LayoutItem, parent: Flow, pull: { start: number; end: number } = { start: 0, end: 0 }): [string, string][] {
   const d: [string, string][] = [];
   const self = it.self ?? parent.align;
+  const before = it.before - pull.start;
   if (parent.display === "grid") {
     d.push(["width", "100%"], ["max-width", px(it.maxWidth)]);
     if (it.before) d.push(["margin-top", px(it.before)]);
@@ -182,12 +189,14 @@ function itemDecls(it: LayoutItem, parent: Flow): [string, string][] {
     if (!it.fill) d.push(["max-width", px(it.maxWidth)]);
     d.push(["flex", "none"]);
     if (it.self) d.push(["align-self", flexAlign(it.self)]);
-    if (it.before) d.push(["margin-top", px(it.before)]);
+    if (before) d.push(["margin-top", px(before)]);
+    if (pull.end) d.push(["margin-bottom", px(-pull.end)]);
     if (it.offset && (self === "start" || self === "stretch")) d.push(["margin-left", px(it.offset)]);
   } else {
     d.push(["flex", `0 1 ${px(it.maxWidth)}`], ["min-width", "0px"]);
     d.push(["align-self", flexAlign(self === "stretch" ? "start" : self)]);
-    if (it.before) d.push(["margin-left", px(it.before)]);
+    if (before) d.push(["margin-left", px(before)]);
+    if (pull.end) d.push(["margin-right", px(-pull.end)]);
     if (it.offset && (self === "start" || self === "stretch")) d.push(["margin-top", px(it.offset)]);
   }
   /* A part with nothing in flow inside keeps the board's height, words too: a line box a hair taller than the board's (a 46px heading at 47.8) would otherwise push everything under it down, part after part. Words that outgrow it show past it, never cut. */
@@ -321,12 +330,16 @@ function letStick(e: El, sections: Map<string, El>): boolean {
 function fill(e: El, f: Flow, w: Walk, border: Sides = NO_SIDES): void {
   const placedAlready = e.cls.some((c) => POSITIONED.includes(c));
   for (const c of classesOf(flowDecls(f, border), w.ctx)) if (!e.cls.includes(c) && !(c === "relative" && placedAlready)) e.cls.push(c);
-  for (const it of f.items) e.kids.push(itemOrSection(it, f, w));
+  /* Along the flow, how far the board's parts run over the holder's border (padding left nothing to take it from). */
+  const col = f.display !== "grid" && f.direction === "column";
+  const over = (side: keyof Sides) => Math.max(0, border[side] - f.pad[side]);
+  const [start, end] = f.display === "grid" ? [0, 0] : col ? [over("top"), over("bottom")] : [over("left"), over("right")];
+  f.items.forEach((it, i) => e.kids.push(itemOrSection(it, f, w, { start: i === 0 ? start : 0, end: i === f.items.length - 1 ? end : 0 })));
   for (const p of f.placed) e.kids.push(placedEl(p, w, border));
 }
 
-function itemOrSection(it: LayoutItem, parent: Flow, w: Walk): El | { use: string } {
-  const layout = itemDecls(it, parent);
+function itemOrSection(it: LayoutItem, parent: Flow, w: Walk, pull?: { start: number; end: number }): El | { use: string } {
+  const layout = itemDecls(it, parent, pull);
   const e = it.part ? partEl(it.part, it.flow, layout, w) : (() => { const g = el("div", classesOf(layout, w.ctx)); if (it.flow) fill(g, it.flow, w); return g; })();
   const name = w.sections.get(it.id);
   if (!name) return e;

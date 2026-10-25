@@ -42,7 +42,6 @@ const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
 const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });
 const [BASE, ...captures] = process.argv.slice(2);
 const sources = process.env.PAGES_DUMP ? process.env.PAGES_DUMP.split(",").map((d) => () => dumpedSite(d)) : captures.map((c) => () => importedSite(browser, BASE, c));
-let port = Number(process.env.PAGES_PORT ?? 3093);
 
 for (const load of sources) {
   const site = await load();
@@ -72,7 +71,9 @@ for (const load of sources) {
   const app = await buildApp(`library-${site.name}`, files);
   check("next build passes", app.ok, app.ok ? "" : app.log.split("\n").filter((l) => /rror|failed|Type /.test(l)).slice(0, 8).join(" / "));
   if (!app.ok) continue;
-  const srv = await serveApp(app.dir, port++);
+  const srv = await serveApp(app.dir);
+  check("the built app is served", srv.ok, srv.ok ? "" : srv.log().split("\n").slice(-6).join(" / "));
+  if (!srv.ok) { srv.stop(); continue; }
 
   /* 3. The gallery, and the states. */
   const g = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -83,8 +84,9 @@ for (const load of sources) {
   check("the gallery draws every variant of every component (and a disabled one of each pressable)", sections === comps.length && drawn === variants, `${sections} sections, ${drawn} of ${variants}`);
   const lifter = moving.find(({ v }) => v.states.hover && (v.states.hover.dy || v.states.hover.dx || (v.states.hover.scale && v.states.hover.scale !== 1)));
   if (lifter) {
-    const label = `${lifter.c.name} · ${lib.names.get(lifter.c.id).variants.get(lifter.v.id)}`;
-    const target = g.getByText(label, { exact: true }).first();
+    /* Found by the gallery's own mark, never by words: a site's names are its own. */
+    const label = `${lib.names.get(lifter.c.id).name}/${lib.names.get(lifter.c.id).variants.get(lifter.v.id)}`;
+    const target = g.locator(`[data-gallery="${label}"]`).first();
     const before = await target.boundingBox();
     await target.hover();
     await g.waitForTimeout(900);
@@ -103,7 +105,7 @@ for (const load of sources) {
   await g.close();
 
   /* 4. The pages still stand where the board does. */
-  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  const page = await browser.newPage({ viewport: { width: board.frameWidth ?? 1440, height: 900 } });
   await page.goto(srv.url, { waitUntil: "load" });
   await page.waitForTimeout(300);
   const tree = out.trees[0];

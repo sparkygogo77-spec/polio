@@ -195,7 +195,7 @@ export function galleryTsx(system: System, lib: Map<string, LibraryName>): strin
       const key = n.variants.get(v.id)!;
       const child = c.kind === "progress" ? "" : q(`${c.name} · ${key}`).slice(1, -1);
       const more = c.kind === "progress" ? " value={60} className=\"block h-2 w-48\"" : c.kind === "card" || c.kind === "panel" ? " className=\"block p-6 min-w-48\"" : ` className=${q(PILL)}`;
-      return `          <${n.name} variant=${q(key)}${more}>${child}</${n.name}>`;
+      return `          <${n.name} variant=${q(key)} data-gallery=${q(`${n.name}/${key}`)}${more}>${child}</${n.name}>`;
     });
     const disabled = PRESSABLE.has(c.kind) ? `\n          <${n.name} variant=${q(n.first)} className=${q(PILL)} disabled>${q(`${c.name} · disabled`).slice(1, -1)}</${n.name}>` : "";
     return `      <section className="flex flex-col gap-4">
