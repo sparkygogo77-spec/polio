@@ -338,7 +338,9 @@ export async function carriesApp(built: boolean, repo: string | undefined, branc
  * address is written back to the project when it is live.
  */
 export async function goLive(o: { extra?: GeneratedFile[]; message: string; siteName: string; say: (t: ToastInput) => void; /** The owner said yes to a still copy of a site from code (`stillCopy.ts`). */ still?: boolean;
-  /** Build ran for this push in the book: it carries the app, and `extra` is what Claude wrote over or beside Build's files (`carriesApp`). */ built?: boolean }): Promise<void> {
+  /** Build ran for this push in the book: it carries the app, and `extra` is what Claude wrote over or beside Build's files (`carriesApp`). */ built?: boolean;
+  /** The Export dialog's files: sent as they are in place of the pages Go live writes (`exportRun.ts`). */ files?: GeneratedFile[];
+  /** False: push, and leave Vercel alone (the Export dialog's "Deploy on Vercel after the push" unticked). */ deploy?: boolean }): Promise<void> {
   if (useGoLive.getState().busy) return;
   /* A site from a code repository goes up only as a still copy, without its scripts: asked every press, here, so no button can skip it. */
   const fromCode = codeSourceOf(useStudio.getState().look);
@@ -383,10 +385,10 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
     /* The board's last change as the pages are written: an edit after this is not in the push (`builds/publishState.ts`). */
     flushEdits();
     const carried = lastEdit() ?? Date.now();
-    /* A site Build made goes up as the app, written again from the board, whichever button pressed it (`carriesApp`). */
+    /* A site Build made goes up as the app, written again from the board, whichever button pressed it (`carriesApp`). An export brings its own files, app and all, and sends them as they are. */
     const app = await carriesApp(!!o.built, repo, branch);
     /* Files the pages point at that nothing provides: a warning beside the status, never a stop (`siteRefs.ts`). */
-    const going = await collectFiles(app ? documentFiles() : [...documentFiles(), ...(o.extra ?? [])], setNote, address, (says) => {
+    const going = o.files ?? await collectFiles(app ? documentFiles() : [...documentFiles(), ...(o.extra ?? [])], setNote, address, (says) => {
       set({ warned: { says, siteId: here?.id ?? null } });
       say({ key: "studio:publish-missing", title: "Some files will be missing", body: says, level: "warn", source: "studio", toast: { durationMs: 12000 } });
     }, app ? { explicit: o.extra ?? [] } : null);
@@ -411,6 +413,8 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
     const kept = pushed.kept?.length ?? 0;
     if (typeof pushed.changed === "number" && typeof pushed.total === "number") say({ key: "studio:publish", title: `${pushed.changed} of ${pushed.total} files changed`, body: `Pushed to ${pushed.repo} on ${pushed.branch}${gone ? `, and took off ${gone} file${gone === 1 ? "" : "s"} no longer on the board` : ""}${kept ? `. Kept ${kept} of Build's file${kept === 1 ? "" : "s"} as the repository has ${kept === 1 ? "it" : "them"}, changed there since Build wrote ${kept === 1 ? "it" : "them"}: ${pushed.kept!.slice(0, 4).join(", ")}${kept > 4 ? "…" : ""}` : ""}; building next.`, level: "info", source: "studio", toast: true, href: pushed.commitUrl });
     useStudio.getState().noteThread([`${pushed.files} files pushed to ${pushed.repo} on ${pushed.branch}`]);
+    /* Pushed, and asked not to deploy: Vercel is left alone (a connected project may still build the commit by itself). */
+    if (o.deploy === false) { set({ step: null }); return; }
 
     setBusy("Asking Vercel to build it…");
     /* A repository with no Vercel project gets one on the way, named after

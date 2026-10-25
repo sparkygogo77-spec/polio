@@ -7,3 +7,5 @@ export { PENDING_FOR, carriesApp, clearRefused, collectFiles, documentFiles, fol
 export type { LiveRun, Pushed, Refused } from "./goLive";
 export { KIND_ORDER, checkBoard, isShareLink } from "./publishCheck";
 export type { CheckInput, Problem, ProblemKind } from "./publishCheck";
+export { buildExport, exportSystem, exportTarget, exportToRepo, exportZip, planExport, readBranch } from "./exportRun";
+export type { ExportChoice, Exported } from "./exportRun";

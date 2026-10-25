@@ -20,3 +20,5 @@ export { CX_TS, UI_DIR, componentTsx, galleryTsx, libraryNames, libraryOut, stat
 export type { LibraryName } from "./libraryOut.ts";
 export { exactGlobalsCss, exactLayoutTsx, exactOut, publishedRoles, roleBridge } from "./exactOut.ts";
 export type { ExactInput } from "./exactOut.ts";
+export { EXPORT_RECORD, TAILWIND_PACKAGES, alwaysWritten, appSetup, lastExportSays, readRecord, recordFile, syncPlan, systemMd } from "./exportSync.ts";
+export type { ExportMode, ExportRecord, Owner, RecordFile, SyncPlan } from "./exportSync.ts";

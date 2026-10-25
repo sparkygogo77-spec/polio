@@ -29,9 +29,12 @@ export function systemOf(board, name) {
 }
 
 /** The clean export of a site brought in: tokens, pages (and the library, when asked), the pictures in public/. */
-export function cleanExport(site, { library = false, gallery = false } = {}) {
+export function cleanExport(site, { library = false, gallery = false, edit = null } = {}) {
   const { board } = site;
-  const { system, palette, nodes } = systemOf(board, site.name);
+  const taken = systemOf(board, site.name);
+  const { palette, nodes } = taken;
+  /* A change made in the Builder's System tab after the take (a token's new value), when a test asks for one. */
+  const system = edit ? edit(taken.system) : taken.system;
   const pages = board.pages?.length ? board.pages : [{ id: board.nodes[0].pageId, name: "Home", path: "/" }];
   const home = homeFor(pages);
   const byPath = new Map(site.files.map((f) => [f.path, f]));
