@@ -34,7 +34,7 @@
  *
  * Pure: no React, no store, every import ends in .ts.
  */
-import { colourKey } from "../look/index.ts";
+import { colourKey, ROLES } from "../look/index.ts";
 import { componentsOf, type CompNode, type Component } from "../components.ts";
 import { LOOK_SLOT_NAMES, kindOfField, kindOfToken, tokenById, valueOf, type FieldPath, type LookRef, type LookSlot, type NodeSys, type System, type TokenKind, type TokenValue } from "./model.ts";
 import { fieldValue, sameValue, withField, type SysNode } from "./resolve.ts";
@@ -182,8 +182,8 @@ export function rebind<N extends SysNode>(nodes: readonly N[], before: System | 
         const n = byId.get(node)!;
         /* Showing something else than the slot gave it: changed by hand, kept. */
         if (!fits(field, now, to.value) || !shows(n, field, from.value, palette)) continue;
-        if (along && !wrote.has(`${node} ${along}`)) continue;
-        wrote.add(`${node} ${field}`);
+        if (along && !wrote.has(`${node}\u0000${along}`)) continue;
+        wrote.add(`${node}\u0000${field}`);
         const next = writeField(n, after, field, now, to);
         if (next !== n) { byId.set(node, next); changed.add(node); }
       }
@@ -219,8 +219,9 @@ export function overridesOf(nodes: readonly SysNode[], s: System, partId: string
     if (!r || !want) return false;
     if (own.has(slot)) return true;
     if (!it.comp) return false;
-    const main = slotFields(byId, it.comp, slot).find((x) => x.main);
-    return !!main && fits(main.field, r, want.value) && !shows(byId.get(main.node)!, main.field, want.value, palette);
+    /* The main field, and what goes with it (a fill's surface, which some parts paint from). */
+    const ones = slotFields(byId, it.comp, slot).filter((x) => x.main || x.with);
+    return ones.some((f) => fits(f.field, r, want.value) && !shows(byId.get(f.node)!, f.field, want.value, palette));
   });
 }
 
@@ -241,22 +242,58 @@ export function resetInstance<N extends SysNode>(nodes: readonly N[], s: System,
     const r = it.variant.look[slot];
     const want = slotValue(s, r);
     if (!r || !want) continue;
-    /* The main field, and any other the slot paints that already shows what the main one does (a second words layer in the same colour). */
+    /* The main field and what goes with it, and any other the slot paints that already shows what the main one does (a second words layer in the same colour). */
     const fields = slotFields(byId, it.comp, slot);
     const main = fields.find((x) => x.main);
     if (!main) continue;
     const mainNow = fieldValue(byId.get(main.node)!, main.field);
     for (const f of fields) {
       const n = byId.get(f.node)!;
-      if (!fits(f.field, r, want.value) || (!f.main && !shows(n, f.field, mainNow, palette))) continue;
+      if (!fits(f.field, r, want.value) || (!f.main && !f.with && !shows(n, f.field, mainNow, palette))) continue;
       /* Already showing it (a colour role the palette paints the same counts): left as it is. */
       if (shows(n, f.field, want.value, palette)) continue;
-      byId.set(f.node, writeField(n, s, f.field, r, want));
+      const role = siblingsRole(nodes, s, it, slot, f, want.value, palette);
+      byId.set(f.node, role ? withRole(n, f.field, role) : writeField(n, s, f.field, r, want));
       changed.add(f.node);
     }
   }
   if (!changed.size) return { nodes, changed: [] };
   return { nodes: nodes.map((n) => byId.get(n.id) ?? n), changed: [...changed] };
+}
+
+/**
+ * The palette role the other instances of the variant name for this field,
+ * when most of them name one that paints the slot's value: a reset instance
+ * then names it too, and keeps following the palette with them. Null when
+ * they hold the value itself.
+ */
+function siblingsRole(nodes: readonly SysNode[], s: System, it: NonNullable<ReturnType<typeof instanceOf>>, slot: LookSlot, f: SlotField, want: TokenValue, palette: Palette): string | null {
+  if (!palette || kindOfField(f.field) !== "colour") return null;
+  const comps = componentsOf(nodes as unknown as readonly CompNode[], palette as Record<string, string> | null);
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const said = new Map<string, number>();
+  for (const [host, c] of instancesOf(nodes, s)) {
+    if (host === it.host || c.component !== it.component.id || c.variant !== it.variant.id || c.own?.includes(slot)) continue;
+    const comp = comps.byId.get(host);
+    const same = comp ? slotFields(byId, comp, slot).find((x) => x.field === f.field && x.main === f.main) : undefined;
+    const n = same ? byId.get(same.node) : undefined;
+    const raw = n && same ? fieldValue(n, same.field) : undefined;
+    if (n && same && raw !== undefined && shows(n, same.field, want, palette)) said.set(String(raw), (said.get(String(raw)) ?? 0) + 1);
+  }
+  const top = [...said].sort((a, b) => b[1] - a[1])[0];
+  return top && (ROLES as readonly string[]).includes(top[0]) ? top[0] : null;
+}
+
+/** The part with a colour field naming a palette role: its own, pointing at no token (a role follows the site's palette). */
+function withRole<N extends SysNode>(n: N, field: FieldPath, role: string): N {
+  const out = withField(n, field, role);
+  if (!out.sys?.f?.[field]) return out;
+  const f = { ...out.sys.f };
+  const v = { ...(out.sys.v ?? {}) };
+  delete f[field];
+  delete v[field];
+  const sys: NodeSys = { s: out.sys.s, ...(Object.keys(f).length ? { f } : {}), ...(Object.keys(v).length ? { v } : {}), ...(out.sys.c ? { c: out.sys.c } : {}) };
+  return { ...out, sys };
 }
 
 /** The instance holding its own look on every slot its variant has ("Change just this one", on the whole part): component edits pass it by until Reset. */

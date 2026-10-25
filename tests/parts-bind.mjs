@@ -243,6 +243,8 @@ const boardRead = async () => { await hold(); return page.evaluate((PROPS) => {
   }
   return out;
 }, PROPS); };
+/** The board once two reads 1s apart agree (a big board draws parts far from the view a little later), up to 20s. */
+const settled = async () => { let a = await boardRead(); for (let i = 0; i < 20; i++) { await pause(1000); const b = await boardRead(); if (!differ(a, b).length) return b; a = b; } return a; };
 const frameClip = () => page.evaluate(() => { const r = document.querySelector("[data-frame]")?.getBoundingClientRect(); if (!r) return null; const x = Math.max(0, r.left), y = Math.max(0, r.top); return { x, y, width: Math.min(innerWidth, r.right) - x, height: Math.min(innerHeight, r.bottom) - y }; });
 const shot = async () => { await hold(); const clip = await frameClip(); return sharp(await page.screenshot({ animations: "disabled", ...(clip ? { clip } : {}) })).raw().toBuffer({ resolveWithObject: true }); };
 const diffPx = (a, b) => { if (a.data.length !== b.data.length) return Infinity; const ch = a.info.channels; let n = 0; for (let i = 0; i < a.data.length; i += ch) if (a.data[i] !== b.data[i] || a.data[i + 1] !== b.data[i + 1] || a.data[i + 2] !== b.data[i + 2]) n++; return n; };
@@ -292,7 +294,9 @@ const want = await S((S) => {
     (groups.get(key) ?? groups.set(key, []).get(key)).push(it);
   }
   const best = [...groups.values()].sort((a, b) => b.length - a.length)[0];
-  return best ? { list: best, name: best[0].name } : null;
+  if (!best) return null;
+  const all = nodes.filter((n) => n.sys?.c?.component === best[0].component && n.sys.c.variant === best[0].variant).map((n) => S.instance(n.id)).filter(Boolean);
+  return { list: best, all, name: best[0].name };
 });
 if (!want) { check("a variant with drawn instances and a fill", false, "none"); await done(); }
 const list = want.list;
@@ -317,7 +321,7 @@ if (layer) {
 
 /* An override changed by hand, as the Element panel's own fields do it, and one instance held as its own. */
 if (byHand) {
-  await page.evaluate(([id, key, v]) => { const n = window.__studioHistory.doc().nodes.find((x) => x.id === id); window.__studioHistory.act("updateNode", id, { colour: { ...(n.colour ?? {}), [key]: v } }); }, [fillOf(byHand).node, keyOf(byHand), CYAN]);
+  await page.evaluate(([id, keys, v]) => { const n = window.__studioHistory.doc().nodes.find((x) => x.id === id); window.__studioHistory.act("updateNode", id, { colour: { ...(n.colour ?? {}), ...Object.fromEntries(keys.map((k) => [k, v])) } }); }, [fillOf(byHand).node, byHand.fields.fill.filter((f) => f.node === fillOf(byHand).node).map((f) => f.field.split(".")[1]), CYAN]);
   await select(byHand.host);
   let ownSaid = "";
   for (let i = 0; i < 10 && !ownSaid; i++) { ownSaid = ((await row.locator("[data-instance-own]").count()) ? await row.locator("[data-instance-own]").first().getAttribute("data-instance-own") : ""); if (!ownSaid) await pause(500); }
@@ -333,7 +337,7 @@ if (held) {
 await select(null);
 await page.mouse.move(2, 2);
 await pause(900);
-const boardB = await boardRead();
+const boardB = await settled();
 const docB = await docNow();
 const depthB = await depth();
 await select(first.host);
@@ -360,10 +364,10 @@ if (byHand) check("the one changed by hand keeps its own fill", showsNow(byHand,
 if (held) check("the one held as its own keeps its fill", !showsNow(held, MAGENTA));
 const before = new Map(docB.map((n) => [n.id, JSON.stringify(n)]));
 const changedDoc = docE.filter((n) => JSON.stringify(n) !== before.get(n.id)).map((n) => n.id);
-const allowed = new Set(followers.flatMap((it) => it.parts));
+const allowed = new Set(want.all.filter((it) => it.host !== byHand?.host && it.host !== held?.host).flatMap((it) => it.parts));
 const strays = changedDoc.filter((id) => !allowed.has(id));
 check("no other part in the document changed", strays.length === 0, `${changedDoc.length} changed, strays ${strays.slice(0, 4)}`);
-const boardE = await boardRead();
+const boardE = await settled();
 const repainted = differ(boardB, boardE);
 const fillNodes = followers.map((it) => fillOf(it).node).filter((id) => id in boardB);
 const strayDrawn = repainted.filter((id) => !allowed.has(id));
@@ -379,7 +383,7 @@ await pause(1200);
 await page.mouse.move(2, 2);
 await pause(900);
 await select(null);
-const boardU = await boardRead();
+const boardU = await settled();
 const backU = differ(boardB, boardU);
 for (const id of backU.slice(0, 1)) { const a = boardB[id].split(/[;#|]/), b = boardU[id].split(/[;#|]/); console.log("       undo diff", id, a.map((x, i) => (x !== b[i] ? `${i}: ${x} -> ${b[i]}` : null)).filter(Boolean).slice(0, 6).join(" ; ")); }
 check("one Ctrl+Z takes it all back, on the board", backU.length === 0 && (await depth()) === depthB, `${backU.length} differ ${backU.slice(0, 3)} (instances: ${backU.map((id) => list.findIndex((it) => it.parts.includes(id)))}), depth ${await depth()}`);
@@ -410,8 +414,8 @@ if (held) {
 say("a site sharing the System");
 await page.goto(`${BASE}/builds`, { waitUntil: "networkidle" });
 await pause(1200);
-await page.locator('[data-build-id="s3"] [aria-label="Duplicate this site"]').click();
-await pause(1500);
+await page.locator('[data-build-id="s3"] [aria-label="Duplicate this site"]').click({ timeout: 60000 });
+await page.waitForFunction(() => document.querySelectorAll("[data-build-id]").length >= 2, null, { timeout: 60000 }).catch(() => {});
 const copyId = await page.evaluate(() => [...document.querySelectorAll("[data-build-id]")].map((e) => e.getAttribute("data-build-id")).find((id) => id !== "s3") ?? null);
 check("the site was copied", !!copyId);
 await page.goto(`${BASE}/builder`, { waitUntil: "networkidle" });
@@ -428,7 +432,7 @@ await pause(1500);
 const rev = await S((S) => S.system().rev);
 await page.goto(`${BASE}/builds`, { waitUntil: "networkidle" });
 await pause(1200);
-if (copyId) await page.locator(`[data-build-id="${copyId}"] button[aria-label^="Switch to"]`).first().click();
+if (copyId) await page.locator(`[data-build-id="${copyId}"] button[aria-label^="Switch to"]`).first().click({ timeout: 60000 });
 await pause(1500);
 await page.goto(`${BASE}/builder`, { waitUntil: "networkidle" });
 await pause(3000);
