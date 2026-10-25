@@ -25,3 +25,4 @@ deeper fails `tests/module-doors.mjs`. Files in here import each other freely.
 | `pagesRecord.ts` | The page files a push wrote, so the next takes off the ones no longer pages |
 | `buildRecord.ts` | The files Build wrote, so the next push writes them again from the board, keeps the ones a code chat changed and takes off the ones Build no longer writes |
 | `publishCheck.ts` | The checks run before publishing |
+| `tokensOut.ts` | The System as four token files (W3C `tokens.json`, `tokens.css`, a Tailwind v4 `@theme`, `tokens.ts`) and the one map of token names the library and pages use |
