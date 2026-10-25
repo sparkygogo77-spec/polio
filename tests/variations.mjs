@@ -297,7 +297,10 @@ const px1 = await shot(page);
 const partsMoved = Object.keys(board0).filter((k) => board0[k] !== board1[k] && board0[k] === boardC[k]);
 check("the original's board: every part as it was", partsMoved.length === 0 && Object.keys(board1).length === Object.keys(board0).length, `${partsMoved.length} of ${Object.keys(board0).length} parts differ: ${partsMoved.slice(0, 4).join(", ")}`);
 const px = outside(px0a, px1, mask);
-check("the original's board: not a pixel moved", px.n === 0, `${px.n} px differ (control ${outside(px0a, pxC, movingMask([px0a, px0b])).n})`);
+const ctlPx = outside(px0a, pxC, movingMask([px0a, px0b])).n;
+/* A board that is not still opened twice untouched (sunkcoin's sea and films) cannot be decided by pixels: the part-by-part read above decides it. */
+if (ctlPx === 0) check("the original's board: not a pixel moved", px.n === 0, `${px.n} px differ (control 0)`);
+else console.log(`  --   the original's board pixels: not decidable, the untouched board differs from itself by ${ctlPx} px (after: ${px.n}); decided part by part above`);
 
 /* ------------------------------------------------------------------ */
 /* 4. A variation, kept and published                                   */

@@ -160,7 +160,7 @@ export async function again(id: string, locks: Layer[], seed = newSeed()): Promi
   const name = useBuilds.getState().projects.find((p) => p.id === id)?.name ?? "";
   const n = Number(/variation (\d+)$/.exec(name)?.[1]) || nextNumber(v.of);
   /* Words he accepted stay, where the part still says what they replaced. */
-  const next: Variation = { ...v, spec: r.spec, seeds: r.seeds, locks, by: "local", made: Date.now() };
+  const next: Variation = { ...v, spec: r.spec, seeds: r.seeds, locks, by: "local", note: null, made: Date.now() };
   await writeOne(v.of, next, { into: id, n });
   return { ok: true, ids: [id] };
 }
