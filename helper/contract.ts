@@ -15,7 +15,12 @@
  *   runner -> dock   plan, lane, merge, spend
  */
 
-export const CONTRACT_VERSION = 1;
+/**
+ * 2 (2026-10-25, J: "no api, only plan usage and tokens"): every run is on
+ * J's plan. Spend is tokens only, no dollars; a cloud lane's tokens are null
+ * (not measured); a spend line may carry the plan-limit reading.
+ */
+export const CONTRACT_VERSION = 2;
 
 export const TARGETS = ["site", "builder-ui", "backend"] as const;
 export type Target = (typeof TARGETS)[number];
@@ -49,8 +54,11 @@ export type ControlDo = (typeof CONTROLS)[number];
  */
 export const J_ONLY: readonly ControlDo[] = ["pause", "resume", "stop", "approve", "decline"];
 
-/** How a run is paid: J's Claude plan, an API key, or a cloud session. */
-export const PAYS = ["plan", "api", "cloud"] as const;
+/**
+ * Where J's plan is used: a `claude -p` run on the PC, or a cloud session
+ * (which also counts toward the plan). There is no API-key way (J, v2).
+ */
+export const PAYS = ["plan", "cloud"] as const;
 export type Pays = (typeof PAYS)[number];
 
 export const MERGE_STATUS = ["waiting-ci", "stacked", "merged", "live", "checked", "check-failed"] as const;
@@ -138,17 +146,28 @@ export type MergeLine = {
 export type Tokens = { in: number; out: number };
 
 /**
- * Tokens are counted the same way for every run, so plan runs and paid runs
- * can be set side by side. A plan run also says what share of the plan's
- * usage window it took; an API or cloud run says what it cost in dollars.
+ * Spend is tokens, never dollars. A PC lane's tokens are counted from its
+ * stream; a cloud session's can't be read, so they are null, and the dock
+ * says "on your plan, not measured".
  */
 export type LaneSpend = {
   lane: string;
   pays: Pays;
-  tokens: Tokens;
+  tokens: Tokens | null;
   seconds: number;
-  planShare: number | null;
-  usd: number | null;
+};
+
+/**
+ * How much of J's plan limit is used, as Claude Code last reported it (its
+ * rate-limit event). It is the whole account's, not one lane's.
+ */
+export type PlanUse = {
+  /** 0 to 1. */
+  used: number;
+  /** When the limit window resets, Unix seconds, if it was said. */
+  resetsAt: number | null;
+  /** allowed, allowed_warning (near the limit) or rejected (at it). */
+  status: "allowed" | "allowed_warning" | "rejected";
 };
 
 export type Spend = {
@@ -156,8 +175,10 @@ export type Spend = {
   kind: "spend";
   requestId: string;
   lanes: LaneSpend[];
-  /** The request's tokens: the sum of its lanes'. */
+  /** The request's tokens: the sum of its measured lanes'. */
   tokens: Tokens;
+  /** The plan-limit reading, or null when Claude Code hasn't sent one. */
+  plan: PlanUse | null;
 };
 
 export type Message = Request | Plan | Lane | Control | MergeLine | Spend;
@@ -262,16 +283,20 @@ function kindProblems(m: Obj): string[] {
         const at = `lanes[${i}]`;
         if (!isObj(l)) return void out.push(`${at} must be an object`);
         if (!isStr(l.lane)) out.push(`${at}: lane missing`);
-        if (!oneOf(PAYS, l.pays)) out.push(`${at}: pays must be plan, api or cloud`);
-        out.push(...tokenProblems(l.tokens, at));
+        if (!oneOf(PAYS, l.pays)) out.push(`${at}: pays must be plan or cloud`);
+        if (l.pays === "plan" || l.tokens !== null) out.push(...tokenProblems(l.tokens, at));
         if (!isCount(l.seconds)) out.push(`${at}: seconds missing`);
-        const share = typeof l.planShare === "number" && l.planShare >= 0 && l.planShare <= 1;
-        const usd = typeof l.usd === "number" && l.usd >= 0;
-        if (l.pays === "plan" && !share) out.push(`${at}: a plan run needs planShare, 0 to 1`);
-        if (l.pays !== "plan" && !usd) out.push(`${at}: an ${l.pays} run needs usd`);
+        if ("usd" in l || "planShare" in l) out.push(`${at}: spend is tokens only, no dollars`);
         if (isObj(l.tokens)) { sumIn += Number(l.tokens.in) || 0; sumOut += Number(l.tokens.out) || 0; }
       });
       if (isObj(m.tokens) && (m.tokens.in !== sumIn || m.tokens.out !== sumOut)) out.push("request tokens must be the sum of its lanes'");
+      if ("usd" in m) out.push("spend is tokens only, no dollars");
+      if (m.plan !== null) {
+        const p = m.plan;
+        const ok = isObj(p) && typeof p.used === "number" && p.used >= 0 && p.used <= 1
+          && (p.resetsAt === null || isCount(p.resetsAt)) && ["allowed", "allowed_warning", "rejected"].includes(p.status as string);
+        if (!ok) out.push("plan must be null, or used 0 to 1 with resetsAt and status");
+      }
       return out;
     }
     default:

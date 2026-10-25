@@ -1,7 +1,6 @@
 /**
  * Reads Claude Code's stream-json (from `claude -p --output-format
- * stream-json --verbose`, and the same messages from the Agent SDK) into
- * AgentEvents.
+ * stream-json --verbose`) into AgentEvents.
  *
  * Steps and questions come from the agent's own text, by the convention in
  * brief.ts: a line `[step:red] writing the red test` or `[question] ...`.
@@ -12,12 +11,17 @@
  * fresh, cache writes and cache reads; `out` is output tokens. Messages from
  * subagents come through the stream too and are counted the same way.
  *
- * Dollars: the result message's `total_cost_usd`. A long-lived `-p` process
- * with stream-json input sends one result per turn. BELIEVED: the figure is
- * the process's running total, so only its growth is counted; if a result
- * comes in lower than the last one, it is read as that turn's own figure.
+ * No dollars are read (J: plan usage and tokens only), so `total_cost_usd`
+ * is ignored.
+ *
+ * Plan use: a `rate_limit_event` (SDKRateLimitEvent in the Agent SDK's
+ * TypeScript reference, the same stream `claude -p` writes) carries
+ * `rate_limit_info: { status, resetsAt?, utilization? }`. BELIEVED, check on
+ * J's PC: `utilization` is the used share of the current plan window, 0 to 1
+ * (a figure over 1 is read as a percentage), `resetsAt` is Unix seconds, and
+ * the event comes when the session meets a limit, not with every reply.
  */
-import { STEPS, type Step, type Tokens } from "../contract.ts";
+import { STEPS, type PlanUse, type Step, type Tokens } from "../contract.ts";
 import type { AgentEvent } from "./types.ts";
 
 type Obj = Record<string, any>;
@@ -34,9 +38,20 @@ export function tokensOf(usage: Obj | undefined | null): Tokens {
   };
 }
 
+const STATUSES = ["allowed", "allowed_warning", "rejected"] as const;
+
+/** A rate_limit_info to the contract's plan reading; null when it holds no share. */
+export function planUseOf(info: Obj): PlanUse | null {
+  const status = STATUSES.find((s) => s === info.status);
+  const raw = Number(info.utilization);
+  if (!status || !Number.isFinite(raw) || raw < 0) return null;
+  const used = Math.min(1, raw > 1 ? raw / 100 : raw);
+  const resets = Number(info.resetsAt);
+  return { used, status, resetsAt: Number.isFinite(resets) && resets > 0 ? Math.round(resets > 1e11 ? resets / 1000 : resets) : null };
+}
+
 export class StreamReader {
   private seen = new Map<string, Tokens>();
-  private lastCost = 0;
   sessionId: string | null = null;
 
   /** One message (already parsed from its line) to the events it holds. */
@@ -51,7 +66,7 @@ export class StreamReader {
       const was = this.seen.get(id) ?? { in: 0, out: 0 };
       const grow = { in: Math.max(0, now.in - was.in), out: Math.max(0, now.out - was.out) };
       this.seen.set(id, { in: Math.max(now.in, was.in), out: Math.max(now.out, was.out) });
-      if (grow.in || grow.out) out.push({ type: "usage", tokens: grow, usd: null });
+      if (grow.in || grow.out) out.push({ type: "usage", tokens: grow });
       for (const block of Array.isArray(m.message.content) ? m.message.content : []) {
         if (block?.type !== "text" || typeof block.text !== "string") continue;
         for (const line of block.text.split("\n")) {
@@ -62,13 +77,11 @@ export class StreamReader {
         }
       }
     }
+    if (m.type === "rate_limit_event" && m.rate_limit_info) {
+      const plan = planUseOf(m.rate_limit_info);
+      if (plan) out.push({ type: "plan", plan });
+    }
     if (m.type === "result") {
-      const cost = Number(m.total_cost_usd);
-      if (Number.isFinite(cost) && cost > 0) {
-        const usd = cost >= this.lastCost ? cost - this.lastCost : cost;
-        this.lastCost = cost;
-        if (usd > 0) out.push({ type: "usage", tokens: { in: 0, out: 0 }, usd });
-      }
       if (m.is_error || (m.subtype && m.subtype !== "success")) out.push({ type: "note", note: `turn ended: ${m.subtype ?? "error"}` });
       out.push({ type: "idle" });
     }

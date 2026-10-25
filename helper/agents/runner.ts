@@ -10,8 +10,9 @@
  *   says "waiting for memory" until it can;
  * - one big build at a time: the build lock (build-lock.ts), taken by the
  *   hold hook around build commands, given back here when a lane ends;
- * - spend per lane, and every lane paused (by "runner", reason
- *   "spend-cap") when a cap is reached.
+ * - tokens per lane (no dollars: every run is on J's plan), and lanes
+ *   paused (by "runner", reason "spend-cap") at a token cap per day or per
+ *   request, or when Claude Code says the plan's limit is reached.
  *
  * The lead (splitting a request into lanes) belongs to lead-and-queue; until
  * then a request runs as one lane, on the PC for a site request, in the
@@ -27,7 +28,7 @@ import { giveBuildLock } from "./build-lock.ts";
 import { laneEnv } from "./env.ts";
 import { Gate } from "./gate.ts";
 import { memoryGate, type MemoryGate } from "./memory.ts";
-import { SpendBook } from "./spend.ts";
+import { SpendBook, type Caps } from "./spend.ts";
 import type { Adapter, AgentRun } from "./types.ts";
 import { LANE_NAME, PortPool } from "./worktree.ts";
 
@@ -47,6 +48,8 @@ type LaneRec = {
   gate: Gate;
   run: AgentRun | null;
   sessionId: string | null;
+  /** Paused by the runner at a cap: Resume waits until the cap is raised. */
+  capPaused: boolean;
 };
 
 export type RunnerOptions = {
@@ -60,7 +63,6 @@ export type RunnerOptions = {
   workspace(lane: string, where: Where): Promise<string> | string;
   ports?: PortPool;
   baseEnv?: NodeJS.ProcessEnv;
-  apiKey?: () => string;
   plan?: (r: Request) => Plan;
   /** How often a lane waiting for memory looks again. */
   memoryPollMs?: number;
@@ -83,7 +85,6 @@ export class Runner {
   private ports: PortPool;
   private memory: MemoryGate;
   private atOnce: number;
-  private capped = false;
   private retry: NodeJS.Timeout | null = null;
 
   readonly opts: RunnerOptions;
@@ -144,7 +145,7 @@ export class Runner {
         requestId: req.id, plan: l, adapter: this.opts.adapters[l.where]!, prompt: promptFor(req, l),
         status: startNow ? "queued" : "waiting-start", state: startNow ? "working" : "only-you", stepsDone: 0,
         note: startNow ? "waiting its turn" : plan.newControl ? "adds a new control: waiting for your yes" : "waiting for Start",
-        gate: new Gate(join(this.opts.stateDir, "gates", l.lane)), run: null, sessionId: null,
+        gate: new Gate(join(this.opts.stateDir, "gates", l.lane)), run: null, sessionId: null, capPaused: false,
       });
       this.opts.spend.open(req.id, l.lane, this.opts.adapters[l.where]!.pays, this.opts.adapters[l.where]!.can.tokens);
       this.emit(this.row(l.lane));
@@ -173,8 +174,7 @@ export class Runner {
     const r = this.lanes.get(lane)!;
     const port = this.ports.take(lane);
     const cwd = await this.opts.workspace(lane, r.plan.where);
-    const pays = r.adapter.pays;
-    const env = laneEnv(this.opts.baseEnv ?? process.env, { port, pays, apiKey: pays === "api" ? this.opts.apiKey?.() : undefined });
+    const env = laneEnv(this.opts.baseEnv ?? process.env, { port });
     this.update(lane, { state: "working", note: "starting" });
     r.run = r.adapter.start({
       requestId: r.requestId, lane, prompt: r.prompt, cwd, port, env, gate: r.gate,
@@ -200,7 +200,12 @@ export class Runner {
           this.update(lane, { state: "question", note: e.text });
           break;
         case "usage":
-          this.opts.spend.add(lane, e.tokens, e.usd);
+          this.opts.spend.add(lane, e.tokens);
+          this.emit(this.opts.spend.message(r.requestId));
+          this.checkCap();
+          break;
+        case "plan":
+          this.opts.spend.setPlan(e.plan);
           this.emit(this.opts.spend.message(r.requestId));
           this.checkCap();
           break;
@@ -243,21 +248,31 @@ export class Runner {
     this.finish(lane, true, note);
   }
 
+  /** Why a lane's request is over a token cap (or the plan's limit), or null. */
+  private overFor(requestId: string): string | null {
+    const o = this.opts.spend.over().find((x) => x.scope !== "request" || x.requestId === requestId);
+    return o?.why ?? null;
+  }
+
+  /**
+   * A day cap or the plan's limit pauses every lane; a request cap pauses
+   * that request's lanes. Each is paused once, as "runner", "spend-cap".
+   */
   private checkCap() {
-    const why = this.opts.spend.overCap();
-    if (!why || this.capped) return;
-    this.capped = true;
     for (const [lane, r] of this.lanes) {
-      if (r.status !== "running" && r.status !== "queued") continue;
+      if (r.capPaused || (r.status !== "running" && r.status !== "queued") || r.state === "paused") continue;
       if (!r.adapter.can.pause) continue;
+      const why = this.overFor(r.requestId);
+      if (!why) continue;
+      r.capPaused = true;
       const c: Control = { v, kind: "control", lane, do: "pause", by: "runner", reason: "spend-cap" };
       this.emit(c);
       this.pauseLane(lane, why);
     }
   }
 
-  /** Raising the cap is J's click in the dock; this lets lanes resume. */
-  clearCap() { this.capped = false; }
+  /** Raising a cap is J's click in the dock; then Resume works again. */
+  setCaps(caps: Caps) { this.opts.spend.opts.caps = caps; }
 
   private pauseLane(lane: string, note: string) {
     const r = this.lanes.get(lane)!;
@@ -287,7 +302,11 @@ export class Runner {
         return { ok: true };
       case "resume":
         if (r.state !== "paused") return { ok: false, error: `${lane} isn't paused` };
-        if (this.capped && this.opts.spend.overCap()) return { ok: false, error: "spend is still over the cap: raise it first" };
+        if (r.capPaused) {
+          const why = this.overFor(r.requestId);
+          if (why) return { ok: false, error: `${why}: raise the cap first` };
+          r.capPaused = false;
+        }
         r.gate.resume();
         if (r.status === "running") this.opts.spend.running(lane, true);
         // Pause held the next tool call without ending the turn, so letting
