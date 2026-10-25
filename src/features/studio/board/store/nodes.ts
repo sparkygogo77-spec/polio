@@ -454,9 +454,19 @@ export function nodesActions(set: SetStudio, get: GetStudio, push: () => void, p
         const set_ = new Set(withHeld(s, ids));
         const asked = new Set(ids);
         const mark = uid("c");
+        /*
+         * The copies land a step down and to the right of the originals, and
+         * inside the page: a part near the right edge used to copy past it
+         * (PST's withdraw field, sunkcoin's wallet strip, the hand-edit audit
+         * 2026-10-25), so the step goes left instead when right would cross
+         * the edge (`tests/copy-stays-on-page.mjs`). A part wider than the
+         * page keeps its place across.
+         */
+        const fw = s.frameWidth;
+        const stepX = (n: StudioNode) => (n.w <= fw && n.x + n.w + 24 > fw ? -24 : 24);
         const made = s.nodes
           .filter((n) => set_.has(n.id))
-          .map((n) => ({ was: n.id, copy: { ...n, id: uid("n"), x: n.x + 24, y: n.y + 24, groupId: null, ...copyMark(n, mark) } }));
+          .map((n) => ({ was: n.id, copy: { ...n, id: uid("n"), x: Math.max(0, n.x + stepX(n)), y: n.y + 24, groupId: null, ...copyMark(n, mark) } }));
         /* The copies of what was picked are picked: what they hold rides with them, as it does with the originals. */
         return { nodes: [...s.nodes, ...made.map((m) => m.copy)], selection: made.filter((m) => asked.has(m.was)).map((m) => m.copy.id) };
       });
