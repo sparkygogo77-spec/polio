@@ -9,11 +9,19 @@
 import { spawn } from "node:child_process";
 import type { Ask } from "./lead.ts";
 
-export function claudeAsk({ file, cwd, env = process.env, timeoutMs = 300_000 }: {
-  file: string; cwd: string; env?: NodeJS.ProcessEnv; timeoutMs?: number;
+/**
+ * Tools the lead may never have, whatever J's own settings allow: a request
+ * is text from the dock (and, through its chips, from a captured site), so
+ * the planning call must not be able to run, write or fetch anything.
+ * `--allowedTools` only adds; `--disallowedTools` takes away.
+ */
+export const LEAD_NEVER = ["Bash", "Edit", "Write", "MultiEdit", "NotebookEdit", "WebFetch", "WebSearch", "Agent", "Task", "TodoWrite"];
+
+export function claudeAsk({ file, args: before = [], cwd, env = process.env, timeoutMs = 300_000 }: {
+  file: string; args?: string[]; cwd: string; env?: NodeJS.ProcessEnv; timeoutMs?: number;
 }): Ask {
   return (prompt, { model }) => new Promise((resolve, reject) => {
-    const args = ["-p", "--output-format", "json", "--model", model, "--allowedTools", "Read,Grep,Glob"];
+    const args = [...before, "-p", "--output-format", "json", "--model", model, "--allowedTools", "Read,Grep,Glob", "--disallowedTools", LEAD_NEVER.join(",")];
     const child = spawn(file, args, { cwd, env, stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
     let out = "", err = "";
     const timer = setTimeout(() => { child.kill(); reject(new Error(`the lead took over ${timeoutMs / 1000} s`)); }, timeoutMs);
