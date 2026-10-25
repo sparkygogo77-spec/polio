@@ -20,9 +20,8 @@ import { motionOf, pairingOf, radii, readPhilosophy, rollTheme, shadowCss, space
 
 /** When this System was marked the house style (0: never, 1: named so but not marked). */
 function markOf(s: System): number {
-  const at = (s as System & { house?: unknown }).house;
-  if (typeof at === "number" && at > 0) return at;
-  return at === true || /^\s*house style\s*$/i.test(s.name) ? 1 : 0;
+  if (typeof s.house === "number" && s.house > 0) return s.house;
+  return /^\s*house style\s*$/i.test(s.name) ? 1 : 0;
 }
 
 /** Is this System the house style? */
