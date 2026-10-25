@@ -115,6 +115,14 @@ const hueMenu = (current: number | null, apply: (h: number | null) => void): Men
   ],
 });
 
+/** Backspace or Delete: what is picked goes. On the background, delete strips it bare, and still holds it, so it can be put back. */
+function deleteSelection() {
+  const s = useStudio.getState();
+  if (s.selection.includes(BACKGROUND_ID)) { s.cutBackground(); return; }
+  s.removeNodes(s.selection);
+  s.removeShapes(s.selection);
+}
+
 export const studio = defineFeature({
   id: "studio",
   name: "Builder",
@@ -375,6 +383,8 @@ export const studio = defineFeature({
     { keys: "f", label: "Fit in view, or centre the timeline", group: "Builder", when: onDesign, run: () => useStudio.getState().requestFit() },
     { keys: "mod+z", label: "Undo", group: "Builder", when: onDesign, run: () => useStudio.getState().undo() },
     { keys: "mod+shift+z", label: "Redo", group: "Builder", when: onDesign, run: () => useStudio.getState().redo() },
+    /* Ctrl+Y too: the redo a hand on Windows knows (the hand-edit audit, 2026-10-25; `tests/delete-key.mjs`). */
+    { keys: "mod+y", label: "Redo", group: "Builder", when: onDesign, run: () => useStudio.getState().redo() },
     { keys: "mod+g", label: "Group selection", group: "Builder", when: onDesign, run: () => useStudio.getState().groupSelection() },
     { keys: "mod+d", label: "Duplicate selection", group: "Builder", when: onDesign, run: () => useStudio.getState().duplicateNodes(useStudio.getState().selection) },
     { keys: "mod+a", label: "Select everything", group: "Builder", when: onDesign, run: () => useStudio.getState().selectAll() },
@@ -390,20 +400,13 @@ export const studio = defineFeature({
     },
     { keys: "mod+x", label: "Cut", group: "Builder", when: onDesign, run: () => { useStudio.getState().cut(); } },
     { keys: "mod+v", label: "Paste what was copied or cut", group: "Builder", when: onDesign, run: () => { useStudio.getState().paste(); } },
-    {
-      keys: "backspace",
-      label: "Delete selection",
-      group: "Builder",
-      when: onDesign,
-      run: () => {
-        const s = useStudio.getState();
-        // On the background, delete strips it bare — and still holds it, so
-        // it can be put back.
-        if (s.selection.includes(BACKGROUND_ID)) { s.cutBackground(); return; }
-        s.removeNodes(s.selection);
-        s.removeShapes(s.selection);
-      },
-    },
+    /*
+     * DELETE AND BACKSPACE BOTH TAKE WHAT IS PICKED. Only Backspace did, and
+     * the Delete key, the one a hand on a Windows keyboard reaches for, did
+     * nothing at all (the hand-edit audit, 2026-10-25; `tests/delete-key.mjs`).
+     */
+    { keys: "backspace", label: "Delete selection", group: "Builder", when: onDesign, run: deleteSelection },
+    { keys: "delete", label: "Delete selection", group: "Builder", when: onDesign, run: deleteSelection },
     { keys: "mod+enter", label: "Compile the blueprint", group: "Builder", when: onStudio, allowInInput: true, run: () => (window as unknown as { __studioOpenBrief?: () => void }).__studioOpenBrief?.() },
   ],
 
