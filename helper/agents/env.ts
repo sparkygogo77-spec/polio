@@ -16,7 +16,8 @@ const HELPER_VARS = /^(POLIO_HELPER_|POLIO_JOB_)/;
 const CLAUDE_CREDENTIALS = ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN"];
 
 export function laneEnv(base: NodeJS.ProcessEnv, { port, pays, apiKey }: { port: number; pays: "plan" | "api" | "cloud"; apiKey?: string }): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = {};
+  // Next.js types NODE_ENV as required; this env starts empty on purpose.
+  const env = {} as NodeJS.ProcessEnv;
   for (const [k, val] of Object.entries(base)) {
     if (HELPER_VARS.test(k) || CLAUDE_CREDENTIALS.includes(k)) continue;
     env[k] = val;
