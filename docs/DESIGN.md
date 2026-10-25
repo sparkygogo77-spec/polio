@@ -208,7 +208,10 @@ same boxes as everywhere else, in the screen's colours.
   (`tests/wheel-pass.mjs`). The tab opens on hover, on a tap and on Tab; the
   open row wraps and is moved back inside the window, so a part near a side
   never has actions off screen (`tests/tray-on-screen.mjs`). The drawing
-  board hangs the same tray under its disc.
+  board hangs the same tray under its disc. Move up and Move down (the part
+  trades places in its holder and column, as Alt+↑/↓ does) and a part's Hover
+  (what it does under the pointer, opening its editor) hang there too, so the
+  wheel reaches what the panel does (J, 2026-10-24; `tests/wheel-move-hover.mjs`).
 - **Never an empty slab.** An editor that would leave a slab bare is folded
   into its neighbour: the page's colour, fill and veil are one Color editor;
   its width comes with Fit in view and the wires beside it. A slab with only

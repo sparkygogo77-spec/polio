@@ -48,7 +48,7 @@ import { canRemake, openRemake } from "../RemakePicture";
 import { canClearBackground, openClearBackground } from "../ClearBackground";
 import { GRID_LABEL, gridOf } from "../gridOf";
 import * as React from "react";
-import { ChevronsDown, ChevronsUp, ClipboardPaste, CopyPlus, LayoutGrid, Shuffle, Paintbrush, Ellipsis, Eraser, Eye, History, Layers, Lock, Maximize2, Pipette, Plus, Sparkles, Type, Undo2, Unlock } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronsDown, ChevronsUp, ClipboardPaste, MousePointer2, CopyPlus, LayoutGrid, Shuffle, Paintbrush, Ellipsis, Eraser, Eye, History, Layers, Lock, Maximize2, Pipette, Plus, Sparkles, Type, Undo2, Unlock } from "lucide-react";
 import { cn } from "@/core/lib/cn";
 import { AddDisc } from "../AddDisc";
 import { BACKGROUND_ID, heldBackground, livePath, useStudio } from "../board/store";
@@ -80,6 +80,9 @@ import type { ScreenRead } from "../states";
 import { openPartFocus } from "../states/ui";
 import { frameFor } from "../states";
 import { current, openedAt, pageSpot, openRadial, openBoard, closeRadial, moveRadial, useRadial } from "./open";
+import { canTrade, tradePlaces } from "../board/tradePlaces";
+import { hasOwnHover, hoverFill, hoverLift } from "../hoverLook";
+import { openSection } from "../panels/PartTreePanel";
 import { PULL_FROM, PULL_LOCK, TRAY_DROP, PullStage, Pull, SlotId, Slot, SLOTS, GREEN, GREEN_SHRINK, ANIM_SLAB, Choice, choicesFor, SLOTS_BG, bgChoicesFor, motionOptions } from "./choices";
 import { PullLine, PullEnds, RingPiece, inkOn, Ring, HueSwatch, textureWear, AuraSwatch, Editor } from "./ring";
 
@@ -571,6 +574,14 @@ export function RadialMenu() {
         { id: "preview", label: "Preview here", icon: <Eye className="size-3" />, primary: true, onClick: () => { closeRadial(); ctx.navigate(`${livePath(node!.pageId)}#${node!.id}`); } },
         { id: "forward", label: "Forward", icon: <ChevronsUp className="size-3" />, disabled: nodeIndex >= nodes.length - 1, onClick: () => s().raiseNode(node!.id) },
         { id: "back", label: "Backward", icon: <ChevronsDown className="size-3" />, disabled: nodeIndex <= 0, onClick: () => s().lowerNode(node!.id) },
+        /* Up or down the page: it trades places with the part beside it in its holder and column, with what it holds, one step of undo; the same move as Alt+↑/↓ and the panel's buttons (`board/tradePlaces.ts`, J 2026-10-24). Shut, not hidden, where it cannot go. */
+        { id: "move-up", label: "Move up", icon: <ArrowUp className="size-3" />, disabled: !canTrade(node!.id, -1), onClick: () => { play(tradePlaces(node!.id, -1) ? "tap" : "deny"); setCarried((k) => k + 1); } },
+        { id: "move-down", label: "Move down", icon: <ArrowDown className="size-3" />, disabled: !canTrade(node!.id, 1), onClick: () => { play(tradePlaces(node!.id, 1) ? "tap" : "deny"); setCarried((k) => k + 1); } },
+        /* Its hover, captured or set: what it does under the pointer, said on the item, and its editor one press away (`hoverLook.ts`, the panel's Hover). */
+        ...(!node!.worn && hasOwnHover(node!.motion) ? [{
+          id: "hover", label: hoverSays(node!.motion), icon: <MousePointer2 className="size-3" />,
+          onClick: () => { closeRadial(); s().want({ panel: "inspector", id: node!.id }); window.setTimeout(() => openSection("hover"), 150); },
+        }] : []),
         /* A data panel, or any part inside one: its states on the Panels page (PanelsPage.tsx, J 2026-10-06). */
         /* A declared panel (`stateRules.ts`): States steps just that panel through its states on the board, over the scene that is on. */
         ...(declaredPanelOf(nodes, node!) ? [(() => { const dp = declaredPanelOf(nodes, node!)!; return { id: "panel-states", label: `States: ${dp.now}, next ${dp.next}`, icon: <Layers className="size-3" />, onClick: () => { const st = s(); st.setStatesOn([...(st.statesOn ?? []).filter((k) => readPanelKey(k)?.panel !== dp.id), panelKey(dp.id, dp.next)]); play("tap"); setCarried((k) => k + 1); } }; })()] : []),
@@ -961,4 +972,11 @@ function inPanel(nodes: readonly StudioNode[], node: StudioNode): boolean {
   const file = source?.files?.find((f) => f.pageId === node.pageId)?.file ?? null;
   const screens = (source?.screens ?? []).filter((x) => !file || !x.page || x.page === file);
   return !!panelOf(nodes, pagePanels(nodes as unknown as PanelNode[], node.pageId, screens), node.id);
+}
+
+/** What a part's hover does, in a few words, for the tray: "Hover: fill #1e3a8a, lifts 2px". */
+function hoverSays(m: Parameters<typeof hoverFill>[0]): string {
+  const fill = hoverFill(m), lift = Math.round(hoverLift(m));
+  const said = [fill ? `fill ${fill.length > 22 ? "changes" : fill}` : null, lift ? `lifts ${Math.abs(lift)}px` : null].filter(Boolean);
+  return `Hover: ${said.length ? said.join(", ") : "its own look"}…`;
 }
