@@ -16,7 +16,9 @@
  *      holds, no "another tab" bubble, the key made to agree with itself,
  *      and the next change is saved;
  *   3. saves that keep coming faster than the wait before IndexedDB still
- *      reach it within a second, so the pointer is never far ahead.
+ *      reach it within a second, so the pointer is never far ahead;
+ *   4. the mirrors never fill localStorage: past a budget a document leaves
+ *      its pointer, and the small keys beside it still write.
  *
  *   npx next start -p 3013
  *   node tests/lost-pointer-write.mjs http://127.0.0.1:3013
@@ -112,6 +114,24 @@ const landedDuring = await page.evaluate(async (doc) => {
   return [...seen];
 }, SMALL);
 check("saves coming every 50 ms for 3 s reach IndexedDB while they keep coming", landedDuring.some((s) => s && s !== before), `before ${before}, seen during: ${landedDuring.join(", ")}`);
+
+/* 4. Mirrors never fill localStorage: past the budget a document leaves its pointer, and the small keys beside it still write. */
+/* What the other keys take is counted afresh at most every two seconds: the filler is in place longer than that, as another store's keys are. */
+await page.evaluate(() => localStorage.setItem("test.filler", "z".repeat(3_950_000)));
+await page.waitForTimeout(2200);
+const room = await page.evaluate(async (doc) => {
+  window.__studioLoadDoc({ ...doc, nodes: doc.nodes.map((n, k) => (k === 0 ? { ...n, label: "past the budget" } : n)) });
+  await new Promise((r) => setTimeout(r, 400));
+  const live = localStorage.getItem("builder.studio") ?? "";
+  let small = true;
+  try { localStorage.setItem("test.small", "x".repeat(200_000)); } catch { small = false; }
+  localStorage.removeItem("test.filler"); localStorage.removeItem("test.small");
+  return { pointer: live.startsWith('{"idb":true'), small };
+}, SMALL);
+await page.waitForTimeout(800);
+check("with localStorage nearly full of other keys, the document leaves a pointer", room.pointer, JSON.stringify(room));
+check("…and a small key beside it still writes", room.small, JSON.stringify(room));
+check("…and the board is still whole after a reload", await (async () => { await page.reload({ waitUntil: "networkidle" }); await page.waitForFunction((n) => typeof window.__studioPublishDoc === "function" && window.__studioPublishDoc().nodes.length === n, N0, { timeout: 30000 }).catch(() => {}); return (await onBoard()) === N0; })(), `${await onBoard()} parts`);
 check("no page errors", errors.length === 0, errors.join(" | ").slice(0, 300));
 
 await browser.close();

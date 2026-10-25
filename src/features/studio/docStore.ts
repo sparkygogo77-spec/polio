@@ -208,6 +208,40 @@ export function readMirror(key: string): string | null {
   try { return store()?.getItem(key) ?? null; } catch { return null; }
 }
 /**
+ * HOW MUCH OF LOCALSTORAGE THE MIRRORS MAY FILL, in characters, every key
+ * counted. Its quota is about five million; each site's document mirrored
+ * whole up to `MIRROR_MAX` filled it with a handful of sites (eight
+ * variations of trumpmorty.fun made at once), and the next small write
+ * beside them threw: the variations list, the site list, the Systems. Past
+ * this a document leaves its pointer, which every reader follows to
+ * IndexedDB, and the last million stays for everything else.
+ */
+export const MIRROR_BUDGET = 4_000_000;
+/** What the keys other than `key` take, counted again at most every two seconds (a drag writes far more often than that). */
+let used: { at: number; total: number; by: Map<string, number> } | null = null;
+function othersUse(ls: Storage, key: string): number {
+  const now = Date.now();
+  if (!used || now - used.at > 2000) {
+    const by = new Map<string, number>();
+    let total = 0;
+    for (let i = 0; i < ls.length; i++) {
+      const k = ls.key(i);
+      if (k === null) continue;
+      const n = k.length + (ls.getItem(k)?.length ?? 0);
+      by.set(k, n);
+      total += n;
+    }
+    used = { at: now, total, by };
+  }
+  return used.total - (used.by.get(key) ?? 0);
+}
+/** This write's size, kept in the count until it is next taken afresh. */
+function counted(key: string, n: number): void {
+  if (!used) return;
+  used.total += n - (used.by.get(key) ?? 0);
+  used.by.set(key, n);
+}
+/**
  * `whole` when localStorage holds the whole document (not only a pointer to it);
  * `landed` when it holds this write at all, whole or as a pointer, rather than
  * still holding what it held (no storage, or no room even for a pointer).
@@ -216,11 +250,13 @@ function writeMirror(key: string, value: string | null): { whole: boolean; lande
   const ls = store();
   if (!ls) return { whole: false, landed: false };
   try {
-    if (value === null) { ls.removeItem(key); return { whole: true, landed: true }; }
-    const m = mirrorText(value, MIRROR_MAX, packKept.get(key));
+    if (value === null) { ls.removeItem(key); counted(key, 0); return { whole: true, landed: true }; }
+    let m = mirrorText(value, MIRROR_MAX, packKept.get(key));
     if (m.kept) packKept.set(key, m.kept); else packKept.delete(key);
-    try { ls.setItem(key, m.text); return { whole: m.kind !== "pointer", landed: true }; } catch { /* over quota all the same: a pointer, below */ }
-    if (m.kind !== "pointer") { ls.setItem(key, pointerFor(value)); return { whole: false, landed: true }; }
+    /* Mirrors past the budget leave a pointer: the room left is for the small keys beside them. */
+    if (m.kind !== "pointer" && othersUse(ls, key) + key.length + m.text.length > MIRROR_BUDGET) m = { kind: "pointer", text: pointerFor(value) };
+    try { ls.setItem(key, m.text); counted(key, key.length + m.text.length); return { whole: m.kind !== "pointer", landed: true }; } catch { /* over quota all the same: a pointer, below */ }
+    if (m.kind !== "pointer") { const p = pointerFor(value); ls.setItem(key, p); counted(key, key.length + p.length); return { whole: false, landed: true }; }
   } catch { /* private mode, or nothing left: IndexedDB holds it */ }
   return { whole: false, landed: false };
 }

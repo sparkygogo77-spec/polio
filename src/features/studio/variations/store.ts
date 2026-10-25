@@ -31,7 +31,12 @@ export const useVariations = create<VariationsState>()(
       drop: (id) => set((s) => { const { [id]: _gone, ...rest } = s.byId; void _gone; return { byId: rest }; }),
       setLocks: (of, locks) => set((s) => ({ locks: { ...s.locks, [of]: locks } })),
     }),
-    { name: "builder.variations", storage: createJSONStorage(() => localStorage), partialize: (s) => ({ byId: s.byId, locks: s.locks }) as VariationsState, skipHydration: true },
+    { name: "builder.variations", storage: createJSONStorage(() => ({
+      getItem: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
+      removeItem: (k) => { try { localStorage.removeItem(k); } catch { /* nothing kept */ } },
+      /* A full localStorage refuses it: the variations are still sites in Builds, only how to make each again is not kept. */
+      setItem: (k, v) => { try { localStorage.setItem(k, v); } catch { /* see above */ } },
+    })), partialize: (s) => ({ byId: s.byId, locks: s.locks }) as VariationsState, skipHydration: true },
   ),
 );
 
