@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agents</title>
+  <link rel="stylesheet" href="./dock.css">
+  <script type="module" src="./dock.ts"></script>
+</head>
+<body>
+  <main class="dock">
+    <header class="top">
+      <h1>Agents <span class="mark" data-mark></span></h1>
+      <p class="quiet" data-helper>fake runner, no helper yet</p>
+    </header>
+
+    <section class="box" data-prompt-box>
+      <h2>What should change?</h2>
+      <textarea data-prompt rows="3" placeholder="The hero feels crowded. Fewer badges, calmer heading."></textarea>
+      <fieldset class="targets">
+        <legend>For</legend>
+        <label><input type="radio" name="target" value="site" checked> <b>This site</b> <span class="quiet">and its export</span></label>
+        <label><input type="radio" name="target" value="builder-ui"> <b>Builder UI</b> <span class="quiet">panels, board, wheel</span></label>
+        <label><input type="radio" name="target" value="backend"> <b>Backend</b> <span class="quiet">capture, export, saving</span></label>
+      </fieldset>
+      <div class="chips-head quiet">Goes with it (press one to drop it)</div>
+      <div class="chips" data-chips></div>
+      <div class="go">
+        <label class="switch"><input type="checkbox" data-plan-first checked> Plan first</label>
+        <button class="primary" data-plan-it>Plan it</button>
+      </div>
+      <p class="hint" data-prompt-hint hidden></p>
+    </section>
+
+    <section class="box plan" data-plan-slot hidden></section>
+
+    <section class="box">
+      <h2>Running <span class="count" data-running-count></span></h2>
+      <ul class="lanes" data-lanes></ul>
+    </section>
+
+    <section class="box">
+      <h2>Merges</h2>
+      <ul class="feed" data-merge-feed></ul>
+    </section>
+
+    <section class="box" data-spend>
+      <h2>Spend</h2>
+      <div class="meters" data-meters></div>
+      <table class="compare">
+        <thead><tr><th>Lane</th><th>Pays</th><th>Tokens</th><th>Time</th><th>Cost</th><th>k/min</th></tr></thead>
+        <tbody data-compare></tbody>
+      </table>
+    </section>
+
+    <section class="box">
+      <h2>On your PC now <span class="quiet right" data-pc-memory></span></h2>
+      <ul class="pc" data-pc></ul>
+    </section>
+  </main>
+</body>
+</html>
