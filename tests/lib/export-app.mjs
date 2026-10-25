@@ -67,3 +67,18 @@ export async function buildApp(tag, files, { keepDefaults = [] } = {}) {
     },
   };
 }
+
+/** Serves a built app with `next start` on a port; `stop()` ends it. */
+export async function serveApp(dir, port) {
+  const next = join(ROOT, "node_modules", "next", "dist", "bin", "next");
+  const p = spawn(process.execPath, [next, "start", "-p", String(port), "-H", "127.0.0.1"], { cwd: dir, env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" } });
+  let log = "";
+  p.stdout.on("data", (d) => (log += d));
+  p.stderr.on("data", (d) => (log += d));
+  const url = `http://127.0.0.1:${port}`;
+  for (let i = 0; i < 100; i++) {
+    try { const r = await fetch(url); if (r.status < 500) break; } catch { /* not up yet */ }
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  return { url, log: () => log, stop: () => p.kill() };
+}

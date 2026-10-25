@@ -59,7 +59,7 @@ export interface TokenName { id: string; kind: TokenKind; key: string; css: stri
 
 /** A name a person wrote ("Words, light grey"), as a key: lower case, words joined by "-". */
 export function slug(name: string): string {
-  const s = name.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  const s = name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   return s || "token";
 }
 
