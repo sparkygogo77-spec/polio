@@ -183,7 +183,7 @@ const projectsIn = (page) => page.evaluate(() => JSON.parse(localStorage.getItem
   check("â€¦on the house style", (await a.locator("[data-status-style]").getAttribute("data-status-style")) === "house" && /House style/.test(await a.locator("[data-status-style]").innerText()));
   const ag = await a.locator("[data-status-agents]").innerText().catch(() => "");
   check("â€¦the agents working on it now, from the paired dock's record", /1 agent working now: calmer hero/.test(ag), ag);
-  const versions = await a.locator("[data-status-versions]").innerText();
+  const versions = (await a.locator("[data-status-versions]").innerText()).replace(/\s+/g, " ");
   check("â€¦its copy, with Compare one press away", /1 copy: Sol face copy/.test(versions) && /Compare/.test(versions), versions);
   const href = await a.locator('[data-status-compare="b"]').getAttribute("href");
   check("â€¦Compare opens the original beside the copy", !!href && /\/builder\/compare/.test(href) && href.includes("a") && href.includes("b"), href ?? "");
