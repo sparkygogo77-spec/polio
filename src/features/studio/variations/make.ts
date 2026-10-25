@@ -8,7 +8,11 @@
  *      parts are written with their tokens' values (`resolve.ts#materialise`),
  *      the palette roles with the role tokens';
  *   3. its layout, gaps and section order are laid back out (`relayout.ts`);
- *   4. the word changes J accepted are put in, and no others.
+ *   4. every words part that read at AA (4.5 to 1) on what is behind it
+ *      still does: one whose new colours fall short has its words moved in
+ *      lightness until they read (`holdWords`), set apart from its token
+ *      the way a hand would ("change just this one");
+ *   5. the word changes J accepted are put in, and no others.
  *
  * The original's document is read, never written: everything here makes new
  * objects. `prepare` does the take once for a batch; `build` is cheap.
@@ -19,7 +23,8 @@ import { takeSystem, withSys, type TakeNode } from "../system/take.ts";
 import { materialise, paletteWith } from "../system/resolve.ts";
 import { newSystemId, type System } from "../system/model.ts";
 import type { Palette } from "../look/index.ts";
-import { accentHue, systemFor, type FaceRoles } from "./tokens.ts";
+import { accentHue, systemFor, type FaceRoles, type WornPair } from "./tokens.ts";
+import { contrast, cssOf, oklchOf, readableOn, READABLE, type Oklch } from "../siteTheme.ts";
 import { relayout, sectionCount, type RelayNode } from "./relayout.ts";
 import type { SiteShape, Spec, WordSuggestion } from "./model.ts";
 
@@ -41,6 +46,8 @@ export interface Prepared {
   nodes: VarDoc["nodes"];
   system: System;
   faceRoles: FaceRoles;
+  /** Words and fills worn together, by token: held readable as a pair. */
+  pairs: WornPair[];
   shape: SiteShape;
   width: number;
   pageIds: string[];
@@ -67,8 +74,15 @@ export function prepare(doc: VarDoc, palette: Palette, o: { name?: string; at?: 
   const nodes = doc.nodes.map((n) => withSys(n, taken.links.get(n.id) ?? null));
   const pageIds = doc.pages?.length ? doc.pages.map((p) => p.id) : [...new Set(nodes.map((n) => n.pageId ?? ""))];
   const first = doc.activePageId && pageIds.includes(doc.activePageId) ? doc.activePageId : pageIds[0] ?? null;
+  const seen = new Set<string>();
+  const pairs: WornPair[] = [];
+  for (const n of nodes) {
+    const f = (n as { sys?: { f?: Partial<Record<string, string>> } | null }).sys?.f;
+    const text = f?.["colour.text"], fill = f?.["colour.bg"];
+    if (text && fill && !seen.has(`${text}|${fill}`)) { seen.add(`${text}|${fill}`); pairs.push({ text, fill }); }
+  }
   return {
-    doc, nodes, system: taken.system, faceRoles: faceRolesOf(nodes), width, pageIds,
+    doc, nodes, system: taken.system, faceRoles: faceRolesOf(nodes), pairs, width, pageIds,
     shape: { sections: sectionCount(nodes, first, width), hue: accentHue(taken.system) },
   };
 }
@@ -82,16 +96,67 @@ export function withWords<N extends { id: string; content?: unknown }>(nodes: re
   });
 }
 
+type ColourNode = { id: string; pageId?: string; x: number; y: number; w: number; h: number; content?: unknown; colour?: { text?: string | null; bg?: string | null } | null };
+const opaque = (css: unknown) => { const o = typeof css === "string" ? oklchOf(css) : null; return o && o.alpha >= 0.999 ? o : null; };
+const hasWords = (n: ColourNode) => (typeof n.content === "string" ? n.content : Array.isArray(n.content) ? n.content.map((s) => (s && typeof s === "object" && "text" in s ? String((s as { text: unknown }).text) : "")).join("") : "").trim().length > 0;
+
+type Filled = { n: ColourNode; bg: Oklch; area: number };
+/** The filled parts of a page, each with its fill parsed once. */
+function filledOf(nodes: readonly ColourNode[]): Map<string | undefined, Filled[]> {
+  const out = new Map<string | undefined, Filled[]>();
+  for (const n of nodes) {
+    const bg = opaque(n.colour?.bg);
+    if (!bg) continue;
+    const list = out.get(n.pageId) ?? [];
+    list.push({ n, bg, area: n.w * n.h });
+    out.set(n.pageId, list);
+  }
+  return out;
+}
+
+/** What is behind a words part: its own fill, else the smallest filled part under its centre, else the page. */
+function behind(n: ColourNode, filled: Map<string | undefined, Filled[]>, page: Oklch | null) {
+  const own = opaque(n.colour?.bg);
+  if (own) return own;
+  const cx = n.x + n.w / 2, cy = n.y + n.h / 2;
+  let best: Filled | null = null;
+  for (const f of filled.get(n.pageId) ?? []) {
+    const m = f.n;
+    if (m === n || cx < m.x || cx > m.x + m.w || cy < m.y || cy > m.y + m.h) continue;
+    if (!best || f.area < best.area) best = f;
+  }
+  return best ? best.bg : page;
+}
+
+/** Words that read at AA before still do: a part's words moved in lightness, away from what is behind them, until they read. */
+export function holdWords<N extends ColourNode>(nodes: readonly N[], before: readonly ColourNode[], page: { was?: string | null; now?: string | null }): N[] {
+  const was = new Map(before.map((n) => [n.id, n]));
+  const filledWas = filledOf(before), filledNow = filledOf(nodes);
+  const pageWas = opaque(page.was), pageNow = opaque(page.now);
+  return nodes.map((n) => {
+    const fg = opaque(n.colour?.text);
+    if (!fg || !hasWords(n)) return n;
+    const old = was.get(n.id);
+    const oldFg = old ? opaque(old.colour?.text) : null, oldBg = old ? behind(old, filledWas, pageWas) : null;
+    if (!oldFg || !oldBg || contrast(oldFg, oldBg) < READABLE) return n;
+    const bg = behind(n, filledNow, pageNow);
+    if (!bg || contrast(fg, bg) >= READABLE) return n;
+    const held = readableOn(fg, bg, fg.l < bg.l);
+    return { ...n, colour: { ...n.colour, text: cssOf(held) } };
+  });
+}
+
 /** The variation's document. */
 export function build(p: Prepared, spec: Spec, o: { name?: string; words?: readonly WordSuggestion[]; id?: string } = {}): { doc: VarDoc; system: System; moved: number } {
-  const base = systemFor(p.system, spec, p.faceRoles);
+  const base = systemFor(p.system, spec, p.faceRoles, p.pairs);
   /* Its own System, never the one another site points at. */
   const system: System = { ...base, id: o.id ?? newSystemId(), name: o.name ?? `${p.system.name}, a variation`, from: "copied" };
   /* The parts point at the variation's System, and draw its values. */
   const pointed = p.nodes.map((n) => (n.sys ? { ...n, sys: { ...n.sys, s: system.id } } : n));
   const drawn = materialise(pointed, system).nodes as VarDoc["nodes"];
   const laid = relayout(drawn, { space: spec.space, layout: spec.layout, order: spec.order, width: p.width, pageIds: p.pageIds });
-  const nodes = o.words?.length ? withWords(laid.nodes, o.words) : laid.nodes;
   const look = { ...(p.doc.look ?? {}), palette: paletteWith(p.doc.look?.palette ?? undefined, system) ?? null };
+  const held = spec.colours ? holdWords(laid.nodes, p.nodes as ColourNode[], { was: p.doc.look?.palette?.bg, now: look.palette?.bg }) : laid.nodes;
+  const nodes = o.words?.length ? withWords(held, o.words) : held;
   return { doc: { ...p.doc, nodes, look, systemId: system.id, system }, system, moved: laid.moved };
 }

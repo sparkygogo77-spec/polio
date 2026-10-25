@@ -129,8 +129,9 @@ await page.route("**/api/studio/better", async (r) => {
   const ask = JSON.parse(r.request().postData() ?? "{}").ask ?? {};
   const word = (ask.words ?? [])[0];
   const variant = (i) => ({
+    name: ["Calm editorial", "Bold product", "Quiet grid", "Warm friendly"][i],
     note: `Stub variant ${i + 1}`,
-    spec: { colours: { hue: 40 + i * 70, harmony: "analogous", chroma: 0.12 }, type: { pairing: "sans-sans", ratio: 1.333, base: 17 }, space: { step: 8, density: 1.25, corner: "round" }, layout: null, order: null, motion: { style: "calm" } },
+    spec: { colours: { hue: 40 + i * 70, harmony: "analogous", chroma: 0.12 }, type: { pairing: "sans-sans", ratio: 1.333, base: 17 }, space: { step: 8, density: 1.25, corner: "round", depth: "soft" }, layout: null, order: null, motion: { style: "calm" } },
     words: word && i === 0 ? [{ id: "w0_0", part: word.part, now: word.now, to: `${word.now} now`, why: "clearer" }] : [],
   });
   await r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, variants: [0, 1, 2, 3].map(variant), usage: { input: 0, output: 0 } }) });

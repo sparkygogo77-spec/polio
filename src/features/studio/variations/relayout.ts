@@ -11,7 +11,8 @@
  *     much, and every holder grows or shrinks with what it holds;
  *   · section layout: a section's columns centred or set to the left edge
  *     (only items narrower than their holder move), and its rows turned
- *     round, left for right, inside the room they had;
+ *     round, left for right, inside the room they had; and `air`: that much
+ *     more space above every section after the first, so the page breathes;
  *   · section order: the page's sections stacked again in the new order,
  *     each keeping the space it had after it. The parts a section holds go
  *     with it, the ones it holds placed by hand among them.
@@ -128,6 +129,19 @@ export function relayoutMoves(tree: LayoutTree, space: SpaceChoice | null, layou
   if (space || layout) relay(ctx, tree.root, { x: 0, y: 0, w: tree.width, h: 0 }, 0, 0, null, null);
   /* Placed parts the wrappers hold go with the section they lie over. */
   for (const p of tree.placed) if (p.section && ctx.sectionIx.has(p.section) && !ctx.sectionOf.has(p.id)) ctx.sectionOf.set(p.id, ctx.sectionIx.get(p.section)!);
+  /* Air: every section after the first moves down by that much more than the one above it. */
+  const air = layout?.air ?? 0;
+  if (air > 0) {
+    const rank = new Map(tree.sections.map((s, i) => [i, s.box.y]));
+    const byY = [...rank.entries()].sort((a, b) => a[1] - b[1]).map(([i]) => i);
+    const extra = new Map(byY.map((i, k) => [i, k * air]));
+    for (const [id, sec] of ctx.sectionOf) {
+      const e = extra.get(sec) ?? 0;
+      if (!e) continue;
+      const m = ctx.moves.get(id) ?? { dx: 0, dy: 0, dh: 0 };
+      ctx.moves.set(id, { ...m, dy: m.dy + e });
+    }
+  }
   if (!order || order.order.length !== tree.sections.length || order.order.every((v, i) => v === i)) return ctx.moves;
   if (!(space || layout)) {
     /* Order alone: membership still needs the walk, with nothing moved. */
