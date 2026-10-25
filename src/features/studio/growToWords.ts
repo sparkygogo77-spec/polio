@@ -16,8 +16,61 @@
  * Not a checkpoint of its own. The typing that caused it already pushed one,
  * so undoing the typing puts the width back with it.
  */
-import { useStudio } from "./board/store";
+import { useStudio, type StudioNode } from "./board/store";
 import { atFullSize } from "./textFit";
+import { holds, parentOf } from "./owner";
+
+/**
+ * HOW FAR RIGHT A PART MAY GROW: THE RIGHT EDGE OF ITS COLUMN (EDIT-ISSUES #29,
+ * J, 2026-10-23). Long words in a one-line part wrap inside its column, as the
+ * page would have wrapped them, instead of widening it off the page: gotchi's
+ * heading "your bag keeps it alive." given a sentence went 537 -> 2,366 wide.
+ * The column ends at its holder's inner edge (the holder's own inset, read
+ * off where its parts start, taken on both sides), or the page's edge when
+ * nothing holds it, and before any part standing beside it on its rows (the
+ * picture column next to that heading), a gap kept to it.
+ */
+export function columnRight(nodes: readonly StudioNode[], n: StudioNode, frameWidth: number): number {
+  const page = nodes.filter((x) => x.pageId === n.pageId && !x.state);
+  let right = frameWidth;
+  /* A holder its parts fill edge to edge is one that sizes to them (the sink header's wordmark: three wrappers, each 216 wide round 216 of words), and grows with them on the page: the column is the first holder with room of its own. */
+  for (let holder = parentOf(page, n), hops = 0; holder && hops < 8; holder = parentOf(page, holder), hops++) {
+    const h = holder;
+    const kids = page.filter((x) => x.id !== h.id && parentOf(page, x)?.id === h.id);
+    const left = Math.min(n.x, ...kids.map((k) => k.x)), end = Math.max(n.x + n.w, ...kids.map((k) => k.x + k.w));
+    if (Math.abs(left - h.x) <= 1 && Math.abs(end - (h.x + h.w)) <= 1) continue;
+    const inset = Math.max(0, left - h.x);
+    right = Math.min(right, h.x + h.w - inset);
+    break;
+  }
+  for (const b of page) {
+    if (b.id === n.id || holds(b, n) || holds(n, b)) continue;
+    const pos = (b as { from?: { position?: string } | null }).from?.position;
+    if (pos === "fixed" || pos === "absolute") continue;
+    const overlapY = Math.min(b.y + b.h, n.y + n.h) - Math.max(b.y, n.y);
+    if (overlapY < Math.min(b.h, n.h) / 2 || b.x < n.x + n.w - 2) continue;
+    const gap = Math.min(16, Math.max(0, b.x - (n.x + n.w)));
+    right = Math.min(right, b.x - gap);
+  }
+  return Math.max(n.x + n.w, right);
+}
+
+/**
+ * The part made `want` wide, or, when that runs past its column, as wide as
+ * its column and its words let wrap (`text.wrap`, which `Text` and `ValueProp`
+ * read as "not held to one line"): the board then draws it taller, and the
+ * settle writes that height down and moves what is below, its holder growing
+ * with it. Only wider, never narrower.
+ */
+export function widenInColumn(id: string, want: number): void {
+  const s = useStudio.getState();
+  const n = s.nodes.find((x) => x.id === id);
+  if (!n || !(want > n.w + 0.5)) return;
+  const room = Math.floor(columnRight(s.nodes, n, s.frameWidth) - n.x);
+  const fits = want <= room + 0.5;
+  const w = fits ? Math.ceil(want) : Math.max(n.w, room);
+  useStudio.setState((st) => ({ nodes: st.nodes.map((x) => (x.id === id ? { ...x, w, ...(fits ? {} : { text: { ...(x.text ?? {}), wrap: "wrap" as const } }) } : x)) }));
+}
 
 /**
  * WORDS HELD TO THEIR ROWS GROW THEIR PART WHEN THEIR LOOK DOES. A part whose words are held on one row each (a captured
@@ -53,6 +106,7 @@ export function heldRowsGrow(id: string): void {
     if ((!held && tops.length !== 1) || !(r > l)) return;
     const over = (Math.max(0, box.left - l) + Math.max(0, r - box.right)) / zoom;
     if (!(over > 0.5)) return;
+    /* Widened, not wrapped: a size change keeps its rows (one line is almost always preferred); only typed words wrap in their column. Through the column, share.xyz's label made bigger went onto two rows. */
     useStudio.setState((st) => ({ nodes: st.nodes.map((x) => (x.id === id ? { ...x, w: Math.ceil(x.w + over) } : x)) }));
   })));
 }
@@ -84,13 +138,13 @@ export function growToWords(id: string, row?: { gapL: number; gapR: number }): v
     c.remove();
     if (row) {
       const want = Math.ceil(row.gapL + one.width / zoom + row.gapR);
-      if (want > n.w + 0.5) useStudio.setState((st) => ({ nodes: st.nodes.map((x) => (x.id === id ? { ...x, w: want } : x)) }));
+      widenInColumn(id, want);
       return;
     }
     const has = surface.getBoundingClientRect().width;
     const oneLineTall = n.h < 1.5 * (one.height / zoom);
     const short = (one.width - has) / zoom;
     if (!oneLineTall || !(short > 0.5)) return;
-    useStudio.setState((st) => ({ nodes: st.nodes.map((x) => (x.id === id ? { ...x, w: Math.ceil(x.w + short) } : x)) }));
+    widenInColumn(id, n.w + short);
   })));
 }

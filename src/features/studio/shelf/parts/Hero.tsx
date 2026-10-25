@@ -100,7 +100,8 @@ export function ValueProp({ id, content, spans, options, h, theme: t, mode, onNa
   // grew a line (tests/broken-lines-held.mjs).
   const lh = t.captured ? t.lineHeight : 1.2;
   /* Counted at the size the page set (`setPx`): made bigger in the panel, mochi's two-line hero heading read as one line in its old box and was held to it, 874 -> 1916 wide (tests/held-rows-own-words.mjs). */
-  const oneLine = !!t.captured && h > 0 && h < (Math.max(1, typedLines.length) + 1) * (t.setPx ?? t.fontPx * 1.6) * lh - 1;
+  /* Let go of one line by an edit (words longer than its column, `growToWords.ts#widenInColumn`): it wraps inside its box, as the page's heading would have. */
+  const oneLine = !t.said?.free && !!t.captured && h > 0 && h < (Math.max(1, typedLines.length) + 1) * (t.setPx ?? t.fontPx * 1.6) * lh - 1;
   const turn = opt(options, "turn", "none");
   const parts = splitTurn(line, turn);
   const tone = turn === "last word muted" || turn === "second sentence muted" ? t.muted : t.accent;
