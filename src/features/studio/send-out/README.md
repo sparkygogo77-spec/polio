@@ -29,4 +29,6 @@ deeper fails `tests/module-doors.mjs`. Files in here import each other freely.
 | `pagesOut.ts` | Clean pages: the layout tree as flex and grid, each section a component, every style a class; what is still placed by hand listed for POLIO.md |
 | `libraryOut.ts` | The component library: one file per System component in components/ui, variants from tokens, hover and pressed as CSS states, and the gallery page |
 | `exactOut.ts` | Exact look: the published pages as a Next.js app, markup whole, stylesheets in order, tokens and Tailwind (no base styles) beside them |
+| `exportSync.ts` | Who owns each exported file: `polio/export.json` by blob sha and owner, the plan (write, keep what was edited in the repo, tokens always), the app setup with Tailwind, POLIO.md's System section |
+| `exportRun.ts` | The Export dialog's runs: build either export from the open board, read the branch and its record, a zip, or the repository through Go live |
 | `tokensOut.ts` | The System as four token files (W3C `tokens.json`, `tokens.css`, a Tailwind v4 `@theme`, `tokens.ts`) and the one map of token names the library and pages use |

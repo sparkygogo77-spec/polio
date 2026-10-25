@@ -10,6 +10,7 @@ import { siteFormatSettings } from "./siteSettings";
 import { QueueStrip } from "./QueueStrip";
 import { SaveLine } from "./SaveLine";
 import { PublishCheckDialog } from "./PublishCheck";
+import { ExportDialog, openExportDialog } from "./ExportDialog";
 import { LaunchKitKey } from "./LaunchKit";
 import { isLinkable } from "./shelf/ui";
 import { CATEGORIES, categoryOf, featuresByCategory, getFeature, type FeatureDef } from "./shelf";
@@ -207,6 +208,8 @@ export const studio = defineFeature({
     { id: "studio.golive", order: 21, component: GoLiveButton, routes: onSiteRoutes },
     /* The list Update live site shows first when the board has something wrong (`PublishCheck.tsx`). Draws nothing in the bar itself. */
     { id: "studio.publishCheck", order: 98, component: PublishCheckDialog },
+    /* The Export dialog: Exact look or Clean code, Next.js + Tailwind, to the site's repository or a zip (`ExportDialog.tsx`). Draws nothing in the bar itself. */
+    { id: "studio.exportDialog", order: 98.5, component: ExportDialog },
     /* The launch kit: share card, X banner, icons and memes from the site's own style (`LaunchKit.tsx`). */
     { id: "studio.launchKit", order: 22, component: LaunchKitKey, routes: onSiteRoutes },
     /* The one repo menu, mounted once so every way in opens the same one. It draws nothing in the bar itself. */
@@ -219,6 +222,12 @@ export const studio = defineFeature({
       id: "studio.launchKit", label: "Launch kit: share card, X banner, site icon, memes", group: "Builder", icon: Rocket,
       keywords: ["launch", "share", "card", "og", "banner", "icon", "favicon", "meme", "social"], when: onStudio,
       run: () => { void import("./LaunchKit").then((m) => m.openLaunchKit()); },
+    },
+    /* The Export dialog (create-system "(d) Export"): Exact look or Clean code. */
+    {
+      id: "studio.export", label: "Export…: exact look or clean code (Next.js + Tailwind)", group: "Builder", icon: Download,
+      keywords: ["export", "code", "next", "nextjs", "tailwind", "tokens", "components", "repo", "zip", "clean", "exact"], when: onStudio,
+      run: () => openExportDialog(),
     },
     /* The site as a builder-ready repository a code chat builds on (`exportForCode.ts`, kit/PIPELINE.md route 1). */
     {
