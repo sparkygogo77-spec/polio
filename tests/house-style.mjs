@@ -205,7 +205,8 @@ function unlikeAny(befores, after) {
 /** Shots of the board a moment apart: what it looks like, moving parts and all. */
 async function shots(page, n = 5) { const out = []; for (let i = 0; i < n; i++) { if (i) await pause(page, 1200); out.push(await shot(page)); } return out; }
 const pxDiff = (a, b) => { if (a.data.length !== b.data.length) return Infinity; let n = 0; for (let i = 0; i < a.data.length; i += a.info.channels) if (a.data[i] !== b.data[i] || a.data[i + 1] !== b.data[i + 1] || a.data[i + 2] !== b.data[i + 2]) n++; return n; };
-const doc = (page) => page.evaluate(() => window.__polioSystem.site());
+/* `site()` came with the house style; before it, what the hook and the history say (a build without it still runs to the check that fails). */
+const doc = (page) => page.evaluate(() => window.__polioSystem.site?.() ?? (() => { const d = window.__studioHistory.doc(); return { systemId: window.__polioSystem.doc().systemId, roles: null, palette: d.look?.palette ?? {}, linked: d.nodes.filter((n) => n.sys).length, nodes: d.nodes.length }; })());
 /** The board's document as the import left it: every part and the look, as text (the System's fields left out: they are what is being checked). */
 const siteText = (page) => page.evaluate(() => { const d = window.__studioHistory.doc(); return JSON.stringify({ nodes: d.nodes.map(({ sys: _s, ...n }) => n), look: d.look }); });
 const sys = (page, fn, arg) => page.evaluate(([f, a]) => new Function("S", "a", `return (${f})(S, a);`)(window.__polioSystem, a), [fn.toString(), arg]);
