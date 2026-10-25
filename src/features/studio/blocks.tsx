@@ -158,6 +158,10 @@ function StillCut({ node, children }: { node: StudioNode; children: React.ReactN
   return <div data-still-cut="" style={{ width: "100%", flex: "1 0 auto", display: "flex", flexDirection: "column", clipPath: cut }}>{children}</div>;
 }
 
+/** A style wearing the `background` shorthand and a background longhand at once (`boxCss` in `Block`). */
+const mixesBackground = (css: React.CSSProperties | undefined): boolean =>
+  !!css && css.background !== undefined && Object.keys(css).some((k) => /^background[A-Z]/.test(k) && css[k as keyof React.CSSProperties] !== undefined);
+
 export function Block({ node: given, t: siteTheme, mode = "board", size, onNavigate, emit, palette, light, page, layers, pick, pictureAt, surface, partView, motionId, holder }: BlockProps) {
   /* A field pointing at a System token draws the token's value (system/draw.ts). */
   const node = useResolved(given);
@@ -293,6 +297,17 @@ export function Block({ node: given, t: siteTheme, mode = "board", size, onNavig
       </div>
     )
   ) : null;
+  /*
+   * The box's own style. A ground (the `background` shorthand) and a
+   * picture (`backgroundImage`, its size and place) can be worn together;
+   * when the ground goes and the picture stays (a picture found see-through
+   * a moment after it lands), React clears the shorthand after leaving the
+   * longhands alone, and the browser drops the picture with it. trumpmorty's
+   * footer band stayed bare until the site was opened again. A box that mixes
+   * the two is drawn as its own element, so going in or out of the mix
+   * draws it afresh rather than diffing one into the other.
+   */
+  const boxCss: React.CSSProperties | undefined = !boxed ? undefined : { width: "100%", height: "auto", flex: "1 0 auto", ...(exactBox(node) ? { flex: "1 1 0%", minHeight: 0 } : null), boxSizing: "border-box", overflow: hasLetters(node.content) || wordsOwn ? "visible" : "hidden", ...(ground ? { background: ground } : null), ...boxStyle(node, t, palette), ...(node.featureId === "box" && !livingLayered(node.art?.live) ? boxPicture(picture, node.art) : null), ...(stillCut(node) ? { clipPath: undefined } : null), ...(band?.middle ? { paddingTop: 0, paddingBottom: 0, display: "flex", flexDirection: "column" } : null), ...(boxWorn || svgArt ? { position: "relative" as const, isolation: "isolate" as const } : null), ...(svgArt ? { backgroundImage: undefined } : null), ...(typeof node.font?.variation === "string" && node.font.variation.trim() ? { fontVariationSettings: node.font.variation } : null) };
   const drawn = embedded ?? (
     <P
       id={node.featureId}
@@ -363,7 +378,7 @@ export function Block({ node: given, t: siteTheme, mode = "board", size, onNavig
       // page never settles — `plain-box` could not even take a screenshot.
       // See `parts/primitives.tsx`.
       <StillCut node={node}>
-      <div data-part-box="" className={hasMotion(node) ? motionClass(motionId ?? node.id) ?? undefined : undefined} style={{ width: "100%", height: "auto", flex: "1 0 auto", ...(exactBox(node) ? { flex: "1 1 0%", minHeight: 0 } : null), boxSizing: "border-box", overflow: hasLetters(node.content) || wordsOwn ? "visible" : "hidden", ...(ground ? { background: ground } : null), ...boxStyle(node, t, palette), ...(node.featureId === "box" && !livingLayered(node.art?.live) ? boxPicture(picture, node.art) : null), ...(stillCut(node) ? { clipPath: undefined } : null), ...(band?.middle ? { paddingTop: 0, paddingBottom: 0, display: "flex", flexDirection: "column" } : null), ...(boxWorn || svgArt ? { position: "relative" as const, isolation: "isolate" as const } : null), ...(svgArt ? { backgroundImage: undefined } : null), ...(typeof node.font?.variation === "string" && node.font.variation.trim() ? { fontVariationSettings: node.font.variation } : null) }}>
+      <div data-part-box="" key={mixesBackground(boxCss) ? "mixed" : "plain"} className={hasMotion(node) ? motionClass(motionId ?? node.id) ?? undefined : undefined} style={boxCss}>
         {/*
           A TEXTURE A BOXED PART WEARS, over the fill its box paints and under
           everything the part draws. A part brought in paints its fill on the
