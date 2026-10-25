@@ -10,3 +10,9 @@ export type { ChangeNode, HookChanges, HookMap, HookRef, RemovedHook } from "./d
 export { PAGES_RECORD, pagesGone, pagesRecord } from "./pagesRecord.ts";
 export { BUILD_RECORD, buildKeeps, buildRecordFile, builtIn, intoPublic } from "./buildRecord.ts";
 export type { Built } from "./buildRecord.ts";
+export { KIND_OUT, POLIO_HEADER, TOKEN_FILES, TOKENS_DIR, colourCss, cssColour, cssDuration, cssEasing, cssFaces, cssShadow, durationCss, easingCss, facesCss, shadowCss, slug, tailwindCss, tokenCss, tokenNames, tokensCssFile, tokensJson, tokensOut, tokensTs, topLevel, w3cValue } from "./tokensOut.ts";
+export type { TokenFile, TokenName, W3cColour, W3cDimension, W3cDuration, W3cShadow } from "./tokensOut.ts";
+export { arb, classOf, classesOf, declarations, twContext } from "./tailwindOf.ts";
+export type { TwContext } from "./tailwindOf.ts";
+export { assetPath, globalsCss, layoutTsx as cleanLayoutTsx, pagesOut, pascal, readExportedPage, routeLink, stillPlacedMd } from "./pagesOut.ts";
+export type { ExportedPage, ExportedPart, PagesInput, PagesNode, PagesOut, PagesReport, StillPlaced } from "./pagesOut.ts";
