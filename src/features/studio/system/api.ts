@@ -42,7 +42,8 @@ import { useStudio, type StudioNode } from "../board/store";
 import { resolvePalette } from "../shelf/run";
 import { ROLES, type Palette, type RoleId } from "../look";
 import { componentsOf, KIND_WORD, type CompNode } from "../components";
-import { emptySystem, readSystem, type FieldPath, type StateLook, type StateName, type System, type TokenKind } from "./model";
+import { emptySystem, readSystem, type FieldPath, type LookSlot, type StateLook, type StateName, type System, type TokenKind } from "./model";
+import { LOOK_SLOTS, holdOwn, instanceOf, overridesOf, rebind, resetInstance, slotFields, slotKind } from "./bind";
 import { materialise, rolesOf, sameValue } from "./resolve";
 import { linksHold, takeSystem, withSys, type TakeNode, type TakeReport } from "./take";
 import * as L from "./link";
@@ -70,12 +71,19 @@ function lookWith(st: ReturnType<typeof useStudio.getState>, s: System): typeof 
   return palette === st.look.palette ? st.look : { ...st.look, palette };
 }
 
-/** The document's parts and palette as `s` has them: what to set, or null for nothing. */
-function written(st: ReturnType<typeof useStudio.getState>, s: System): Partial<ReturnType<typeof useStudio.getState>> | null {
-  const m = materialise(st.nodes, s);
+/**
+ * The document's parts and palette as `s` has them: what to set, or null for
+ * nothing. With `before`, the copy of the System the document held, its
+ * instances first follow every variant slot that changed since (`bind.ts`):
+ * how an edit to a component made on another site reaches this one.
+ */
+function written(st: ReturnType<typeof useStudio.getState>, s: System, before?: System | null): Partial<ReturnType<typeof useStudio.getState>> | null {
+  const nodes = before ? rebind(st.nodes, before, s, resolvePalette(st.format, st.look)).nodes : st.nodes;
+  const m = materialise(nodes, s);
+  const moved = m.nodes !== st.nodes;
   const look = lookWith(st, s);
-  if (!m.changed.length && look === st.look) return null;
-  return { ...(m.changed.length ? { nodes: m.nodes as StudioNode[] } : {}), ...(look !== st.look ? { look } : {}) };
+  if (!moved && look === st.look) return null;
+  return { ...(moved ? { nodes: m.nodes as StudioNode[] } : {}), ...(look !== st.look ? { look } : {}) };
 }
 
 /**
@@ -103,7 +111,7 @@ function onHouseOnly(st: ReturnType<typeof useStudio.getState>): boolean {
 }
 
 /** See the header. Safe to call at any time; does nothing when all three agree. */
-export function reconcile(from: "doc" | "library" = "doc"): void {
+export function reconcile(from: "doc" | "opened" | "library" = "doc"): void {
   if (applying) return;
   const st = useStudio.getState();
   const id = st.systemId;
@@ -122,7 +130,12 @@ export function reconcile(from: "doc" | "library" = "doc"): void {
       if (w) useStudio.setState(w);
       return;
     }
-    /* Only a change to the document can be an undo or a redo: when the library moved (another site, a sync), its copy is the newer one. */
+    /*
+     * Only an undo or a redo can bring back a copy this session wrote: when
+     * the library moved (another site, a sync), or another site was opened
+     * (its copy may be one this session wrote earlier, before the System
+     * changed on a site opened since), the later copy wins.
+     */
     if (from === "doc" && mine && seen.has(mine)) {
       /* Taken back by undo or brought again by redo: that copy is the System now. */
       const next: System = { ...mine, rev: Math.max(mine.rev, lib.rev) + 1, editedAt: Math.max(Date.now(), lib.editedAt + 1) };
@@ -136,7 +149,7 @@ export function reconcile(from: "doc" | "library" = "doc"): void {
     if (win !== lib) useSystems.getState().put(win);
     /* The library's copy came in (another site changed it, or a sync did): the steps already taken carry it too, so undoing one of them never undoes that. */
     const swap = <T extends { systemId?: string | null; system?: System | null }>(list: T[]) => list.map((d) => (d.systemId === id && d.system && d.system !== win ? { ...d, system: win } : d));
-    useStudio.setState({ system: win, ...(written(st, win) ?? {}), past: swap(st.past), future: swap(st.future) });
+    useStudio.setState({ system: win, ...(written(st, win, win === lib ? mine : null) ?? {}), past: swap(st.past), future: swap(st.future) });
   });
 }
 
@@ -147,7 +160,12 @@ export function installSystem(): () => void {
   installed = true;
   const offStudio = useStudio.subscribe((s, p) => {
     if (applying) return;
-    if (s.systemId !== p.systemId || s.system !== p.system) { reconcile(); return; }
+    if (s.systemId !== p.systemId || s.system !== p.system) {
+      /* An undo moves one step onto the future, a redo one off it; opening a site empties both. */
+      const stepped = s.future.length === p.future.length + 1 || (s.future.length === p.future.length - 1 && s.past.length > 0);
+      reconcile(stepped ? "doc" : "opened");
+      return;
+    }
     /* An undo or a redo brings back parts as they were: written again with what their tokens hold. */
     if (s.systemId && s.future !== p.future && s.future.length) {
       const lib = useSystems.getState().byId[s.systemId];
@@ -301,7 +319,48 @@ export function newSystem(name?: string): System {
   return s;
 }
 
-/* Components: one undo step each, in the System (instances drawing a variant's edit is the parts-bind lane's). */
+/* Components: one undo step each, in the System, with its instances following in the same step (`bind.ts`). */
+
+/**
+ * "Edit the component": a variant's slot pointed at a token, or given a value
+ * (a value a token holds points at that token). Every instance of the
+ * variant, here and on each site sharing the System, follows; a field changed
+ * by hand on one instance keeps its value. One undo step.
+ */
+export function setVariantSlot(component: string, variant: string, slot: LookSlot, to: { token: string } | { value: string | number }): System | Refused {
+  const s = siteSystem();
+  if (!s) return { ok: false, says: "This site has no System yet." };
+  const was = s.components.find((c) => c.id === component)?.variants.find((v) => v.id === variant)?.look[slot];
+  const next = L.setVariantSlot(s, component, variant, slot, to, slotKind(slot, "token" in to ? to : was));
+  if (!next) return { ok: false, says: "That is not a value this slot can hold." };
+  if (next !== s) step(next, (now) => rebind(now, s, next, palette()).nodes);
+  return next;
+}
+
+/** "Reset to the component": the picked instance wears its variant again and holds nothing of its own. One undo step; nothing when it already does. */
+export const resetPart = (id: string) => onePartSet(id, (now, s) => resetInstance(now, s, id, palette()).nodes);
+/** "Change just this one", on a whole instance: component edits pass it by until Reset, and its own fields change only it. */
+export const holdOwnPart = (id: string) => onePartSet(id, (now, s) => {
+  const it = instanceOf(now, s, id, palette());
+  return it ? now.map((n) => (n.id === it.host ? holdOwn(n, s) : n)) : now;
+});
+/** The slots where the picked instance shows something of its own. */
+export function overridesOfPart(id: string): LookSlot[] {
+  const s = siteSystem();
+  return s ? overridesOf(useStudio.getState().nodes, s, id, palette()) : [];
+}
+
+function onePartSet(id: string, fn: (now: readonly StudioNode[], s: System) => readonly StudioNode[]): { ok: true; changed: boolean } | Refused {
+  const s = siteSystem();
+  const st = useStudio.getState();
+  if (!s) return { ok: false, says: "This site has no System yet." };
+  if (!instanceOf(st.nodes, s, id, palette())) return { ok: false, says: "That part is no component's." };
+  const after = fn(st.nodes, s);
+  if (after === st.nodes || after.every((n, i) => n === st.nodes[i])) return { ok: true, changed: false };
+  step(s, () => after);
+  return { ok: true, changed: true };
+}
+
 export const setVariantState = (component: string, variant: string, state: Exclude<StateName, "rest">, look: StateLook | null) =>
   edit((s) => L.setVariantState(s, component, variant, state, look));
 export function addVariant(component: string, from: string, name = ""): { ok: true; id: string } | Refused {
@@ -378,6 +437,19 @@ const testHook = {
   doc: () => { const s = useStudio.getState(); return { systemId: s.systemId ?? null, rev: s.system?.rev ?? null }; },
   setToken, renameToken, addToken, removeToken, linkPart, unlinkPart, detachPart, forkSite, pointSiteAt, usedBy,
   newSystem, setVariantState, addVariant, makeComponent, setHouse,
+  setVariantSlot, resetPart, holdOwnPart, overridesOfPart,
+  /** A part's instance: its component, variant, parts, and the fields each slot paints. */
+  instance: (id: string) => {
+    const s = siteSystem();
+    const nodes = useStudio.getState().nodes;
+    const it = s ? instanceOf(nodes, s, id, palette()) : null;
+    if (!it) return null;
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    return {
+      host: it.host, component: it.component.id, variant: it.variant.id, name: `${it.component.name} / ${it.variant.name}`, parts: it.comp?.parts ?? [it.host],
+      fields: it.comp ? Object.fromEntries(LOOK_SLOTS.map((slot) => [slot, slotFields(byId, it.comp!, slot)])) : {},
+    };
+  },
   house: () => houseOf()?.id ?? null,
   /** The open site as the System sees it: which System, which palette roles it takes, the palette, how many parts are linked. */
   site: () => { const s = useStudio.getState(); return { systemId: s.systemId ?? null, roles: s.systemRoles ?? null, palette: s.look.palette ?? {}, linked: s.nodes.filter((n) => n.sys).length, nodes: s.nodes.length }; },

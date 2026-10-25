@@ -30,6 +30,7 @@ import { Crumbs, KindIcon, PanelSection, ElementList, kindWord, useDecisions } f
 import { ComponentFields } from "../../ComponentFields";
 import { componentsOf, KIND_WORD, type CompNode } from "../../components";
 import { PartFields } from "../../PartFields";
+import { InstanceRow } from "./instanceRow";
 import { JoinOrCut, WhatIsThis, WornLook, WornMotion, WornWords } from "../../DrawKits";
 import { PartEffects, SaveAsComponent, offeredIds } from "../../PartEffects";
 import { usesOf } from "../../shelf";
@@ -478,6 +479,8 @@ export function Inspector() {
         {node.source ? <CodeLink node={node} /> : null}
         {/* A part that goes through states: its samples of data, next to Focus (`StatesTimeline.tsx#PartSamples`). */}
         <PartSamples nodeId={node.id} />
+        {/* One of a component's: "Button / primary", Edit the component, Change just this one, Reset (`instanceRow.tsx`). */}
+        <InstanceRow nodeId={node.id} />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">

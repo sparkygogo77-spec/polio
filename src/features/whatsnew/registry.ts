@@ -22,6 +22,12 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: "parts-bind",
+    find: "[data-instance-row]",
+    text: "A part that is a component says so: edit the component and every one of them follows, change just this one, or reset it",
+    since: "parts-bind",
+  },
+  {
     id: "export",
     find: () => [...document.querySelectorAll("[cmdk-item]")].find((el) => el.textContent?.includes("Export…")),
     text: "Export: the site as a Next.js + Tailwind app, exact look or clean code, as a zip or to its repo",
