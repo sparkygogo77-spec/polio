@@ -77,7 +77,7 @@ export function widenInColumn(id: string, want: number): void {
  * button's label, a heading broken with `<br>`s, a one-line paragraph: `white-space: nowrap` as drawn) and whose size,
  * face or spacing was just changed in the panel ran past its own box: sol face's "JOIN THE WAVE ↗" 222px over the edge
  * at 1.5 times its size, its heading 787px (the hand-edit pass, 2026-10-22). Such a part is made as wide as the rows now
- * drawn past it, on whichever side they run past. Only wider; not a step of undo of its own (the edit that caused it
+ * drawn past it, on whichever side they run past, and one row as tall as it is drawn. Only wider and taller; not a step of undo of its own (the edit that caused it
  * took one, and undoing it puts the width back with it). `tests/size-widens.mjs`.
  */
 export function heldRowsGrow(id: string): void {
@@ -93,21 +93,25 @@ export function heldRowsGrow(id: string): void {
     const box = el.getBoundingClientRect();
     /* The part's own drawing: its name tag and its note, drawn beside it on the board, are not its words. */
     const drawn = el.querySelector<HTMLElement>("[data-part-drawn]") ?? el;
-    let l = Infinity, r = -Infinity, held = false;
+    let l = Infinity, r = -Infinity, size = 0, held = false;
     const tops: number[] = [];
     const rg = document.createRange(), walk = document.createTreeWalker(drawn, NodeFilter.SHOW_TEXT);
     for (let t = walk.nextNode(); t; t = walk.nextNode()) {
       if (!(t.textContent ?? "").trim() || !t.parentElement) continue;
-      if (getComputedStyle(t.parentElement).whiteSpace === "nowrap") held = true;
+      const cs = getComputedStyle(t.parentElement);
+      if (cs.whiteSpace === "nowrap") held = true;
+      size = Math.max(size, parseFloat(cs.fontSize) || 0);
       rg.selectNodeContents(t);
       for (const q of rg.getClientRects()) if (q.width > 0) { l = Math.min(l, q.left); r = Math.max(r, q.right); if (!tops.some((y) => Math.abs(y - q.top) < q.height / 2)) tops.push(q.top); }
     }
     /* Or one row that cannot break: share.xyz's "Share", one word, made bigger ran 32px past its box with nothing held (tests/size-widens.mjs). */
     if ((!held && tops.length !== 1) || !(r > l)) return;
     const over = (Math.max(0, box.left - l) + Math.max(0, r - box.right)) / zoom;
-    if (!(over > 0.5)) return;
+    /* And as tall as its one row needs: a captured row is set at its box's height, so share.xyz's "Share" made bigger (35px words on a 28px line) ran 7px under the foot and over the top (EDIT-ISSUES #31). Its row is its size at its own leading; letters taller than a tight line are the page's (EDIT-ISSUES #24) and not grown for. The settle then moves what is below. */
+    const under = tops.length === 1 && size > 0 ? Math.ceil(size * (n.font?.leading ?? 1.2)) - n.h : 0;
+    if (!(over > 0.5) && !(under > 0.5)) return;
     /* Widened, not wrapped: a size change keeps its rows (one line is almost always preferred); only typed words wrap in their column. Through the column, share.xyz's label made bigger went onto two rows. */
-    useStudio.setState((st) => ({ nodes: st.nodes.map((x) => (x.id === id ? { ...x, w: Math.ceil(x.w + over) } : x)) }));
+    useStudio.setState((st) => ({ nodes: st.nodes.map((x) => (x.id === id ? { ...x, ...(over > 0.5 ? { w: Math.ceil(x.w + over) } : {}), ...(under > 0.5 ? { h: x.h + under } : {}) } : x)) }));
   })));
 }
 
