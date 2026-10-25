@@ -6,7 +6,9 @@
  *   chosen; Q5 is open). With one: the GitHub API, on green CI only. Without:
  *   the project-chat lines, shown in the dock with a Copy button.
  * - Either way, a merge that waits for J (gate.ts) goes nowhere until he
- *   presses Approve; the line says why.
+ *   presses Approve; the line says why. That includes every branch his own
+ *   agents didn't make: `ours` comes from the runner's lane records, never
+ *   from the branch's name.
  */
 import { CONTRACT_VERSION, type MergeLine } from "../contract.ts";
 import { chatLines, type ChatAsk } from "./chat.ts";
@@ -35,7 +37,7 @@ export async function mergeStep(job: MergeJob, opts: { token: string | null; app
   const d: GithubDeps = { ...opts.github, token: opts.token! };
   const pr = await prFor(d, job.branch, job.prTitle, job.prBody);
   if (pr == null) return { line: line(job, "waiting-ci", null, "GitHub didn't open the PR; use the project chat lines"), copy: chatLines(job), waitsFor: null };
-  const out = await mergeOnGreen(d, pr);
+  const out = await mergeOnGreen(d, pr, job.branch);
   if (out.done === "merged") return { line: line(job, "merged", pr, job.fixes), copy: null, waitsFor: null };
   if (out.done === "waiting-ci") return { line: line(job, "waiting-ci", pr, `PR #${pr}: ${out.why}`), copy: null, waitsFor: null };
   return { line: line(job, "stacked", pr, `PR #${pr} held: ${out.why}`), copy: null, waitsFor: out.why };

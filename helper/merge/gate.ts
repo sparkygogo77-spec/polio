@@ -3,6 +3,8 @@
  *
  * - P2 and P3 merge on their own once CI is green and there are no conflicts.
  * - These wait for J's Approve:
+ *   - a branch J's own agents didn't make (J, 2026-10-25): the repo is
+ *     public, so anyone can open a PR, and none of theirs merges unseen;
  *   - a P1;
  *   - a lane marked only-you (it adds a Builder control);
  *   - a lane touching keys, accounts or saving;
@@ -12,6 +14,8 @@
  */
 
 export type GateInput = {
+  /** The branch was made by a lane this helper started (the runner's own lane records), not just named like one. */
+  ours: boolean;
   p: 1 | 2 | 3;
   onlyYou: boolean;
   /** Every path the branch changes, repo-relative, forward slashes. */
@@ -29,6 +33,7 @@ export const ASK_FIRST: { test: RegExp; why: string }[] = [
 
 /** Null when the merge may go on its own; otherwise the reason it waits for J. */
 export function waitsForJ(x: GateInput): string | null {
+  if (x.ours !== true) return "your agents didn't make this branch";
   if (x.p === 1) return "a P1 merge";
   if (x.onlyYou) return "it adds a Builder control";
   for (const f of x.files) {

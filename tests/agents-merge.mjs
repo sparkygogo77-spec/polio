@@ -3,6 +3,8 @@
  *
  * - The way: with a GitHub token held, the GitHub API; without one, the
  *   project-chat lines, ready to copy.
+ * - A branch J's own agents didn't make waits for him (the repo is public),
+ *   and GitHub never merges a fork's PR or a PR for another branch.
  * - J's gate (Q3): a P1, an only-you lane, or a lane touching keys, the
  *   Account, saving, or the capture or export engine waits for Approve;
  *   a plain P2 or P3 goes on its own.
@@ -35,8 +37,10 @@ check("the merge modules load", !!(G && R && C && problems));
 if (!G || !R || !C) done();
 
 // ---- the gate -------------------------------------------------------------
-const plain = { p: 2, onlyYou: false, files: ["src/features/studio/panels/inspector/Panel.tsx", "tests/x.mjs"] };
+const plain = { ours: true, p: 2, onlyYou: false, files: ["src/features/studio/panels/inspector/Panel.tsx", "tests/x.mjs"] };
 check("a plain P2 goes on its own", G.waitsForJ(plain) === null);
+check("a branch your agents didn't make waits for you", /didn't make/.test(G.waitsForJ({ ...plain, ours: false }) ?? ""));
+check("ours must be said, not assumed", /didn't make/.test(G.waitsForJ({ p: 2, onlyYou: false, files: [] }) ?? ""));
 check("a P3 goes on its own", G.waitsForJ({ ...plain, p: 3 }) === null);
 check("a P1 waits for J", /P1/.test(G.waitsForJ({ ...plain, p: 1 }) ?? ""));
 check("an only-you lane waits for J", /control/.test(G.waitsForJ({ ...plain, onlyYou: true }) ?? ""));
@@ -70,7 +74,7 @@ check("a P1 waits for Approve and calls nothing", p1.waitsFor === "a P1 merge" &
 check("its line says it waits for Approve", /Waits for your Approve/.test(p1.line.line));
 
 // ---- GitHub, stood in ------------------------------------------------------
-function github({ checks, mergeable = true, state = "clean", existing = null }) {
+function github({ checks, mergeable = true, state = "clean", existing = null, headRepo = "sparkygogo77-spec/polio", headRef = "claude/hover-calm" }) {
   const calls = [];
   const fetch = async (url, init = {}) => {
     const path = url.replace("https://api.github.com", "");
@@ -79,7 +83,7 @@ function github({ checks, mergeable = true, state = "clean", existing = null }) 
     const ok = (data, status = 200) => ({ ok: status < 300, status, json: async () => data });
     if (method === "GET" && path.startsWith("/repos/sparkygogo77-spec/polio/pulls?state=open")) return ok(existing ? [{ number: existing }] : []);
     if (method === "POST" && path === "/repos/sparkygogo77-spec/polio/pulls") return ok({ number: 501 }, 201);
-    if (method === "GET" && /\/pulls\/\d+$/.test(path)) return ok({ head: { sha: "headsha" }, mergeable, mergeable_state: state });
+    if (method === "GET" && /\/pulls\/\d+$/.test(path)) return ok({ head: { sha: "headsha", ref: headRef, repo: { full_name: headRepo } }, mergeable, mergeable_state: state });
     if (method === "GET" && path.includes("/check-runs")) return ok({ check_runs: checks });
     if (method === "PUT" && path.endsWith("/merge")) return ok({ sha: "mergesha", merged: true });
     return ok({}, 404);
@@ -119,5 +123,16 @@ check("a conflict: held, never forced", out.line.status === "stacked" && /confli
 gh = github({ checks: green });
 out = await R.mergeStep({ ...job, onlyYou: true }, { token: "t", approved: true, github: { fetch: gh.fetch } });
 check("after J's Approve, an only-you lane merges on green", out.line.status === "merged");
+
+const stranger = await R.mergeStep({ ...job, ours: false }, { token: "t", approved: false, github: { fetch: async () => { throw new Error("must not call GitHub"); } } });
+check("a stranger's branch waits for Approve and calls nothing", stranger.line.status === "stacked" && /didn't make/.test(stranger.line.line) && stranger.copy === null);
+
+gh = github({ checks: green, existing: 88, headRepo: "someone/polio-fork" });
+out = await R.mergeStep(job, { token: "t", approved: false, github: { fetch: gh.fetch } });
+check("a PR from a fork is held, never merged", out.line.status === "stacked" && /isn't claude\/hover-calm in sparkygogo77-spec\/polio/.test(out.line.line) && !gh.calls.some((c) => c.method === "PUT"), out.line.line);
+
+gh = github({ checks: green, existing: 89, headRef: "claude/something-else" });
+out = await R.mergeStep(job, { token: "t", approved: false, github: { fetch: gh.fetch } });
+check("a PR for another branch is held, never merged", out.line.status === "stacked" && !gh.calls.some((c) => c.method === "PUT"));
 
 done();

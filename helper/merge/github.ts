@@ -57,11 +57,18 @@ export async function checksOf(d: GithubDeps, sha: string): Promise<{ state: "pa
   return { state: "passed" };
 }
 
-/** Merge the PR if, and only if, its checks passed and GitHub calls it mergeable. */
-export async function mergeOnGreen(d: GithubDeps, pr: number): Promise<MergeOutcome> {
+/**
+ * Merge the PR if, and only if, it is the expected branch of this repo (not
+ * a fork's, not another branch), its checks passed, and GitHub calls it
+ * mergeable.
+ */
+export async function mergeOnGreen(d: GithubDeps, pr: number, branch: string): Promise<MergeOutcome> {
   const gh = client(d);
   const got = await gh(`/repos/${REPO}/pulls/${pr}`);
   if (!got.ok) return { done: "held", pr, why: `GitHub answered ${got.status} for PR #${pr}` };
+  if (got.data.head?.repo?.full_name !== REPO || got.data.head?.ref !== branch) {
+    return { done: "held", pr, why: `PR #${pr} isn't ${branch} in ${REPO}` };
+  }
   const head: string = got.data.head.sha;
   const checks = await checksOf(d, head);
   if (checks.state === "failed") return { done: "held", pr, why: `check "${checks.name}" failed` };
