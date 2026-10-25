@@ -14,7 +14,7 @@
  */
 import * as React from "react";
 import { HandRange } from "./HandSlider";
-import { Dices, Lock, LockOpen } from "lucide-react";
+import { Dices, Lock, LockOpen, Shuffle } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { useBuilds } from "@/features/builds/store";
@@ -50,6 +50,22 @@ function setRoll(patch: Partial<ThemeRollSettings>) {
   useStudio.setState((s) => ({ look: { ...s.look, themeRoll: { ...defaultRoll(), ...s.look.themeRoll, ...patch } } }));
 }
 
+/**
+ * Variations of this site (`variations/VariationsPage.tsx`): many better
+ * versions, each a copy, beside the original. Shown at the top of the Look
+ * tab for every site; a site made here has it under its theme.
+ */
+export function VariationsLink({ bare = false }: { bare?: boolean }) {
+  const id = useBuilds((s) => s.activeId);
+  if (!id) return null;
+  const link = (
+    <a data-variations-open="" href={`/builder/variations?of=${encodeURIComponent(id)}`} className="tactile inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-small font-medium text-fg">
+      <Shuffle className="size-3.5" /> Make variations
+    </a>
+  );
+  return bare ? link : <section data-variations-entry="" className="flex items-center justify-between gap-2 border-b border-border p-3"><span className="text-small text-fg-muted">Better versions of this site, each a copy. This one is never changed.</span>{link}</section>;
+}
+
 export function ThemeSection() {
   const theme = useStudio((s) => s.look.theme ?? null);
   const kept = useStudio((s) => s.look.themeRoll);
@@ -74,6 +90,7 @@ export function ThemeSection() {
           <Dices className="size-3.5" /> Randomize
         </button>
       </div>
+      <div className="flex justify-end"><VariationsLink bare /></div>
       <p data-theme-name="" className="text-small text-fg-muted">
         {theme ? <>Now: <span className="text-fg">{theme.name}</span>.{far ? ` ${far.distance.toFixed(2)} from the nearest captured style (${far.nearest}).` : ""}</> : "This site has no theme yet. Randomize builds a sample page in one."}
       </p>

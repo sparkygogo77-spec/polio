@@ -19,7 +19,7 @@ import { Spectrum } from "../MenuConsole";
 import { resolvePalette } from "../shelf/run";
 import { useHeldStudio, useStudio } from "../board/store";
 import { carryLight } from "../LightPlacer";
-import { ThemeSection } from "../ThemePanel";
+import { ThemeSection, VariationsLink } from "../ThemePanel";
 import { roleFollowers } from "./siteColours";
 import { SiteColoursSection, SiteFontsSection } from "../SiteColours";
 import { SavedPalettes } from "./SavedPalettes";
@@ -623,7 +623,7 @@ export function LookPanel() {
       {/* A site brought in leads with what it wears; the six roles, which a
           captured site was never painted from, come after. */}
       {/* A site made here leads with the theme it was rolled from (`ThemePanel.tsx`). */}
-      {captured ? null : <ThemeSection />}
+      {captured ? <VariationsLink /> : <ThemeSection />}
       {/* One colour section for every site, then the faces, then the rest (owner: "Colours, Fonts, then anything else"). */}
       <SiteColoursSection captured={captured} paletteRoles={<PaletteRoles captured={captured} />} />
       {/* Saved by name and put back with one press (owner: "i also should be able to save color palletes"). */}

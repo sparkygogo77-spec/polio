@@ -208,6 +208,40 @@ export function readMirror(key: string): string | null {
   try { return store()?.getItem(key) ?? null; } catch { return null; }
 }
 /**
+ * HOW MUCH OF LOCALSTORAGE THE MIRRORS MAY FILL, in characters, every key
+ * counted. Its quota is about five million; each site's document mirrored
+ * whole up to `MIRROR_MAX` filled it with a handful of sites (eight
+ * variations of trumpmorty.fun made at once), and the next small write
+ * beside them threw: the variations list, the site list, the Systems. Past
+ * this a document leaves its pointer, which every reader follows to
+ * IndexedDB, and the last million stays for everything else.
+ */
+export const MIRROR_BUDGET = 4_000_000;
+/** What the keys other than `key` take, counted again at most every two seconds (a drag writes far more often than that). */
+let used: { at: number; total: number; by: Map<string, number> } | null = null;
+function othersUse(ls: Storage, key: string): number {
+  const now = Date.now();
+  if (!used || now - used.at > 2000) {
+    const by = new Map<string, number>();
+    let total = 0;
+    for (let i = 0; i < ls.length; i++) {
+      const k = ls.key(i);
+      if (k === null) continue;
+      const n = k.length + (ls.getItem(k)?.length ?? 0);
+      by.set(k, n);
+      total += n;
+    }
+    used = { at: now, total, by };
+  }
+  return used.total - (used.by.get(key) ?? 0);
+}
+/** This write's size, kept in the count until it is next taken afresh. */
+function counted(key: string, n: number): void {
+  if (!used) return;
+  used.total += n - (used.by.get(key) ?? 0);
+  used.by.set(key, n);
+}
+/**
  * `whole` when localStorage holds the whole document (not only a pointer to it);
  * `landed` when it holds this write at all, whole or as a pointer, rather than
  * still holding what it held (no storage, or no room even for a pointer).
@@ -216,11 +250,13 @@ function writeMirror(key: string, value: string | null): { whole: boolean; lande
   const ls = store();
   if (!ls) return { whole: false, landed: false };
   try {
-    if (value === null) { ls.removeItem(key); return { whole: true, landed: true }; }
-    const m = mirrorText(value, MIRROR_MAX, packKept.get(key));
+    if (value === null) { ls.removeItem(key); counted(key, 0); return { whole: true, landed: true }; }
+    let m = mirrorText(value, MIRROR_MAX, packKept.get(key));
     if (m.kept) packKept.set(key, m.kept); else packKept.delete(key);
-    try { ls.setItem(key, m.text); return { whole: m.kind !== "pointer", landed: true }; } catch { /* over quota all the same: a pointer, below */ }
-    if (m.kind !== "pointer") { ls.setItem(key, pointerFor(value)); return { whole: false, landed: true }; }
+    /* Mirrors past the budget leave a pointer: the room left is for the small keys beside them. */
+    if (m.kind !== "pointer" && othersUse(ls, key) + key.length + m.text.length > MIRROR_BUDGET) m = { kind: "pointer", text: pointerFor(value) };
+    try { ls.setItem(key, m.text); counted(key, key.length + m.text.length); return { whole: m.kind !== "pointer", landed: true }; } catch { /* over quota all the same: a pointer, below */ }
+    if (m.kind !== "pointer") { const p = pointerFor(value); ls.setItem(key, p); counted(key, key.length + p.length); return { whole: false, landed: true }; }
   } catch { /* private mode, or nothing left: IndexedDB holds it */ }
   return { whole: false, landed: false };
 }
@@ -329,6 +365,7 @@ export function whenOtherTabWrites(key: string, fn: () => void): () => void {
     if (k !== key && k !== null) return;
     if (pending.has(key) && behind(key)) {
       pending.delete(key);
+      waitingSince.delete(key);
       const t = timers.get(key);
       if (t) { clearTimeout(t); timers.delete(key); }
     }
@@ -372,20 +409,71 @@ export function readDoc(key: string): string | null | Promise<string | null> {
     void idbSet(key, text);
     return text;
   }
-  return idbGet(key);
+  return pointedAt(key, raw);
+}
+
+/**
+ * How long a read waits for IndexedDB to hold what the pointer names: a
+ * moment, for another tab's write on its way. A write cut off by its tab
+ * closing never lands, and the board is not left empty waiting for it.
+ */
+const SETTLE_TRIES = 6;
+const SETTLE_MS = 250;
+/**
+ * THE DOCUMENT A POINTER NAMES, OR THE LATEST ONE THAT SURVIVED.
+ *
+ * The pointer is written at once and IndexedDB a moment later, so a tab that
+ * is closed or reloaded in that moment (or held so busy the moment ran long:
+ * a big import drawing its pictures) leaves a pointer stamped with a write
+ * IndexedDB never got. The next tab read the older copy, held its stamp,
+ * found the pointer's different, and took itself for a tab behind another:
+ * nothing it did was saved, and "This site was saved in another tab" stood
+ * over the board of a site no other tab had open (gotchi.gg, share.xyz,
+ * `tests/variations.mjs`). So the read waits a moment for IndexedDB to catch
+ * up; when it does not, the tab that wrote the pointer is gone and what
+ * IndexedDB holds is the latest there is. It is
+ * read under the pointer's stamp, and written back so, so the key agrees with
+ * itself again and the next save carries on from it.
+ */
+async function pointedAt(key: string, pointer: string): Promise<string | null> {
+  let want = stampOf(pointer);
+  let text = await idbGet(key);
+  for (let i = 0; want !== null && stampOf(text) !== want && i < SETTLE_TRIES; i++) {
+    await new Promise((done) => setTimeout(done, SETTLE_MS));
+    const now = readMirror(key);
+    /* Written again meanwhile: a whole document or nothing is read as always; a new pointer is waited on afresh. */
+    if (now === null || !isPointer(now)) return readDoc(key);
+    if (now !== pointer) { pointer = now; want = stampOf(now); i = 0; }
+    text = await idbGet(key);
+  }
+  if (text === null || want === null || stampOf(text) === want) return text;
+  const kept = stamped(text, want);
+  await idbSet(key, kept);
+  return kept;
 }
 
 const pending = new Map<string, string | null>();
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
+/** Keys with a write waiting its turn behind the one in flight. */
+const queued = new Set<string>();
+/** Per key, when the oldest write not yet in IndexedDB was made. */
+const waitingSince = new Map<string, number>();
+/** The longest a write waits for IndexedDB while more keep coming. */
+const FLUSH_MAX_MS = 1000;
 let inFlight: Promise<void> = Promise.resolve();
 const mirrored = new Map<string, boolean>();
 function flushKey(key: string): void {
+  waitingSince.delete(key);
   const t = timers.get(key);
   if (t) { clearTimeout(t); timers.delete(key); }
-  if (!pending.has(key)) return;
-  const value = pending.get(key) ?? null;
-  pending.delete(key);
+  /* One write per key waits its turn, and takes the latest document when it starts: a slow write ahead of it never piles up copies behind it. */
+  if (!pending.has(key) || queued.has(key)) return;
+  queued.add(key);
   inFlight = inFlight.then(async () => {
+    queued.delete(key);
+    if (!pending.has(key)) return;
+    const value = pending.get(key) ?? null;
+    pending.delete(key);
     const kept = await idbSet(key, value);
     if (!pending.has(key)) said(key, kept || mirrored.get(key) ? { state: "saved", at: Date.now() } : { state: "failed", at: Date.now() });
   });
@@ -413,7 +501,18 @@ export function writeDoc(key: string, value: string | null, again = false): void
   pending.set(key, text);
   const t = timers.get(key);
   if (t) clearTimeout(t);
-  timers.set(key, setTimeout(() => flushKey(key), 120));
+  /*
+   * A moment after the last write, or at most a second after the first one not
+   * yet in IndexedDB. A wait that started again on every write, run by a page
+   * too busy to run timers (a big import drawing its pictures, saving every
+   * few hundred milliseconds), kept IndexedDB minutes behind the pointer, and
+   * a reload in that time lost it all (`pointedAt`, `tests/lost-pointer-write.mjs`).
+   */
+  if (!waitingSince.has(key)) waitingSince.set(key, Date.now());
+  const wait = waitingSince.get(key)! + FLUSH_MAX_MS - Date.now();
+  /* Overdue: written now, not on a timer. A page busy drawing an import ran no timer for twenty seconds while it kept saving. */
+  if (wait <= 0) { flushKey(key); return; }
+  timers.set(key, setTimeout(() => flushKey(key), Math.min(120, wait)));
 }
 /** A document written and in IndexedDB before this returns: for moving one between keys, so stamped as moved in. */
 export async function writeDocNow(key: string, value: string | null): Promise<void> {
@@ -421,6 +520,7 @@ export async function writeDocNow(key: string, value: string | null): Promise<vo
   const { whole, landed } = writeMirror(key, text);
   heldAfter(key, text, landed);
   pending.delete(key);
+  waitingSince.delete(key);
   const t = timers.get(key);
   if (t) { clearTimeout(t); timers.delete(key); }
   const kept = await idbSet(key, text);
