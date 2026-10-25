@@ -39,17 +39,25 @@ if (C && F) {
     check(name, p.some((x) => x.includes(needle)), p.join("; ") || "accepted");
   };
 
-  const noOut = structuredClone(spend); delete noOut.lanes[0].tokens.out; noOut.tokens.out = 0;
+  // v2: every run is on J's plan; spend is tokens only.
+  const planRun = structuredClone(spend);
+  Object.assign(planRun.lanes[0], { pays: "plan", tokens: { in: 250_000, out: 22_000 } });
+  planRun.tokens = { in: 250_000, out: 22_000 };
+  check("a plan run with its tokens is good, with no dollars", problems(planRun).length === 0, problems(planRun).join("; "));
+  const noOut = structuredClone(planRun); delete noOut.lanes[0].tokens.out; noOut.tokens.out = 0;
   named("a lane's spend with no output token count is refused", noOut, "tokens.out");
-  const noTokens = structuredClone(spend); delete noTokens.tokens;
+  const noTokens = structuredClone(planRun); delete noTokens.tokens;
   named("a request's spend with no tokens is refused", noTokens, "tokens missing");
-  named("a request total that is not the sum of its lanes is refused", { ...spend, tokens: { in: 1, out: 1 } }, "sum");
-  const planRun = structuredClone(spend); planRun.lanes[0].pays = "plan";
-  named("a run on J's plan must say its share of the plan", planRun, "planShare");
-  planRun.lanes[0].planShare = 0.04; planRun.lanes[0].usd = null;
-  check("and with its share it is good, with no dollars", problems(planRun).length === 0, problems(planRun).join("; "));
-  const apiRun = structuredClone(spend); apiRun.lanes[0].pays = "api"; apiRun.lanes[0].usd = null;
-  named("an API run must say its dollars", apiRun, "usd");
+  named("a request total that is not the sum of its lanes is refused", { ...planRun, tokens: { in: 1, out: 1 } }, "sum");
+  const planNull = structuredClone(planRun); planNull.lanes[0].tokens = null;
+  named("a plan run must count its tokens (only a cloud lane may be null)", planNull, "tokens missing");
+  check("a cloud lane's tokens may be null: not measured", spend.lanes[0].pays === "cloud" && spend.lanes[0].tokens === null && problems(spend).length === 0);
+  const apiRun = structuredClone(planRun); apiRun.lanes[0].pays = "api";
+  named("there is no API way of paying (v2)", apiRun, "pays must be plan or cloud");
+  const dollars = structuredClone(planRun); dollars.lanes[0].usd = 0.4;
+  named("dollars are refused: spend is tokens only", dollars, "no dollars");
+  named("a plan reading over 1 is refused", { ...planRun, plan: { used: 41, resetsAt: null, status: "allowed" } }, "plan must be");
+  named("a spend line must say plan (null when unknown)", (({ plan, ...rest }) => rest)(planRun), "plan must be");
 
   named("an unknown state is refused", { ...lane, state: "sleeping" }, "unknown state");
   named("nine steps done is out of range", { ...lane, stepsDone: 9, stepNow: null }, "stepsDone");
