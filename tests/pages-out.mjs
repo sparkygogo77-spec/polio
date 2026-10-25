@@ -31,11 +31,9 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { chromium } from "playwright-core";
-import { JSDOM } from "jsdom";
-import { pagesOut, stillPlacedMd, tokensOut } from "../src/features/studio/send-out/index.ts";
-import { homeFor } from "../src/features/studio/homePage.ts";
+import { stillPlacedMd } from "../src/features/studio/send-out/index.ts";
 import { buildApp, serveApp } from "./lib/export-app.mjs";
-import { dumpedSite, importedSite, systemOf } from "./lib/export-input.mjs";
+import { cleanExport, dumpedSite, importedSite } from "./lib/export-input.mjs";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -51,26 +49,6 @@ const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(A
 const [BASE, ...captures] = process.argv.slice(2);
 const sources = process.env.PAGES_DUMP ? process.env.PAGES_DUMP.split(",").map((d) => () => dumpedSite(d)) : captures.map((c) => () => importedSite(browser, BASE, c));
 let port = Number(process.env.PAGES_PORT ?? 3092);
-
-/** The clean export of a site brought in: its files, its report, and the board it came from. */
-export function cleanExport(site) {
-  const { board } = site;
-  const { system, palette } = systemOf(board, site.name);
-  const pages = board.pages?.length ? board.pages : [{ id: board.nodes[0].pageId, name: "Home", path: "/" }];
-  const home = homeFor(pages);
-  const byPath = new Map(site.files.map((f) => [f.path, f]));
-  const published = new Map();
-  for (const p of pages) {
-    const f = byPath.get(home.file(p));
-    if (f) published.set(p.id, new JSDOM(f.bytes.toString("utf8")).window.document);
-  }
-  const out = pagesOut({
-    name: site.name, pages, nodes: board.nodes, frameWidth: board.frameWidth ?? 1440, system, palette, published,
-    siteCss: byPath.get("assets/site.css")?.bytes.toString("utf8") ?? "",
-  });
-  const assets = site.files.filter((f) => f.path.startsWith("assets/") && !/\.(css|js)$/.test(f.path)).map((f) => ({ path: `public/${f.path}`, content: f.bytes }));
-  return { system, out, files: [...tokensOut(system), ...out.files, ...assets], board };
-}
 
 for (const load of sources) {
   const site = await load();

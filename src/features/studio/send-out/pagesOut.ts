@@ -32,6 +32,7 @@ import { homeFor, routeOf, type Routed } from "../homePage.ts";
 import { htmlToJsx, jsxAttr } from "../scaffolding/jsx.ts";
 import { classesOf, declarations, twContext, type TwContext } from "./tailwindOf.ts";
 import { POLIO_HEADER, TOKEN_FILES } from "./tokensOut.ts";
+import type { LibraryName } from "./libraryOut.ts";
 
 /* ------------------------------------------------------------------ */
 /* Reading the published page                                          */
@@ -225,7 +226,13 @@ interface Walk {
   /** Section components written, by name, with their element. */
   out: Map<string, El>;
   missing: string[];
+  /** The part's System component, when it is an instance of one the library writes. */
+  instance: (id: string) => Instance | null;
 }
+
+/** A part drawn as a library component: its name, its variant, and the look properties the variant already says. */
+interface Instance { name: string; variant: string; pressable: boolean; covers: Set<string> }
+const SLOT_PROPS: Record<string, string[]> = { fill: ["background", "background-color"], words: ["color"], shadow: ["box-shadow"], radius: ["border-radius"], face: ["font-family"], size: ["font-size"] };
 
 function partEl(id: string, flow: Flow | null, layout: [string, string][], w: Walk): El {
   const ex = w.exported.parts.get(id);
@@ -239,10 +246,13 @@ function partEl(id: string, flow: Flow | null, layout: [string, string][], w: Wa
   /* A part that sticks as the page scrolls keeps sticking, at the same distance from the top. */
   const sticky = placeDecls.some(([p, v]) => p === "position" && v === "sticky") && !layout.some(([p]) => p === "position");
   const keep = [...placeDecls.filter(([p]) => PLACE_KEEP.has(p)), ...(sticky ? placeDecls.filter(([p]) => p === "position" || p === "top") : [])];
+  const inst = w.instance(id);
   const look = declarations(ex.look).filter(([p]) => !LOOK_SIZING.has(p) && !(flow && LOOK_FLOW.has(p)));
+  /* An instance says its variant's look by the variant's name; the part keeps only what the variant does not say. */
+  const own = inst ? look.filter(([p]) => !inst.covers.has(p)) : look;
   const content = ex.content;
   const onlyWords = content.classes.length === 0 || (!flow && contentInherits(content.classes));
-  const e = el("div", [...classesOf(layout, w.ctx), ...classesOf([...keep, ...look], w.ctx, (p) => p === "position" && !flow)], [["id", id]]);
+  const e = el("div", [...classesOf(layout, w.ctx), ...classesOf([...keep, ...own], w.ctx, (p) => p === "position" && !flow)], [["id", id]]);
   /* A holder's own words or picture lie over it, inside its padding, as the board draws them; its parts flow over them. An empty one is nothing. */
   if (flow && content.html.trim()) {
     const pad = declarations(ex.look).filter(([p]) => p.startsWith("padding"));
@@ -261,14 +271,24 @@ function partEl(id: string, flow: Flow | null, layout: [string, string][], w: Wa
       e.kids.push(inner);
     }
   }
-  if (ex.link) linkPart(e, ex.link, !!flow || /<(a|button)[\s>]/.test(content.html));
+  const interactive = /<(a|button)[\s>]/.test(content.html);
+  if (inst) {
+    e.tag = inst.name;
+    e.attrs.unshift(["variant", inst.variant]);
+    /* A button may not hold a button or a link: one that holds its own (the page's words are a button already) draws as a div. */
+    if (inst.pressable && (interactive || !!flow) && !(ex.link && !flow && !interactive)) e.attrs.push(["as", "div"]);
+    else if (inst.pressable && !ex.link && !e.cls.some((c) => /^text-(left|center|right|justify|start|end)$/.test(c))) e.cls.push("text-start");
+  }
+  if (ex.link) linkPart(e, ex.link, !!flow || interactive, !!inst);
   if (flow) fill(e, flow, w, borderOf(look));
   return e;
 }
 
 /** A part that is a link: an `<a>` itself, or, when it holds parts or links of its own (a link may not hold a link), a link laid over it. */
-function linkPart(e: El, link: NonNullable<ExportedPart["link"]>, holds: boolean): void {
+function linkPart(e: El, link: NonNullable<ExportedPart["link"]>, holds: boolean, component = false): void {
   const attrs: [string, string][] = [["href", link.href], ...(link.newTab ? [["target", "_blank"], ["rel", "noopener"]] as [string, string][] : [])];
+  /* A library component given an href draws as a link itself. */
+  if (!holds && component) { e.attrs.push(...attrs); if (!e.cls.some((c) => /^(flex|grid|block|inline|hidden|contents)/.test(c))) e.cls.push("block"); return; }
   if (!holds) { e.tag = "a"; e.attrs.push(...attrs); if (!e.cls.some((c) => /^(flex|grid|block|inline|hidden|contents)/.test(c))) e.cls.push("block"); return; }
   const over = el("a", ["absolute", "inset-0", "z-[1]"], [...attrs, ["aria-label", "Open"]]);
   e.kids.unshift(over);
@@ -326,7 +346,7 @@ function placedEl(p: Placed, w: Walk, border: Sides): El {
 /* Pages                                                               */
 /* ------------------------------------------------------------------ */
 
-export interface PagesNode extends LayoutPart { label?: string | null; state?: unknown }
+export interface PagesNode extends LayoutPart { label?: string | null; state?: unknown; sys?: { c?: { component: string; variant: string } | null } | null }
 export interface PagesInput {
   /** The site's name, for the layout's title. */
   name: string;
@@ -339,6 +359,8 @@ export interface PagesInput {
   palette?: Record<string, string>;
   /** Each page's published document (`exportSite`'s HTML, parsed), by page id. */
   published: Map<string, Document>;
+  /** The component library's names (\`libraryOut.ts\`): a part linked to a System component is written as it. */
+  library?: Map<string, LibraryName>;
   /** The published site's stylesheet (`assets/site.css`): its font faces and keyframes are carried. */
   siteCss?: string;
 }
@@ -349,6 +371,8 @@ export interface PagesReport {
   sections: number;
   parts: number;
   grouped: number;
+  /** Parts written as a library component (`<Button variant="main">`). */
+  instances: number;
   placed: StillPlaced[];
   /** Parts shown only on a press: not on the page as it opens, not written (listed). */
   states: { page: string; id: string; label: string }[];
@@ -433,9 +457,27 @@ export function pagesOut(input: PagesInput): PagesOut {
   const routes = new Map(input.pages.map((p) => [home.file(p), routeOf(home, p)]));
   const label = (id: string) => input.nodes.find((n) => n.id === id)?.label?.trim() || id;
   const files: { path: string; content: string }[] = [];
-  const report: PagesReport = { pages: 0, sections: 0, parts: 0, grouped: 0, placed: [], states: [], missing: [] };
+  const report: PagesReport = { pages: 0, sections: 0, parts: 0, grouped: 0, instances: 0, placed: [], states: [], missing: [] };
   const trees: LayoutTree[] = [];
   const used = new Set<string>();
+  const byId = new Map(input.nodes.map((n) => [n.id, n]));
+  const comps = new Map((input.system?.components ?? []).map((c) => [c.id, c]));
+  const instance = (id: string): Instance | null => {
+    const c = byId.get(id)?.sys?.c;
+    const lib = c && input.library?.get(c.component);
+    const variant = lib && lib.variants.get(c!.variant);
+    const v = comps.get(c?.component ?? "")?.variants.find((x) => x.id === c?.variant);
+    if (!lib || !variant || !v) return null;
+    report.instances++;
+    return { name: lib.name, variant, pressable: ["button", "tab", "copy-bar"].includes(lib.kind), covers: new Set(Object.keys(v.look).flatMap((slot) => SLOT_PROPS[slot] ?? [])) };
+  };
+  /* The library components a file draws, imported from components/ui. */
+  const libNames = [...(input.library?.values() ?? [])].map((n) => n.name);
+  const uiImport = (jsx: string) => {
+    const drawn = libNames.filter((n) => new RegExp(`<${n}[\\s/>]`).test(jsx));
+    return drawn.length ? `import { ${drawn.join(", ")} } from "@/components/ui";` : "";
+  };
+
   let bodyClasses: string[] = [];
 
   for (const page of input.pages) {
@@ -462,7 +504,7 @@ export function pagesOut(input: PagesInput): PagesOut {
       sections.set(s.id, n);
     });
 
-    const w: Walk = { exported, ctx, sections, out: new Map(), missing: [] };
+    const w: Walk = { exported, ctx, sections, out: new Map(), missing: [], instance };
     /* The page's ground and words colour go on the body, said once for the site (the home page's). */
     const pageLook = declarations(exported.page).filter(([p]) => ["background", "background-color", "color", "font-family", "font-size", "line-height"].includes(p));
     if (!bodyClasses.length) bodyClasses = classesOf(pageLook, ctx);
@@ -473,13 +515,15 @@ export function pagesOut(input: PagesInput): PagesOut {
     report.sections += w.out.size;
 
     for (const [name, sec] of w.out) {
-      files.push({ path: `components/sections/${name}.tsx`, content: `${HEADER_TSX}\nexport default function ${name}() {\n  return (\n${printJsx(sec, "    ")}\n  );\n}\n` });
+      const jsx = printJsx(sec, "    ");
+      files.push({ path: `components/sections/${name}.tsx`, content: `${HEADER_TSX}\n${uiImport(jsx)}${uiImport(jsx) ? "\n" : ""}export default function ${name}() {\n  return (\n${jsx}\n  );\n}\n` });
     }
     const route = routeOf(home, page);
-    const imports = [...w.out.keys()].map((n) => `import ${n} from "@/components/sections/${n}";`).join("\n");
+    const jsx = printJsx(main, "    ");
+    const imports = [uiImport(jsx), ...[...w.out.keys()].map((n) => `import ${n} from "@/components/sections/${n}";`)].filter(Boolean).join("\n");
     files.push({
       path: route ? `app/${route}/page.tsx` : "app/page.tsx",
-      content: `${HEADER_TSX}\n${imports}${imports ? "\n\n" : ""}export default function Page() {\n  return (\n${printJsx(main, "    ")}\n  );\n}\n`,
+      content: `${HEADER_TSX}\n${imports}${imports ? "\n\n" : ""}export default function Page() {\n  return (\n${jsx}\n  );\n}\n`,
     });
   }
   files.push({ path: "app/globals.css", content: globalsCss(input.siteCss) });

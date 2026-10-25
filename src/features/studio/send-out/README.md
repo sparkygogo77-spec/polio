@@ -27,4 +27,5 @@ deeper fails `tests/module-doors.mjs`. Files in here import each other freely.
 | `publishCheck.ts` | The checks run before publishing |
 | `tailwindOf.ts` | CSS declarations as Tailwind classes, the System's tokens by name, any other value exact |
 | `pagesOut.ts` | Clean pages: the layout tree as flex and grid, each section a component, every style a class; what is still placed by hand listed for POLIO.md |
+| `libraryOut.ts` | The component library: one file per System component in components/ui, variants from tokens, hover and pressed as CSS states, and the gallery page |
 | `tokensOut.ts` | The System as four token files (W3C `tokens.json`, `tokens.css`, a Tailwind v4 `@theme`, `tokens.ts`) and the one map of token names the library and pages use |

@@ -12,14 +12,41 @@
  */
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { join, basename, relative } from "node:path";
+import { JSDOM } from "jsdom";
 import { takeSystem } from "../../src/features/studio/system/take.ts";
+import { libraryOut, pagesOut, tokensOut } from "../../src/features/studio/send-out/index.ts";
+import { homeFor } from "../../src/features/studio/homePage.ts";
 import { landPalette } from "../../src/features/studio/paletteFrom.ts";
 import { paletteFromHue } from "../../src/features/studio/look/index.ts";
 
+/** The System taken from a board, and the board's parts linked to it (as "Take from this site" leaves them). */
 export function systemOf(board, name) {
   const landed = landPalette(board.nodes, board.look?.palette ?? {});
   const palette = { ...paletteFromHue(265), ...landed.palette };
-  return { system: takeSystem({ nodes: landed.nodes, palette, frameWidth: board.frameWidth ?? 1440, name, at: 0 }).system, palette };
+  const t = takeSystem({ nodes: landed.nodes, palette, frameWidth: board.frameWidth ?? 1440, name, at: 0 });
+  const nodes = board.nodes.map((n) => (t.links.has(n.id) ? { ...n, sys: t.links.get(n.id) } : n));
+  return { system: t.system, palette, nodes };
+}
+
+/** The clean export of a site brought in: tokens, pages (and the library, when asked), the pictures in public/. */
+export function cleanExport(site, { library = false, gallery = false } = {}) {
+  const { board } = site;
+  const { system, palette, nodes } = systemOf(board, site.name);
+  const pages = board.pages?.length ? board.pages : [{ id: board.nodes[0].pageId, name: "Home", path: "/" }];
+  const home = homeFor(pages);
+  const byPath = new Map(site.files.map((f) => [f.path, f]));
+  const published = new Map();
+  for (const p of pages) {
+    const f = byPath.get(home.file(p));
+    if (f) published.set(p.id, new JSDOM(f.bytes.toString("utf8")).window.document);
+  }
+  const lib = library ? libraryOut(system, { gallery }) : null;
+  const out = pagesOut({
+    name: site.name, pages, nodes, frameWidth: board.frameWidth ?? 1440, system, palette, published,
+    siteCss: byPath.get("assets/site.css")?.bytes.toString("utf8") ?? "", library: lib?.names,
+  });
+  const assets = site.files.filter((f) => f.path.startsWith("assets/") && !/\.(css|js)$/.test(f.path)).map((f) => ({ path: `public/${f.path}`, content: f.bytes }));
+  return { system, out, lib, files: [...tokensOut(system), ...(lib?.files ?? []), ...out.files, ...assets], board: { ...board, nodes } };
 }
 
 /** A folder holding board.json and site/ (the published files). */
