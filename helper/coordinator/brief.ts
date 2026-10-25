@@ -4,8 +4,8 @@
  *
  * - "J's rules" go in whole, every time.
  * - "Windows notes" go only to PC lanes (a cloud lane has no Windows).
- * - Then the lane's own part: what J asked, its files, its test, where its
- *   branch starts (a stacked lane starts from the lane it waits on), and
+ * - Then the lane's own part: what J asked, its files, its test, the branch
+ *   it starts from (a stacked lane starts from the branch it waits on), and
  *   the progress lines the runner reads (agents/brief.ts).
  */
 import type { PlanLane, Request } from "../contract.ts";
@@ -27,19 +27,19 @@ export type BriefInput = {
   lane: PlanLane;
   /** The text of handovers/lane-rules.md. */
   rules: string;
-  /** The branch to start from. */
-  base: string;
-  /** Lanes this one waits for (files in common), stackedOn last. */
+  /** The branch this lane starts from: the base, or the branch it is stacked on. */
+  from: string;
+  /** Lanes (or owners) this one comes after: they touch its files and merge first. */
   after: string[];
   model: string;
 };
 
-export function briefFor({ req, lane, rules, base, after, model }: BriefInput): string {
+export function briefFor({ req, lane, rules, from: start, after, model }: BriefInput): string {
   const jRules = section(rules, "J's rules");
   if (!jRules) throw new Error("lane-rules.md has no \"## J's rules\" section: a brief without them would be wrong");
   const windows = lane.where === "pc" ? section(rules, "Windows notes") : "";
-  const start = lane.stackedOn ? `claude/${lane.stackedOn}` : base;
   const chips = req.chips.length ? `Goes with it: ${JSON.stringify(req.chips)}` : "";
+  const last = after.at(-1);
   return [
     `# Lane ${lane.lane} (${lane.size}, ${lane.where === "pc" ? "on J's PC" : "in the cloud"}, ${model})`,
     "",
@@ -47,7 +47,7 @@ export function briefFor({ req, lane, rules, base, after, model }: BriefInput): 
     chips,
     "",
     `- Branch claude/${lane.lane}, started from ${start}.`,
-    after.length ? `- Stacked after ${after.join(", ")}: they touch your files, and they merge before you do. Say "stacked on ${lane.stackedOn}" in the PR body.` : "",
+    last ? `- Stacked after ${after.join(", ")}: they touch your files, and they merge before you do. Say "stacked on ${last}" in the PR body, and don't redo their work.` : "",
     lane.files.length ? `- Files you own: ${lane.files.join(", ")}. Touch nothing else; ask if you must.` : "- No files were planned: say which you will touch before you change any.",
     `- Turn ${lane.test} from red (on ${start}) to green (on your branch), then run the closest existing tests.`,
     `- Write handovers/${lane.lane}.md and the PR body handovers/claude-${lane.lane}-pr-body.md.`,
