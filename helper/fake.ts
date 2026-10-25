@@ -48,8 +48,10 @@ export function fakeScript(): Message[] {
     { v, kind: "merge", lane, p: 2, generality: 5, status: "checked", pr: 412, line: "Export gets a gallery page",
       shots: { before: "shots/export-gallery-before.png", after: "shots/export-gallery-after.png" }, undo: true },
     row(8, "done", "live and checked", 0),
-    { v, kind: "spend", requestId, tokens: { in: 250_000, out: 22_000 },
-      lanes: [{ lane, pays: "cloud", tokens: { in: 250_000, out: 22_000 }, seconds: 1480, planShare: null, usd: 0.95 }] },
+    // A cloud lane's tokens can't be read (v2): null, "on your plan, not measured".
+    { v, kind: "spend", requestId, tokens: { in: 0, out: 0 },
+      lanes: [{ lane, pays: "cloud", tokens: null, seconds: 1480 }],
+      plan: { used: 0.41, resetsAt: 1793030400, status: "allowed" } },
   ];
 }
 

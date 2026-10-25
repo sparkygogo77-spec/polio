@@ -142,8 +142,12 @@ try {
   check("the merge line is checked, with before and after shots and Undo", await feed.getAttribute("data-status") === "checked" && await feed.locator("[data-shot]").count() === 2 && await feed.locator("[data-undo]").count() === 1);
   await page.waitForSelector("[data-spend-row]", { timeout: 5000 }).catch(() => {});
   const spend = await page.textContent("[data-spend]");
-  check("the cloud meter shows the request's dollars and tokens", spend.includes("$0.95") && spend.includes("272k"), spend.replace(/\s+/g, " ").slice(0, 160));
-  check("there are two meters, plan and cloud", await page.locator("[data-meter]").count() === 2);
+  // J, 2026-10-25: "no api, only plan usage and tokens".
+  check("cloud lanes say on your plan, not measured", (await page.textContent("[data-spend-cloud]")).includes("on your plan, not measured"));
+  check("the cloud lane's row has no number, only not measured", (await page.textContent(`[data-spend-row="${LANE}"]`)).includes("not measured") && !/\d+k/.test(await page.textContent(`[data-spend-row="${LANE}"]`)));
+  check("no dollars anywhere in spend", !spend.includes("$"), spend.replace(/\s+/g, " ").slice(0, 160));
+  check("the request's line says its cloud tokens can't be compared", (await page.textContent(`[data-compare-request]`)).includes("cloud tokens aren't measured"));
+  check("the plan meter shows the plan reading the runner sent", (await page.textContent('[data-meter="plan"]')).includes("41% of your limit used"), await page.textContent('[data-meter="plan"]'));
   const all = await sent(page);
   check("every message the dock sent is good", all.every((m) => problems(m).length === 0), all.map((m) => problems(m).join(";")).filter(Boolean).join(" | "));
   check("the dock sent exactly answer, pause, resume, approve", all.map((m) => m.do).join(",") === "answer,pause,resume,approve", all.map((m) => m.do).join(","));
@@ -183,6 +187,11 @@ try {
   check("every sample row is a good contract message", badSample.length === 0, badSample.join(" | "));
   const tags = await p4.$$eval("[data-lane-row] [data-where]", (els) => els.map((e) => e.textContent.trim()));
   check("each sample row carries a cloud or PC tag", tags.length >= 3 && tags.every((t) => t === "cloud" || t === "PC") && tags.includes("PC"), tags.join(","));
+  const sp = (await p4.textContent("[data-spend]")).replace(/\s+/g, " ");
+  check("a PC lane keeps its token count", (await p4.textContent('[data-spend-row="hero-calm"]')).includes("228k") && (await p4.textContent("[data-spend-pc]")).includes("228k tokens"), sp.slice(0, 160));
+  check("plan use shows only as Claude Code reported it", (await p4.textContent('[data-meter="plan"]')).includes("31% of your limit used"));
+  check("a request with both sides says plainly tokens can't be compared", (await p4.textContent("[data-compare-requests]")).includes("Tokens can't be compared: the cloud side isn't measured"), sp.slice(-200));
+  check("no dollars with the sample rows either", !sp.includes("$"));
   const pc = await p4.$$eval("[data-pc-row]", (els) => els.map((e) => ({ mine: e.dataset.mine, buttons: e.querySelectorAll("button").length })));
   check("On your PC now lists processes, the ones it didn't start greyed with no buttons", pc.length > 0 && pc.some((p) => p.mine === "0") && pc.filter((p) => p.mine === "0").every((p) => p.buttons === 0), JSON.stringify(pc));
   await p4.context().close();

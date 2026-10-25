@@ -163,3 +163,4 @@ button.small { padding: 1px 7px; font-size: 11px; }
 .pc-item .what { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
 .pc-item { position: relative; padding-right: 52px; }
 .pc-item .what [data-pc-stop] { position: absolute; right: 6px; top: 4px; }
+.compare-requests { margin-top: 6px; display: grid; gap: 3px; }

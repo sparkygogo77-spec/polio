@@ -12,17 +12,16 @@
  */
 import {
   CONTRACT_VERSION as v, STEPS, problems,
-  type Chip, type Control, type ControlDo, type Lane, type MergeLine, type Plan, type Request, type Spend, type Target,
+  type Chip, type Control, type ControlDo, type Lane, type LaneSpend, type MergeLine, type PlanUse, type Plan, type Request, type Spend, type Target,
 } from "../contract.ts";
 import { fakeRunner, fakeScript, type FakeRunner } from "../fake.ts";
 import { fakeSource, liveSource, mountPcView } from "./pcview.ts";
 import { ringSvg } from "./ring.ts";
-import { PC_MEMORY, PC_NOW, SAMPLE_BASE, SAMPLE_LANES, SAMPLE_MERGES, SAMPLE_SPEND } from "./sample.ts";
+import { PC_MEMORY, PC_NOW, SAMPLE_LANES, SAMPLE_MERGES, SAMPLE_SPEND } from "./sample.ts";
 
 const qs = new URLSearchParams(location.search);
 const DELAY = Number(qs.get("delay") ?? 900);
 const DEMO = qs.get("demo") !== "0";
-const CLOUD_CAP_USD = 15;
 
 const $ = <T extends Element = HTMLElement>(sel: string) => document.querySelector(sel) as T;
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -276,32 +275,53 @@ function onFeedClick(e: Event) {
   drawFeed();
 }
 
-// ---- spend: plan against cloud --------------------------------------------
+// ---- spend: tokens and plan use, never dollars ------------------------------
+// J, 2026-10-25: "no api, only plan usage and tokens". A PC lane counts its
+// tokens. A cloud lane runs on J's plan too, but its tokens can't be read, so
+// it says "on your plan, not measured": no number, no estimate. The plan bar
+// shows only what Claude Code itself reported about the plan's limit.
 
+const NOT_MEASURED = "on your plan, not measured";
 const k = (n: number) => (n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : `${Math.round(n / 1000)}k`);
 const pct = (x: number) => `${Math.round(x * 100)}%`;
+const mins = (s: number) => `${Math.round(s / 60)} min`;
+const tokensOf = (l: LaneSpend) => (l.tokens ? l.tokens.in + l.tokens.out : null);
 
 function drawSpend() {
-  const rows = [...spends.values()].flatMap((s) => s.lanes.map((l) => ({ ...l, requestId: s.requestId })));
-  const plan = rows.filter((r) => r.pays === "plan");
-  const paid = rows.filter((r) => r.pays !== "plan");
-  const base = DEMO ? SAMPLE_BASE : { planShare: 0, planTokens: 0, usd: 0, cloudTokens: 0 };
-  const tok = (list: typeof rows) => list.reduce((a, r) => a + r.tokens.in + r.tokens.out, 0);
-  const share = base.planShare + plan.reduce((a, r) => a + (r.planShare ?? 0), 0);
-  const usd = base.usd + paid.reduce((a, r) => a + (r.usd ?? 0), 0);
-  const meter = (id: string, title: string, fill: number, said: string) => `
-    <div class="meter" data-meter="${id}">
-      <div class="name"><b>${title}</b> <span class="right">${said}</span></div>
-      <div class="bar-track"><div class="bar-fill ${fill >= 0.8 ? "warn" : ""}" style="width:${Math.min(100, fill * 100).toFixed(1)}%"></div></div>
-    </div>`;
-  $("[data-meters]").innerHTML =
-    meter("plan", "Claude plan, this window", share, `${pct(share)} used, ${k(base.planTokens + tok(plan))} tokens`) +
-    meter("cloud", "Cloud, today", usd / CLOUD_CAP_USD, `$${usd.toFixed(2)} of $${CLOUD_CAP_USD}, ${k(base.cloudTokens + tok(paid))} tokens`);
+  const all = [...spends.values()];
+  const rows = all.flatMap((s) => s.lanes.map((l) => ({ ...l, requestId: s.requestId })));
+  const pcRows = rows.filter((r) => r.pays === "plan");
+  const cloudRows = rows.filter((r) => r.pays === "cloud");
+  const pcTokens = pcRows.reduce((a, r) => a + (tokensOf(r) ?? 0), 0);
+  // The latest plan reading any spend line carried; it is the whole account's.
+  const reading = all.map((s) => s.plan).filter((p): p is PlanUse => p !== null).at(-1) ?? null;
+  const planSaid = reading
+    ? `${pct(reading.used)} of your limit used${reading.resetsAt ? `, resets ${new Date(reading.resetsAt * 1000).toTimeString().slice(0, 5)}` : ""}`
+    : "use not reported yet";
+  const bar = reading
+    ? `<div class="bar-track"><div class="bar-fill ${reading.status !== "allowed" || reading.used >= 0.8 ? "warn" : ""}" style="width:${Math.min(100, reading.used * 100).toFixed(1)}%"></div></div>`
+    : "";
+  $("[data-meters]").innerHTML = `
+    <div class="meter" data-meter="plan">
+      <div class="name"><b>Your Claude plan</b> <span class="right">${planSaid}</span></div>${bar}
+    </div>
+    <div class="meter" data-spend-pc><div class="name"><b>PC lanes</b> <span class="right">${pcRows.length ? `${k(pcTokens)} tokens` : "none yet"}</span></div></div>
+    <div class="meter" data-spend-cloud><div class="name"><b>Cloud lanes</b> <span class="right">${cloudRows.length ? NOT_MEASURED : "none yet"}</span></div></div>`;
   $("[data-compare]").innerHTML = rows.map((r) => {
-    const t = r.tokens.in + r.tokens.out;
-    const cost = r.pays === "plan" ? `${pct(r.planShare ?? 0)} of plan` : `$${(r.usd ?? 0).toFixed(2)}`;
-    return `<tr data-spend-row="${esc(r.lane)}"><td>${esc(r.lane)}</td><td><span class="tag ${r.pays}">${r.pays}</span></td>
-      <td>${k(t)}</td><td>${Math.round(r.seconds / 60)}m</td><td>${cost}</td><td>${(t / 1000 / Math.max(1, r.seconds / 60)).toFixed(1)}</td></tr>`;
+    const t = tokensOf(r);
+    return `<tr data-spend-row="${esc(r.lane)}"><td>${esc(r.lane)}</td><td><span class="tag ${r.pays === "plan" ? "pc" : "cloud"}">${r.pays === "plan" ? "PC" : "cloud"}</span></td>
+      <td>${t === null ? `<span class="quiet">not measured</span>` : k(t)}</td><td>${mins(r.seconds)}</td>
+      <td>${t === null ? "<span class=\"quiet\">—</span>" : (t / 1000 / Math.max(1, r.seconds / 60)).toFixed(1)}</td></tr>`;
+  }).join("");
+  // Per request: say plainly when one side can't be counted.
+  $("[data-compare-requests]").innerHTML = all.map((s) => {
+    const pc = s.lanes.filter((l) => l.pays === "plan");
+    const cloud = s.lanes.filter((l) => l.pays === "cloud");
+    const pcSaid = pc.length ? `PC: ${k(pc.reduce((a, l) => a + (tokensOf(l) ?? 0), 0))} tokens in ${mins(pc.reduce((a, l) => a + l.seconds, 0))}.` : "";
+    const cloudSaid = cloud.length ? `Cloud: ${mins(cloud.reduce((a, l) => a + l.seconds, 0))}, tokens not measured.` : "";
+    const verdict = pc.length && cloud.length ? "Tokens can't be compared: the cloud side isn't measured. Only time can."
+      : cloud.length ? "Nothing to compare: cloud tokens aren't measured." : "";
+    return `<li data-compare-request="${esc(s.requestId)}">${[pcSaid, cloudSaid].filter(Boolean).join(" ")} ${verdict ? `<span class="quiet">${verdict}</span>` : ""}</li>`;
   }).join("");
 }
 
