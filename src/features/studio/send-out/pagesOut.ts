@@ -452,10 +452,10 @@ export function pagesOut(input: PagesInput): PagesOut {
     for (const p of tree.placed) report.placed.push({ page: pageName, id: p.id, label: label(p.id), why: p.why });
     for (const s of tree.states) report.states.push({ page: pageName, id: s, label: label(s) });
 
-    /* Each section's component name: its label, else its place, unique across the site. */
+    /* Each section's component name, unique across the site: what it says (its first heading), else what it is (header, footer), else its place. */
     const sections = new Map<string, string>();
     tree.sections.forEach((s, i) => {
-      const stem = pascal((s.part && label(s.part) !== s.part ? label(s.part) : "") || `${pascal(pageName) || "Page"} section ${i + 1}`) || `Section${i + 1}`;
+      const stem = sectionName(s.id, tree, label) || pascal(`${pascal(pageName) || "Page"} section ${i + 1}`) || `Section${i + 1}`;
       let n = stem;
       for (let k = 2; used.has(n.toLowerCase()) || n === "Page" || n === "RootLayout"; k++) n = `${stem}${k}`;
       used.add(n.toLowerCase());
@@ -485,6 +485,34 @@ export function pagesOut(input: PagesInput): PagesOut {
   files.push({ path: "app/globals.css", content: globalsCss(input.siteCss) });
   files.push({ path: "app/layout.tsx", content: layoutTsx(input.name, input.description ?? "", bodyClasses) });
   return { files, report, trees };
+}
+
+const ROLE_NAME: Record<string, string> = { banner: "Header", contentinfo: "Footer", navigation: "Nav", complementary: "Aside", header: "Header", footer: "Footer", nav: "Nav", form: "Form" };
+const SMALL = new Set(["a", "an", "the", "of", "to", "and", "or", "in", "on", "for", "with", "is", "it", "its", "your", "you", "we", "our"]);
+
+/** A section's name from what it holds: the words of its first heading or titled part ("heading “An agent you can watch think.”" → AgentCanWatch), else its role (a banner is the Header). */
+export function sectionName(id: string, tree: LayoutTree, label: (id: string) => string): string {
+  const ids: string[] = [];
+  const walk = (f: Flow | null) => { if (!f) return; for (const it of f.items) { if (it.part) ids.push(it.part); walk(it.flow); } for (const p of f.placed) { ids.push(p.id); walk(p.flow); } };
+  const find = (f: Flow | null): LayoutItem | null => { if (!f) return null; for (const it of f.items) { if (it.id === id) return it; const got = find(it.flow); if (got) return got; } for (const p of f.placed) { const got = find(p.flow); if (got) return got; } return null; };
+  const item = find(tree.root);
+  if (item?.part) ids.push(item.part);
+  walk(item?.flow ?? null);
+  const role = item?.part ? label(item.part).split(/\s*·/)[0]!.trim().toLowerCase() : "";
+  if (ROLE_NAME[role]) return ROLE_NAME[role]!;
+  /* A heading or a titled region says what the section is about; a link or a button in it says less, so it is only the fallback. */
+  const titled = (l: string) => /^(heading|region)\b/.test(l);
+  for (const pass of [titled, () => true]) {
+    for (const pid of ids) {
+      const l = label(pid);
+      const m = pass(l) ? /“([^”…]+)/.exec(l) : null;
+      if (!m) continue;
+      const words = m[1]!.replace(/[^A-Za-z0-9 ]+/g, " ").split(/\s+/).filter((w) => w && !SMALL.has(w.toLowerCase()));
+      const n = pascal(words.slice(0, 3).join(" "));
+      if (n.length >= 3) return n;
+    }
+  }
+  return "";
 }
 
 /** The POLIO.md section the clean export adds: what is still placed by hand, and why. */
