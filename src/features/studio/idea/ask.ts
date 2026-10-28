@@ -14,6 +14,7 @@
  * Server and node: no React, no store, every import ends in .ts.
  */
 import { catalogueText, readPlan, type Idea, type Plan } from "./plan.ts";
+import { readVersions, type Versions } from "./versions.ts";
 
 /** The latest Claude model. */
 export const DRAFT_MODEL = "claude-opus-5-5";
@@ -122,4 +123,69 @@ export function parseJson(text: string): unknown {
   const start = raw.indexOf("{"), end = raw.lastIndexOf("}");
   if (start < 0 || end <= start) return null;
   try { return JSON.parse(raw.slice(start, end + 1)); } catch { return null; }
+}
+
+/* ------------------------------------------------------------------ */
+/* Several versions in one call                                        */
+/* ------------------------------------------------------------------ */
+
+/** A page is a plan's sections under a name; a version is pages under a name. */
+export const VERSIONS_SCHEMA = {
+  type: "object",
+  properties: {
+    name: PLAN_SCHEMA.properties.name,
+    description: PLAN_SCHEMA.properties.description,
+    versions: {
+      type: "array",
+      description: "Three or four clearly different versions of the same site.",
+      items: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "A plain two- or three-word name for this version's approach, e.g. \"Calm editorial\", \"Bold product\"." },
+          pitch: { type: "string", description: "One sentence on how this version differs from the others." },
+          pages: {
+            type: "array",
+            description: "The pages this version needs, Home first. Use the usual page names (Home, About, Pricing, FAQ, Contact …) so pages can be matched across versions.",
+            items: {
+              type: "object",
+              properties: { name: { type: "string", description: "The page's name, one or two words." }, sections: PLAN_SCHEMA.properties.sections },
+              required: ["name", "sections"],
+              additionalProperties: false,
+            },
+          },
+        },
+        required: ["name", "pitch", "pages"],
+        additionalProperties: false,
+      },
+    },
+    missing: PLAN_SCHEMA.properties.missing,
+  },
+  required: ["name", "description", "versions", "missing"],
+  additionalProperties: false,
+} as const;
+
+export const VERSIONS_SYSTEM = `${DRAFT_SYSTEM}
+
+This time, plan THREE OR FOUR CLEARLY DIFFERENT VERSIONS of the same site in one answer, so the owner can compare them and pick pages from each.
+- Make the versions differ in approach, not only in words: what leads, how much is said, which pages exist, which parts carry it (for example a calm editorial version, a bold product version, a warm personal version, a one-page version).
+- Give each version a plain name of two or three words and a one-line pitch.
+- Each version proposes the pages it needs, Home first. Use the usual page names (Home, About, Pricing, FAQ, Contact) so the same page can be matched across versions. Each page is planned like the page above: a header first, a footer last.
+- Do not add links between pages: the site adds them.`;
+
+export type DraftedVersions =
+  | { ok: true; versions: Versions; usage?: Sent["usage"] }
+  | { ok: false; reason: string; message: string; usage?: Sent["usage"] };
+
+/** One call for every version, read strictly. */
+export async function askForVersions(input: DraftInput, send: (system: string, blocks: { text: string; cache?: true }[]) => Promise<Sent>): Promise<DraftedVersions> {
+  if (!input.idea.text.trim()) return { ok: false, reason: "empty", message: "Say what the site is first." };
+  const sent = await send(VERSIONS_SYSTEM, askFor(input));
+  if (sent.stop === "refusal") return { ok: false, reason: "refusal", message: "Claude declined to plan this site.", usage: sent.usage };
+  const versions = readVersions(parseJson(sent.text));
+  if (!versions) {
+    return sent.stop === "max_tokens"
+      ? { ok: false, reason: "truncated", message: "Claude ran out of room before the versions were finished.", usage: sent.usage }
+      : { ok: false, reason: "unreadable", message: "Claude's answer wasn't a set of versions.", usage: sent.usage };
+  }
+  return { ok: true, versions, usage: sent.usage };
 }
