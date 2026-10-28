@@ -76,6 +76,7 @@ export type LookRef = { token: string } | { value: string | number };
 /** The fields a component holds: the eight facets of a part look, as far as a captured part has them. */
 export type LookSlot = "fill" | "words" | "outline" | "shadow" | "radius" | "face" | "size";
 export type LookRefs = Partial<Record<LookSlot, LookRef>>;
+export const LOOK_SLOT_NAMES: readonly LookSlot[] = ["fill", "words", "outline", "shadow", "radius", "face", "size"];
 /** What a state changes under the hand, as captured (`styleKits.ts#KitState`), with its shadow as CSS. */
 export interface StateLook { dx: number; dy: number; rotate: number; scale: number; shadow: string | null }
 export type StateName = "rest" | "hover" | "pressed" | "focus" | "disabled";
@@ -179,8 +180,12 @@ export interface NodeSys {
    * token does not draw over it. A token change writes both again.
    */
   v?: Partial<Record<FieldPath, string | number>>;
-  /** An instance of this component's variant. */
-  c?: { component: string; variant: string } | null;
+  /**
+   * An instance of this component's variant. `own` names the slots it holds
+   * as its own ("Change just this one" on the whole part): a change to the
+   * variant passes them by until "Reset to the component" (`bind.ts`).
+   */
+  c?: { component: string; variant: string; own?: LookSlot[] } | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -282,7 +287,8 @@ export function readNodeSys(v: unknown): NodeSys | null {
   if (!isObj(v) || !str(v.s)) return null;
   const f: Record<string, string> = {};
   if (isObj(v.f)) for (const [k, id] of Object.entries(v.f)) if (str(id) && kindOfField(k)) f[k] = id;
-  const c = isObj(v.c) && str(v.c.component) && str(v.c.variant) ? { component: v.c.component, variant: v.c.variant } : null;
+  const own = isObj(v.c) && Array.isArray(v.c.own) ? (v.c.own.filter((x) => (LOOK_SLOT_NAMES as readonly unknown[]).includes(x)) as LookSlot[]) : [];
+  const c = isObj(v.c) && str(v.c.component) && str(v.c.variant) ? { component: v.c.component, variant: v.c.variant, ...(own.length ? { own } : {}) } : null;
   const held: Record<string, string | number> = {};
   if (isObj(v.v)) for (const [k, x] of Object.entries(v.v)) if ((str(x) || num(x)) && f[k]) held[k] = x;
   return { s: v.s, ...(Object.keys(f).length ? { f } : {}), ...(Object.keys(held).length ? { v: held } : {}), ...(c ? { c } : {}) };

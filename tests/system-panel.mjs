@@ -205,7 +205,9 @@ console.log(`       control: the untouched board differs from itself by ${contro
 async function unmoved(when) {
   await page.mouse.move(2, 2);
   await pause(900);
-  const b = await boardRead();
+  /* A part far below the view draws a change a little later (the board draws far parts late): up to 10s for it. */
+  let b = await boardRead();
+  for (let i = 0; i < 10 && differ(board0, b).length; i++) { await pause(1000); b = await boardRead(); }
   const d = differ(board0, b);
   check(`${when}: every part's box and painted style are as they were`, d.length === 0 && Object.keys(b).length === Object.keys(board0).length, `${Object.keys(board0).length} parts, ${d.length} differ ${d.slice(0, 4).join(", ")}`);
   if (still) { const n = outside(px0[0], await shot(), mask); check(`${when}: the board is 0 px different`, n === 0, `${n} px`); }

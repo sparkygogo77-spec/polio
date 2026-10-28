@@ -24,14 +24,24 @@ import { SystemBar } from "./system/take";
 import { PickedPart } from "./system/picked";
 import { ComponentEditor, ComponentList } from "./system/components";
 import { light } from "./system/values";
+import { useOpenAsk } from "./system/open";
 
 export function SystemPanel() {
   const { system, counts } = useSiteSystem();
   const [open, setOpen] = React.useState<string | null>(null);
+  const [variant, setVariant] = React.useState<string | null>(null);
   const onePicked = useStudio((s) => s.selection.length === 1);
   /* The light goes out with the tab. */
   React.useEffect(() => () => light(null, null), []);
-  React.useEffect(() => { setOpen(null); }, [system?.id]);
+  const { ask, taken } = useOpenAsk();
+  React.useEffect(() => { if (!ask) { setOpen(null); setVariant(null); } }, [system?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* "Edit the component" from the Element panel: this component, on that variant. */
+  React.useEffect(() => {
+    if (!ask || !system) return;
+    setOpen(ask.component);
+    setVariant(ask.variant);
+    taken();
+  }, [ask, system]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div data-system-panel={system?.id ?? ""} className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
       <SystemBar system={system} />
@@ -40,7 +50,7 @@ export function SystemPanel() {
           This site has no System yet, and there is no house style. Take one from the site: its colours, type, space, corners, shadows, motion and components, with nothing on the board moved.
         </p>
       ) : open ? (
-        <ComponentEditor s={system} id={open} onBack={() => setOpen(null)} />
+        <ComponentEditor key={open} s={system} id={open} variant={variant} onBack={() => { setOpen(null); setVariant(null); }} />
       ) : (
         <>
           {onePicked ? <PanelSection id="system-picked" title="Picked part"><PickedPart system={system} /></PanelSection> : null}
@@ -48,7 +58,7 @@ export function SystemPanel() {
           <PanelSection id="system-type" title="Type"><TypeTokens s={system} counts={counts} /></PanelSection>
           <PanelSection id="system-shape" title="Space and shape"><ShapeTokens s={system} counts={counts} /></PanelSection>
           <PanelSection id="system-motion" title="Motion"><MotionTokens s={system} counts={counts} /></PanelSection>
-          <PanelSection id="system-components" title="Components"><ComponentList s={system} onOpen={setOpen} /></PanelSection>
+          <PanelSection id="system-components" title="Components"><ComponentList s={system} onOpen={(id) => { setVariant(null); setOpen(id); }} /></PanelSection>
         </>
       )}
     </div>

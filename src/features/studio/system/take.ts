@@ -281,7 +281,8 @@ export function takeSystem(input: TakeInput): Taken {
       put("fill", ref("colour", spec.fill));
       put("words", ref("colour", spec.words));
       put("outline", ref("colour", spec.outline?.colour ?? null));
-      put("shadow", spec.shadow && !/^rgba?\(|^#/.test(spec.shadow) ? ref("shadow", spec.shadow) : ref("colour", spec.shadow));
+      /* A shadow cast (`rgba(0, 0, 0, 0.4) 0 1px 2px`, often led by its colour) is a shadow; only a bare colour, a dark layer standing in for one, is a colour. */
+      put("shadow", spec.shadow && !isBareColour(spec.shadow) ? ref("shadow", spec.shadow) : ref("colour", spec.shadow));
       put("radius", ref("radius", spec.radius && spec.radius > 0 ? spec.radius : null));
       put("face", face ? (() => { const tid = index.face.get(`${face.trim().replace(/\s+/g, " ")}|${wordsNode?.font?.face ?? ""}`); return tid ? { token: tid } : { value: face }; })() : undefined);
       put("size", ref("type", typeof size === "number" ? size : null));
@@ -343,6 +344,9 @@ export function takeSystem(input: TakeInput): Taken {
     },
   };
 }
+
+/** One colour and nothing more: `rgb(0, 0, 0)`, `#000`, not a shadow that starts with one. */
+const isBareColour = (v: string) => /^(#[0-9a-f]{3,8}|(rgba?|hsla?|oklch|color)\([^()]*\))$/i.test(v.trim());
 
 /** The part with its System link set (or taken off, for null); the same part when it already is. */
 export function withSys<N extends { sys?: NodeSys | null }>(n: N, sys: NodeSys | null | undefined): N {
