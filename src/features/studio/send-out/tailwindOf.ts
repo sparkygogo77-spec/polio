@@ -94,6 +94,7 @@ function colourClass(prefix: string, value: string, ctx: TwContext, prop: string
   if (role && ctx.palette.has(role[1]!)) value = ctx.palette.get(role[1]!)!;
   const named = ctx.colour.get(colourKey(value));
   if (named) return `${prefix}-${named}`;
+  if (isClear(value)) return `${prefix}-transparent`;
   if (ROLE_VAR.test(value.trim())) return `[${prop}:${arb(value)}]`;
   return `${prefix}-[${arb(value)}]`;
 }
@@ -130,9 +131,19 @@ const JUSTIFY: Record<string, string> = { ...ALIGN, "space-between": "between", 
 const DISPLAY: Record<string, string> = { flex: "flex", grid: "grid", block: "block", "inline-block": "inline-block", inline: "inline", "inline-flex": "inline-flex", "inline-grid": "inline-grid", none: "hidden", contents: "contents", table: "table" };
 const SIZE_WORD: Record<string, string> = { "100%": "full", auto: "auto", "max-content": "max", "min-content": "min", "fit-content": "fit", "100vw": "screen", "100vh": "screen", "100dvh": "dvh", none: "none" };
 
+/** Properties the words inherit anyway: `inherit` on one of these says nothing, so it is not written. */
+const INHERITS = new Set(["color", "font-family", "font-size", "font-weight", "font-style", "line-height", "letter-spacing", "text-align", "text-transform", "white-space", "word-spacing", "visibility", "cursor", "direction"]);
+
+/** Tailwind's own default font stacks (`font-sans`, `font-mono`): the published page's system stacks begin with them, so the class says it. */
+const DEFAULT_FACE: [string, string][] = [["ui-sans-serif,system-ui,sans-serif", "sans"], ["ui-monospace,sfmono-regular,menlo,monaco,consolas,liberation mono,courier new,monospace", "mono"]];
+
+/** A colour that draws nothing, in any of its spellings. */
+const isClear = (v: string) => { const c = cssColour(v); return v.trim().toLowerCase() === "transparent" || (!!c && c.alpha === 0); };
+
 /** Declarations that only restate Tailwind's base styles (preflight), or the default of a shorthand's expansion. */
 function restates(prop: string, value: string): boolean {
   const v = value.trim().toLowerCase();
+  if (v === "inherit" && INHERITS.has(prop)) return true;
   if (prop === "box-sizing") return v === "border-box";
   if (prop === "border-style") return v === "none";
   if (prop === "border-width") return v === "medium" || v === "0px" || v === "0";
@@ -164,7 +175,10 @@ export function classOf(prop: string, value: string, ctx: TwContext): string[] {
     }
     case "font-family": {
       const named = ctx.face.get(faceKey(v));
-      return [named ? `font-${named}` : `font-[${arb(v)}]`];
+      if (named) return [`font-${named}`];
+      const key = faceKey(v);
+      const own = DEFAULT_FACE.find(([stack]) => key === stack || key.startsWith(`${stack},`) || stack.startsWith(`${key},`));
+      return [own ? `font-${own[1]}` : `font-[${arb(v)}]`];
     }
     case "font-weight": return [WEIGHT[v] ? `font-${WEIGHT[v]}` : `font-[${arb(v)}]`];
     case "font-style": return [v === "italic" ? "italic" : v === "normal" ? "not-italic" : `[font-style:${arb(v)}]`];
@@ -193,6 +207,7 @@ export function classOf(prop: string, value: string, ctx: TwContext): string[] {
     case "column-gap": return [lengthClass("gap-x", v, ctx)];
     case "border-radius": {
       if (px !== null && px >= 9999) return ["rounded-full"];
+      if (px === 0) return ["rounded-none"];
       if (px !== null) return [lengthClass("rounded", v, ctx, "radius")];
       return [`rounded-[${arb(v)}]`];
     }
@@ -211,6 +226,8 @@ export function classOf(prop: string, value: string, ctx: TwContext): string[] {
     case "align-self": return [ALIGN[v] ? `self-${ALIGN[v]}` : v === "auto" ? "self-auto" : `[align-self:${arb(v)}]`];
     case "justify-content": return [JUSTIFY[v] ? `justify-${JUSTIFY[v]}` : `[justify-content:${arb(v)}]`];
     case "justify-items": return [ALIGN[v] ? `justify-items-${ALIGN[v]}` : `[justify-items:${arb(v)}]`];
+    case "place-items": return [ALIGN[v] ? `place-items-${ALIGN[v]}` : `[place-items:${arb(v)}]`];
+    case "place-content": return [JUSTIFY[v] ? `place-content-${JUSTIFY[v]}` : `[place-content:${arb(v)}]`];
     case "flex": return [v === "none" ? "flex-none" : v === "1 1 0%" || v === "1 1 0px" ? "flex-1" : v === "1 1 auto" ? "flex-auto" : `flex-[${arb(v)}]`];
     case "flex-grow": return [v === "0" ? "grow-0" : v === "1" ? "grow" : `grow-[${arb(v)}]`];
     case "flex-shrink": return [v === "0" ? "shrink-0" : v === "1" ? "shrink" : `shrink-[${arb(v)}]`];

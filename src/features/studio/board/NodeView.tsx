@@ -185,6 +185,8 @@ export function useUnshown(node: StudioNode, body: React.RefObject<HTMLDivElemen
  */
 const HANDLE_Z = 60;
 export const isScreenShade = (n: { w: number; from?: { position?: string } | null }, pageW: number) => n.from?.position === "fixed" && pageW > 0 && n.w >= pageW * 0.9;
+/** A layer laid across the page (a grain, a vignette, a gradient band): as wide as the page, or near it. An inert one lets a press through; a smaller inert part is still picked. */
+export const isSheet = (n: { w: number }, pageW: number) => pageW > 0 && n.w >= pageW * 0.9;
 /** A mask that is the whole part less each "x,y,w,h" box. */
 export function holeMask(holes: string): React.CSSProperties {
   const boxes = holes.split(";").map((h) => h.split(",").map(Number));
@@ -385,9 +387,12 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
         e.stopPropagation();
       }}
       /* An inert part (sink: the page's grain over everything) lets a press through to what is under it (`tests/board-inert.mjs`). Hit-testing only.
-         Not words: a heading the page made `pointer-events: none` over its canvas (mochi's hero) is still what a person presses to edit it (`tests/inert-words-press.mjs`). */
+         Not words: a heading the page made `pointer-events: none` over its canvas (mochi's hero) is still what a person presses to edit it (`tests/inert-words-press.mjs`).
+         Nor anything smaller than a sheet: trumpmorty's planet, a 300px picture the page made `pointer-events: none` so its hero text could be
+         selected, could not be picked on the board at all (the hand-edit audit, 2026-10-25). Only a sheet across the page lets the press
+         through (`isSheet`; `tests/inert-picture-press.mjs`). */
       /* A dimmed screen pinned over the whole window (PST's intro tour) is never grabbed off the board, picked or not: a press goes to what is on it, its card (J, 2026-10-06: dragging moved the dim). It is still picked from the Panels list or the layers. */
-      className={cn("group absolute cursor-grab active:cursor-grabbing", ((node as { inert?: boolean }).inert && !selected && !wordsOf(node)) || isScreenShade(node, page.w) || wrapper ? "pointer-events-none" : "pointer-events-auto", node.locked && "cursor-not-allowed", flash && "node-snap")}
+      className={cn("group absolute cursor-grab active:cursor-grabbing", ((node as { inert?: boolean }).inert && !selected && !wordsOf(node) && isSheet(node, page.w)) || isScreenShade(node, page.w) || wrapper ? "pointer-events-none" : "pointer-events-auto", node.locked && "cursor-not-allowed", flash && "node-snap")}
       style={{
         left: (place?.x ?? node.x) + shift.tx, top: (place?.y ?? node.y) + shift.ty, width: place?.w ?? node.w,
         /* A minimum, not a height: the part grows past it when its words

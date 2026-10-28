@@ -7,15 +7,22 @@
  *
  * Opened: the variants as keys (+ add copies the one shown), the states
  * (rest, hover, pressed, focus, disabled), a preview drawn from the
- * variant's look, its slots with the token each points at (change the
- * token's value here and every part pointing at it changes), and for a state
+ * variant's look, its slots with the token each points at, and for a state
  * other than rest its editor: how far it moves, turns and grows, and its
  * shadow. Focus and disabled are not captured, so they start as "nothing"
  * and are set here. [Show all] lights the instances; [Detach the picked one]
  * takes the picked instance out of the System.
  *
- * A variant's edits are kept in the System; instances drawing a variant's
- * state is the parts-bind lane's (handovers/system-model.md, What's left).
+ * EDITING A SLOT EDITS THE VARIANT (the parts-bind lane): the value typed
+ * becomes the variant's (pointing at the token that holds it, when one
+ * does), and every instance of the variant follows in the same undo step,
+ * here and on each site sharing the System; an instance changed by hand
+ * keeps its own value (`system/bind.ts`). Other parts using the same token
+ * are not this variant's, and do not change. A token's own value is changed
+ * in its row above, where "used by" says who follows.
+ *
+ * The Element panel's "Edit the component" opens this on the picked part's
+ * variant (`open.ts`). States drawn by instances are not yet followed.
  */
 import * as React from "react";
 import { ChevronLeft, Plus, Unlink } from "lucide-react";
@@ -23,7 +30,8 @@ import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { useStudio } from "../../board/store";
-import { addVariant, detachPart, makeComponent, setToken, setVariantState, usedBy } from "../../system/api";
+import { addVariant, detachPart, makeComponent, setVariantSlot, setVariantState, usedBy } from "../../system/api";
+import { slotKind } from "../../system/bind";
 import {
   STATE_NAMES, kindOfToken, tokenById, valueOf,
   type LookRef, type LookRefs, type LookSlot, type StateLook, type StateName, type System, type SystemComponent, type Variant,
@@ -110,26 +118,26 @@ function Preview({ s, c, look, state }: { s: System; c: SystemComponent; look: L
   );
 }
 
-function SlotRow({ s, slot, r }: { s: System; slot: LookSlot; r: LookRef | undefined }) {
+function SlotRow({ s, c, v, slot, r }: { s: System; c: SystemComponent; v: Variant; slot: LookSlot; r: LookRef | undefined }) {
   if (!r) return null;
   const tid = "token" in r ? r.token : null;
   const t = tid ? tokenById(s, tid) : null;
-  const kind = tid ? kindOfToken(tid) : null;
+  const kind = tid ? kindOfToken(tid) ?? slotKind(slot, r) : slotKind(slot, r);
+  const value = slotValue(s, r);
+  /* One undo step: the variant, and every instance of it. */
+  const commit = (x: string | number) => {
+    const out = setVariantSlot(c.id, v.id, slot, { value: kind === "colour" || kind === "face" || kind === "shadow" || kind === "duration" || kind === "easing" ? String(x) : Number(x) });
+    const ok = !("ok" in out && out.ok === false);
+    play(ok ? "tick" : "deny");
+    return ok;
+  };
   return (
-    <div data-slot={slot} className="flex min-w-0 items-center gap-1.5 py-0.5">
+    <div data-slot={slot} data-slot-ref={tid ?? "own"} className="flex min-w-0 flex-wrap items-center gap-1.5 py-0.5">
       <span className="w-16 shrink-0 text-small text-fg-muted">{SLOT_WORD[slot]}</span>
-      {t && kind ? (
-        <>
-          <span className="w-16 shrink-0 truncate text-small text-fg" title={t.name}>{t.name}</span>
-          <TokenValue kind={kind} value={valueOf(t)} label={`${SLOT_WORD[slot]}: ${t.name}`} onCommit={(v) => { const x = setToken(t.id, v); return !("ok" in x && x.ok === false); }} />
-          <span className="shrink-0 text-small text-fg-faint">(token)</span>
-        </>
-      ) : (
-        <>
-          <span className="min-w-0 flex-1 truncate font-mono text-small text-fg">{String(slotValue(s, r) ?? "")}</span>
-          <span className="shrink-0 text-small text-fg-faint">(own)</span>
-        </>
-      )}
+      {t ? <span className="w-16 shrink-0 truncate text-small text-fg" title={t.name}>{t.name}</span> : null}
+      {value === undefined ? <span className="min-w-0 flex-1 text-small text-fg-faint">a token no longer here</span>
+        : <TokenValue kind={kind} value={value} label={`${c.name} ${v.name}: ${SLOT_WORD[slot]}`} onCommit={commit} />}
+      <span className="shrink-0 text-small text-fg-faint">{t ? "(token)" : "(own)"}</span>
     </div>
   );
 }
@@ -177,9 +185,10 @@ function StateEditor({ c, v, state }: { c: SystemComponent; v: Variant; state: E
   );
 }
 
-export function ComponentEditor({ s, id, onBack }: { s: System; id: string; onBack: () => void }) {
+export function ComponentEditor({ s, id, variant, onBack }: { s: System; id: string; variant?: string | null; onBack: () => void }) {
   const c = s.components.find((x) => x.id === id);
-  const [variantId, setVariantId] = React.useState<string | null>(null);
+  const [variantId, setVariantId] = React.useState<string | null>(variant ?? null);
+  React.useEffect(() => { if (variant) setVariantId(variant); }, [variant]);
   const [state, setState] = React.useState<StateName>("rest");
   const picked = useStudio((st) => (st.selection.length === 1 ? st.nodes.find((n) => n.id === st.selection[0]) ?? null : null));
   const instances = useStudio((st) => st.nodes.filter((n) => n.sys?.s === s.id && n.sys?.c?.component === id).length);
@@ -188,7 +197,7 @@ export function ComponentEditor({ s, id, onBack }: { s: System; id: string; onBa
   const v = c.variants.find((x) => x.id === variantId) ?? c.variants[0];
   const pickedIsMine = !!picked && picked.sys?.s === s.id && picked.sys?.c?.component === c.id;
   return (
-    <div data-component-editor={c.id} className="space-y-2">
+    <div data-component-editor={c.id} data-variant-shown={v?.id ?? ""} className="space-y-2">
       <div className="flex items-center gap-1.5">
         <Button size="iconXs" variant="ghost" aria-label="Back to the System" data-component-back="" onClick={() => { play("close"); onBack(); }}><ChevronLeft /></Button>
         <span className="min-w-0 flex-1 truncate text-xs font-medium uppercase tracking-[0.12em] text-fg">{c.name}</span>
@@ -224,7 +233,7 @@ export function ComponentEditor({ s, id, onBack }: { s: System; id: string; onBa
         <div className="flex gap-2">
           <Preview s={s} c={c} look={v.look} state={state === "rest" ? null : v.states[state]} />
           <div className="min-w-0 flex-1">
-            {state === "rest" ? SLOTS.map((slot) => <SlotRow key={slot} s={s} slot={slot} r={v.look[slot]} />) : <StateEditor c={c} v={v} state={state} />}
+            {state === "rest" ? SLOTS.map((slot) => <SlotRow key={slot} s={s} c={c} v={v} slot={slot} r={v.look[slot]} />) : <StateEditor c={c} v={v} state={state} />}
           </div>
         </div>
       ) : null}

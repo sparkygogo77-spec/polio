@@ -8,10 +8,10 @@
  *   · a whole System copied to diverge (`fork`), and a site's parts moved
  *     onto the copy (`onSystem`);
  *   · a component's variant: a state's look (hover, pressed, focus,
- *     disabled), a new variant, a component made from one part. A variant
- *     edit is kept in the System; instances drawing it is the parts-bind
- *     lane's. A token's value change reaches them, as it reaches every part
- *     pointing at it.
+ *     disabled), a slot pointed at another token or value, a new variant, a
+ *     component made from one part. Instances follow a slot's change in the
+ *     same step (`bind.ts#rebind`); a token's value change reaches them, as
+ *     it reaches every part pointing at it.
  *
  * Every step that changes a System hands back a new one with `rev` bumped
  * and `editedAt` stamped, so whatever drew the old one draws the new one.
@@ -22,7 +22,7 @@ import { colourKey } from "../look/index.ts";
 import type { ComponentKind } from "../components.ts";
 import {
   ID_PREFIX, kindOfField, kindOfToken, newSystemId, tokenById, valueOf,
-  type ColourToken, type CssToken, type FaceToken, type FieldPath, type LookRefs, type LookSlot, type NodeSys, type SizeToken, type StateLook, type StateName,
+  type ColourToken, type CssToken, type FaceToken, type FieldPath, type LookRef, type LookRefs, type LookSlot, type NodeSys, type SizeToken, type StateLook, type StateName,
   type System, type SystemComponent, type TokenKind, type TokenValue, type Variant,
 } from "./model.ts";
 import { fieldValue, sameValue, withField, type SysNode } from "./resolve.ts";
@@ -214,6 +214,34 @@ export function setVariantState(s: System, component: string, variant: string, s
   const next = look === null ? null : checkState(look);
   if (look !== null && !next) return null;
   return mapVariant(s, component, variant, (v) => (JSON.stringify(v.states[state]) === JSON.stringify(next) ? v : { ...v, states: { ...v.states, [state]: next } }));
+}
+
+/**
+ * A variant's slot pointed at a token, or given a value of its own. A value
+ * some token of the slot's kind already holds points at that token, so the
+ * System stays one set of values. The instances follow in the same step
+ * (`bind.ts#rebind`). Null for a token of another kind or a value that is
+ * not one; the same System when the slot already holds it.
+ */
+export function setVariantSlot(s: System, component: string, variant: string, slot: LookSlot, to: { token: string } | { value: unknown }, kind: TokenKind): System | null {
+  let ref: LookRef;
+  if ("token" in to) {
+    if (!tokenById(s, to.token) || kindOfToken(to.token) !== kind) return null;
+    ref = { token: to.token };
+  } else {
+    const v = checkValue(kind, to.value);
+    if (v === null) return null;
+    const held = allOfKind(s, kind).find((t) => sameValue(kind, valueOf(t), v));
+    ref = held ? { token: held.id } : { value: v };
+  }
+  return mapVariant(s, component, variant, (x) => (JSON.stringify(x.look[slot] ?? null) === JSON.stringify(ref) ? x : { ...x, look: { ...x.look, [slot]: ref } }));
+}
+
+/** Every token of one kind. */
+function allOfKind(s: System, kind: TokenKind): AnyToken[] {
+  let out: AnyToken[] = [];
+  mapTokens(s, kind, (list) => { out = list; return list; });
+  return out;
 }
 
 /** A new variant of a component, a copy of one it has: its own id, no instances yet. */

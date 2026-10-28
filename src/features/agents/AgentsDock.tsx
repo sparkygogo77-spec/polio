@@ -26,6 +26,8 @@ import { useStudio } from "@/features/studio/board/store";
 import { siteSystem } from "@/features/studio/system/api";
 import { ACTION_WORDS, DOCK_URL, HELPER_ORIGIN, PART_ACTIONS, START_LINK, checkContext, contextFor, type AgentsContext, type PartAction, type PartLike, type SystemLike } from "./context";
 import { closeAsk, closeDock, openDock, reachHelper, useAgents } from "./store";
+import { listen } from "./bridge";
+import { startAsked } from "@/features/builds/start";
 
 export const ACTION_ICONS: Record<PartAction, typeof Bot> = { change: Pencil, features: Lightbulb, security: ShieldCheck, backend: Server, explain: Code2 };
 
@@ -40,7 +42,7 @@ export function readContext(action: PartAction | null, partId: string | null): A
 
 /* What was handed to the frame, for the tests and for a look in the console. */
 const sent: AgentsContext[] = [];
-if (typeof window !== "undefined") (window as unknown as { __agents?: unknown }).__agents = { sent };
+if (typeof window !== "undefined") { const w = window as unknown as { __agents?: Record<string, unknown> }; w.__agents = { ...(w.__agents ?? {}), sent }; }
 
 function hand(frame: HTMLIFrameElement | null, ctx: AgentsContext) {
   if (!frame?.contentWindow) return;
@@ -101,7 +103,7 @@ function Setup() {
 }
 
 function Dock() {
-  const { action, partId, reach, seq } = useAgents();
+  const { action, partId, reach, seq, compare } = useAgents();
   const frame = React.useRef<HTMLIFrameElement>(null);
   const [loaded, setLoaded] = React.useState(false);
   /* The picked part, so a new pick hands the frame new chips. */
@@ -109,6 +111,8 @@ function Dock() {
   React.useEffect(() => {
     if (loaded) hand(frame.current, readContext(action, partId));
   }, [loaded, action, partId, picked, seq]);
+  /* The site bridge hears this frame, and only it, while it shows (`bridge.ts`). */
+  React.useEffect(() => (loaded && frame.current ? listen(frame.current) : undefined), [loaded]);
   return (
     <aside
       data-agents-dock=""
@@ -119,6 +123,12 @@ function Dock() {
         <span className="text-xs font-semibold tracking-wide">AGENTS{action ? ` · ${ACTION_WORDS[action]}` : ""}</span>
         <Button variant="ghost" size="iconXs" aria-label="Close agents" data-agents-close="" onClick={closeDock}><X /></Button>
       </header>
+      {compare ? (
+        <p data-agents-compare="" className="flex items-center justify-between gap-2 border-b border-border px-3 py-1.5 text-xs text-fg-muted">
+          <span>“{compare.name}” was big, so a copy of the site before it was kept.</span>
+          <a href={compare.href} target="_blank" rel="noopener" className="shrink-0 underline-offset-2 hover:underline">Compare before and after</a>
+        </p>
+      ) : null}
       {reach === "up" ? (
         <iframe
           ref={frame}
@@ -128,6 +138,8 @@ function Dock() {
           onLoad={() => setLoaded(true)}
           /* Its own page on its own origin: scripts and its forms, nothing reaching back into this one. */
           sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
+          /* Chrome's Local Network Access: a public page's frame of 127.0.0.1 loads only with this delegated (and J's yes once). */
+          allow="local-network-access"
           className="min-h-0 flex-1 border-0"
         />
       ) : reach === "down" ? <Setup /> : <p className="p-4 text-small text-fg-muted">Looking for the helper…</p>}
@@ -170,7 +182,8 @@ function AskChooser() {
 export function AgentsHost() {
   const open = useAgents((s) => s.open);
   const [here, setHere] = React.useState(false);
-  React.useEffect(() => setHere(true), []);
+  /* Builds' agents entry opens the Builder with `?start=agents` (`builds/start.ts`): the dock opens with it. */
+  React.useEffect(() => { setHere(true); if (startAsked("agents")) openDock(); }, []);
   if (!here) return null;
   return (
     <>

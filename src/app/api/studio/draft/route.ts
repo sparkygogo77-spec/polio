@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { keyFor } from "@/app/api/keyFor";
 import { answerCeiling } from "../budget";
-import { DRAFT_MODEL, PLAN_SCHEMA, askForPlan, type Sent } from "@/features/studio/idea/ask";
+import { DRAFT_MODEL, PLAN_SCHEMA, VERSIONS_SCHEMA, askForPlan, askForVersions, type Sent } from "@/features/studio/idea/ask";
 import type { Idea } from "@/features/studio/idea/plan";
 
 /**
@@ -13,6 +13,10 @@ import type { Idea } from "@/features/studio/idea/plan";
  * with a plan made only of catalogue parts, with a labelled placeholder
  * wherever nothing fits (`idea/ask.ts`, `idea/plan.ts`). The Builder lays it
  * out in the house style (`idea/planToBoard.ts`); nothing here places a part.
+ *
+ * With `versions: true` the same one call answers with three or four
+ * clearly different versions of the site, each with the pages it needs
+ * (`idea/versions.ts`): one call for all of them, never one per version.
  *
  * Optional, like every Claude route: with no key this answers HTTP 200 with
  * `ok: false, reason: "no-key"`, and the Builder makes the plain draft in the
@@ -32,6 +36,8 @@ const UPSTREAM_TIMEOUT_MS = Math.max(5_000, ANSWER_BUDGET_MS - 3_000);
 interface Body {
   effort?: string;
   name?: string;
+  /** Several versions in the one call, rather than one page. */
+  versions?: boolean;
   idea?: { text?: unknown; sections?: unknown; ref?: unknown };
 }
 
@@ -72,12 +78,12 @@ export async function POST(request: Request) {
   const send = async (system: string, blocks: { text: string; cache?: true }[]): Promise<Sent> => {
     const stream = client.beta.messages.stream({
       model: DRAFT_MODEL,
-      // Thinking counts toward this; a plan is a page of JSON.
-      max_tokens: 24000,
+      // Thinking counts toward this; a plan is a page of JSON, versions several pages each.
+      max_tokens: body.versions ? 48000 : 24000,
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
       thinking: { type: "adaptive" },
-      output_config: { effort, format: { type: "json_schema", schema: PLAN_SCHEMA } },
+      output_config: { effort, format: { type: "json_schema", schema: body.versions ? VERSIONS_SCHEMA : PLAN_SCHEMA } },
       system,
       messages: [{ role: "user", content: blocks.map((b) => ({ type: "text" as const, text: b.text, ...(b.cache ? { cache_control: { type: "ephemeral" as const } } : {}) })) }],
     }, { signal: deadline.signal });
@@ -96,7 +102,8 @@ export async function POST(request: Request) {
   };
 
   try {
-    return NextResponse.json(await askForPlan({ idea, name: typeof body.name === "string" ? body.name.slice(0, 80) : undefined }, send));
+    const input = { idea, name: typeof body.name === "string" ? body.name.slice(0, 80) : undefined };
+    return NextResponse.json(body.versions ? await askForVersions(input, send) : await askForPlan(input, send));
   } catch (error) {
     // Every branch answers HTTP 200 with a reason: the one outcome this route must never have is no outcome.
     const seconds = Math.round((Date.now() - started) / 1000);

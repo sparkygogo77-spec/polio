@@ -134,7 +134,8 @@ export function componentTsx(c: SystemComponent, n: LibraryName, system: System,
   const variants = c.variants.map((v) => {
     const look = (Object.entries(v.look) as [keyof LookRefs, LookRef][]).flatMap(([slot, ref]) => slotClasses(slot, ref, system, names, ctx));
     const states = [...stateClasses("hover", v.states.hover, ctx), ...stateClasses("active", v.states.pressed, ctx), ...stateClasses("focus-visible", v.states.focus, ctx), ...stateClasses("disabled", v.states.disabled, ctx)];
-    return `  ${q(n.variants.get(v.id)!)}: ${q([...new Set([...look, ...states])].join(" "))}, // ${v.count} on the site${v.name ? `, "${v.name.replace(/\*\//g, "")}"` : ""}`;
+    const key = n.variants.get(v.id)!;
+    return `  ${/^[a-z_$][\w$]*$/i.test(key) ? key : q(key)}: ${q([...new Set([...look, ...states])].join(" "))}, // ${v.count} on the site${v.name ? `, "${v.name.replace(/\*\//g, "")}"` : ""}`;
   });
   const role = el.role ? `\n      role=${q(el.role)}` : "";
   const extra = c.kind === "tab" ? "\n  /** The chosen tab. */\n  selected?: boolean;" : c.kind === "progress" ? "\n  /** How far along, 0 to 100. */\n  value?: number;" : "";
@@ -161,14 +162,12 @@ export interface ${n.name}Props extends ${el.props} {
   href?: string;${extra}
 }
 
-const base = ${q(base.join(" "))};
-
-export function ${n.name}({ variant = ${q(n.first)}, as, className, ${take}...props }: ${n.name}Props) {
+${base.length ? `/** What every variant shares: the pointer, the motion, and the focus ring and dimmed disabled state a keyboard and a form need. */\nconst base = ${q(base.join(" "))};\n\n` : ""}export function ${n.name}({ variant = ${q(n.first)}, as, className, ${take}...props }: ${n.name}Props) {
   const Tag: React.ElementType = as ?? (props.href ? "a" : ${q(el.tag)});
   return (
     <Tag${role}${aria}${typeAttr}
       {...props}
-      className={cx(base, ${n.name.charAt(0).toLowerCase()}${n.name.slice(1)}Variants[variant], className)}
+      className={cx(${base.length ? "base, " : ""}${n.name.charAt(0).toLowerCase()}${n.name.slice(1)}Variants[variant], className)}
     />
   );
 }

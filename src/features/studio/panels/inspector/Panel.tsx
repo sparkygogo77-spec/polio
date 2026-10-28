@@ -30,6 +30,7 @@ import { Crumbs, KindIcon, PanelSection, ElementList, kindWord, useDecisions } f
 import { ComponentFields } from "../../ComponentFields";
 import { componentsOf, KIND_WORD, type CompNode } from "../../components";
 import { PartFields } from "../../PartFields";
+import { InstanceRow } from "./instanceRow";
 import { JoinOrCut, WhatIsThis, WornLook, WornMotion, WornWords } from "../../DrawKits";
 import { PartEffects, SaveAsComponent, offeredIds } from "../../PartEffects";
 import { usesOf } from "../../shelf";
@@ -48,6 +49,7 @@ import { pushedOnPress } from "../../send-out/motionCss";
 import { PartSamples } from "../../states/ui";
 import { HoverField } from "./hoverField";
 import { fillByHand, hasOwnHover } from "../../hoverLook";
+import { isControl } from "../../control";
 import { MoveInFlow } from "./moveInFlow";
 
 export function Inspector() {
@@ -478,6 +480,8 @@ export function Inspector() {
         {node.source ? <CodeLink node={node} /> : null}
         {/* A part that goes through states: its samples of data, next to Focus (`StatesTimeline.tsx#PartSamples`). */}
         <PartSamples nodeId={node.id} />
+        {/* One of a component's: "Button / primary", Edit the component, Change just this one, Reset (`instanceRow.tsx`). */}
+        <InstanceRow nodeId={node.id} />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
@@ -644,9 +648,11 @@ export function Inspector() {
           {node.worn || wordsOnly ? null : <LivingField node={node} />}
         </PanelSection>
 
-        {/* HOVER: the look its own hover gives it, captured or set, edited in place (`hoverField.tsx`). */}
-        {!node.worn && hasOwnHover(node.motion) ? (
-          <PanelSection id="hover" title="Hover" icon={<MousePointer2 />} note={fillByHand(node.motion) ? "set by you" : "as captured"}>
+        {/* HOVER: the look its own hover gives it, captured or set, edited in place (`hoverField.tsx`). Every button and link has
+            the section, a hover of its own or not: one made here, or captured from a page that never styled its hover, had no way
+            to be given one (the hand-edit audit, 2026-10-25; `tests/hover-any-button.mjs`). */}
+        {!node.worn && (hasOwnHover(node.motion) || isControl(node)) ? (
+          <PanelSection id="hover" title="Hover" icon={<MousePointer2 />} note={fillByHand(node.motion) ? "set by you" : hasOwnHover(node.motion) ? "as captured" : "none"}>
             <HoverField node={node} />
           </PanelSection>
         ) : null}
