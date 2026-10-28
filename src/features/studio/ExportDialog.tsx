@@ -28,6 +28,13 @@ import { useStudio } from "./board/store";
 import { siteSlug, saveZip } from "./exportForCode";
 import { buildExport, exportTarget, exportToRepo, exportZip, planExport, readBranch } from "./send-out/run";
 import { lastExportSays, type ExportMode } from "./send-out";
+import { useBuilds } from "@/features/builds/store";
+
+/** The export went through: written on the site's record, so the Builds card can say so (`builds/status.ts`). */
+function noteExport(mode: ExportMode, to: "zip" | "repo", repo?: string | null): void {
+  const { activeId, setExported } = useBuilds.getState();
+  if (activeId) setExported(activeId, mode, to, repo);
+}
 
 const useExportDialog = create<{ open: boolean }>(() => ({ open: false }));
 export const openExportDialog = () => useExportDialog.setState({ open: true });
@@ -72,6 +79,7 @@ export function ExportDialog() {
       const ex = await buildExport({ mode, library: clean && library, gallery: clean && gallery });
       if (to === "zip") {
         saveZip(await exportZip(ex), `${siteSlug()}-${mode === "exact" ? "exact-look" : "clean-code"}.zip`);
+        noteExport(mode, "zip");
         play("confirm");
         say({ key: "studio:export", title: "Exported", body: `${ex.files.length} files in a zip: ${mode === "exact" ? "Exact look" : "Clean code"}, Next.js + Tailwind${ex.report ? `. ${ex.report.placed.length} part${ex.report.placed.length === 1 ? " is" : "s are"} still placed by hand (POLIO.md lists them)` : ""}.`, level: "success", source: "studio", toast: true });
       } else {
@@ -79,6 +87,7 @@ export function ExportDialog() {
         const plan = await planExport(ex, onBranch, record);
         useExportDialog.setState({ open: false });
         await exportToRepo(ex, plan, { deploy, say });
+        noteExport(mode, "repo", target.repo);
       }
       useExportDialog.setState({ open: false });
     } catch (e) {

@@ -82,5 +82,7 @@ export const builds = defineFeature({
     });
     /* The board's last change, written on its site as it happens (`edits.ts`). */
     void import("./edits").then((m) => m.startEditClock());
+    /* What the dock says about lanes on each site, kept for the Builds cards (`agentsOnSite.ts`). */
+    void import("./agentsOnSite").then((m) => m.watchAgents());
   },
 });

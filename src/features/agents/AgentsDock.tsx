@@ -27,6 +27,7 @@ import { siteSystem } from "@/features/studio/system/api";
 import { ACTION_WORDS, DOCK_URL, HELPER_ORIGIN, PART_ACTIONS, START_LINK, checkContext, contextFor, type AgentsContext, type PartAction, type PartLike, type SystemLike } from "./context";
 import { closeAsk, closeDock, openDock, reachHelper, useAgents } from "./store";
 import { listen } from "./bridge";
+import { startAsked } from "@/features/builds/start";
 
 export const ACTION_ICONS: Record<PartAction, typeof Bot> = { change: Pencil, features: Lightbulb, security: ShieldCheck, backend: Server, explain: Code2 };
 
@@ -181,7 +182,8 @@ function AskChooser() {
 export function AgentsHost() {
   const open = useAgents((s) => s.open);
   const [here, setHere] = React.useState(false);
-  React.useEffect(() => setHere(true), []);
+  /* Builds' agents entry opens the Builder with `?start=agents` (`builds/start.ts`): the dock opens with it. */
+  React.useEffect(() => { setHere(true); if (startAsked("agents")) openDock(); }, []);
   if (!here) return null;
   return (
     <>

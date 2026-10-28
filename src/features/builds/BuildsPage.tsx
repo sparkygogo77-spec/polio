@@ -67,6 +67,11 @@ import { compareHref } from "@/features/studio/compare/model";
 import { Dialog } from "@/core/ui/dialog";
 import { SiteThumb, ThumbMaker } from "./thumbs";
 import { changeState } from "./publishState";
+import { StartRow } from "./StartRow";
+import { siteStatus } from "./status";
+import { agentsOn } from "./agentsOnSite";
+import { houseOf, useSystems } from "@/features/studio/system/store";
+import { Bot, Palette, Upload as ExportIcon } from "lucide-react";
 import { useActions } from "@/core/actions";
 import { PublishLinks } from "@/features/studio/PublishLinks";
 import { downloadBackup, pickAndLoadBackup } from "@/features/studio/backup";
@@ -238,6 +243,7 @@ function SiteCard({ project, active }: { project: Project; active: boolean }) {
         <p data-card-changes={changes.kind} title={changes.says} className={cn("line-clamp-2 text-small", changes.kind === "unpublished" ? "text-warning" : "text-fg-faint")}>
           {changes.says}
         </p>
+        <SiteStatusLines project={project} doc={doc} />
         {/* The last publish's two pages, from what that publish answered. */}
         <PublishLinks deployment={project.live?.inspectorUrl} commit={project.published?.commitUrl} />
 
@@ -303,6 +309,58 @@ function SiteCard({ project, active }: { project: Project; active: boolean }) {
         </div>
       </div>
     </li>
+  );
+}
+
+/**
+ * WHERE THE SITE IS, in five short lines (J, 2026-10-25): live and where, the
+ * last export and its mode, which style it is on, the agents working on it
+ * now, and its copies with Compare one press away. All of it off what the
+ * Builder already keeps (`status.ts`); no call is made.
+ */
+function SiteStatusLines({ project, doc }: { project: Project; doc: ReturnType<typeof docOf> }) {
+  const all = useBuilds((s) => s.projects);
+  const houseId = useSystems((s) => houseOf(s.byId)?.id ?? null);
+  /* The agents record is this browser's, written by the dock's messages: read after mount, and again when it changes. */
+  const [agents, setAgents] = React.useState<ReturnType<typeof agentsOn>>(null);
+  React.useEffect(() => {
+    const read = () => setAgents(agentsOn(project.id));
+    read();
+    window.addEventListener("builds:agents", read);
+    return () => window.removeEventListener("builds:agents", read);
+  }, [project.id]);
+  const st = siteStatus({ site: project, doc: doc as Parameters<typeof siteStatus>[0]["doc"], houseId, agents, all });
+  const line = "flex min-w-0 items-start gap-1.5 text-small text-fg-faint";
+  const icon = "mt-px size-3 shrink-0";
+  return (
+    <div data-site-status="" className="flex flex-col gap-0.5">
+      <p data-status-live={st.live ? "yes" : "no"} className={line}>
+        <Globe className={cn(icon, st.live && "text-up")} />
+        {st.live ? (
+          <span className="min-w-0 truncate">Live at <a href={st.live.url} target="_blank" rel="noopener noreferrer" className="text-up underline-offset-2 hover:underline">{st.live.host}</a>, {st.live.says.replace(/^Live at [^,]+, /, "")}</span>
+        ) : <span>Not live yet.</span>}
+      </p>
+      <p data-status-export={st.exportKind} className={line}><ExportIcon className={icon} /><span className="min-w-0 truncate">{st.exportSays}</span></p>
+      <p data-status-style={st.style.kind} className={line}><Palette className={icon} /><span className="min-w-0 truncate">{st.style.says}</span></p>
+      {st.agents ? (
+        <p data-status-agents={st.agents.count} className={cn(line, "text-accent")}><Bot className={icon} /><span className="min-w-0 truncate">{st.agents.says}</span></p>
+      ) : null}
+      <p data-status-versions={st.versions.copies.length} className={cn(line, "flex-wrap")}>
+        <Columns2 className={icon} />
+        {st.versions.original ? (
+          <span className="inline-flex items-center gap-1">A copy of {st.versions.original.name}<Link href={compareHref(st.versions.original.id, project.id)} data-status-compare={st.versions.original.id} className="text-accent underline-offset-2 hover:underline">Compare</Link></span>
+        ) : null}
+        {st.versions.copies.length ? (
+          <span className="inline-flex flex-wrap items-center gap-x-1">
+            {st.versions.copies.length} {st.versions.copies.length === 1 ? "copy" : "copies"}:
+            {st.versions.copies.map((c) => (
+              <span key={c.id} className="inline-flex items-center gap-1">{c.name}<Link href={compareHref(project.id, c.id)} data-status-compare={c.id} className="text-accent underline-offset-2 hover:underline">Compare</Link></span>
+            ))}
+          </span>
+        ) : null}
+        {!st.versions.original && !st.versions.copies.length ? <span>No copies yet.</span> : null}
+      </p>
+    </div>
   );
 }
 
@@ -701,6 +759,9 @@ export function BuildsPage() {
         </div>
       </div>
       {loaded ? <p data-builds-loaded="" role="status" className={cn("mt-2 text-plain", loaded.ok ? "text-up" : "text-down")}>{loaded.says}</p> : null}
+
+      {/* The five ways a site begins, big, before the list (`StartRow.tsx`). */}
+      <StartRow />
 
       {projects.length === 0 ? (
         <EmptyState
