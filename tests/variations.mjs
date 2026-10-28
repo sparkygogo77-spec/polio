@@ -74,7 +74,9 @@ const DOC = readFileSync(join(SINK, "site/document.json"));
   check("pure: the first variation changes the colours", !same(T.colour, T1.colour), `${T.colour.length} colour tokens`);
   check("pure: colours locked and randomized again: every colour token unchanged", same(T1.colour, T2.colour), `${T2.colour.length} colour tokens`);
   const changed = NON_COLOUR.filter((k) => T1[k].length && !same(T1[k], T2[k]));
-  check("pure: and the other tokens changed", changed.includes("type") && changed.includes("space"), `changed: ${changed.join(", ")}`);
+  /* A kind the site has no tokens of cannot change (a capture may have no type tokens). */
+  const KINDS = ["type", "space"].filter((k) => T1[k].length);
+  check("pure: and the other tokens changed", KINDS.every((k) => changed.includes(k)), `changed: ${changed.join(", ")} of ${KINDS.join(", ")}`);
   const relaid = d2.doc.nodes.filter((n, i) => n.x !== d1.doc.nodes[i].x || n.y !== d1.doc.nodes[i].y || n.h !== d1.doc.nodes[i].h).length;
   check("pure: and the parts were laid out again", relaid > 0, `${relaid} parts moved between the two`);
   const fresh = differs(v1.spec, v2.spec);
@@ -260,7 +262,8 @@ await waitFor(async () => (await vars()).find((x) => x.id === shownId)?.made !==
 const sAfter = tokensOf(await sysOf(shownId));
 check("colours locked, Randomize again: every colour token unchanged", same(sBefore.colour, sAfter.colour), `${sAfter.colour.length} colour tokens`);
 const moved = NON_COLOUR.filter((k) => sBefore[k].length && !same(sBefore[k], sAfter[k]));
-check("and the other tokens changed", moved.includes("type") && moved.includes("space"), `changed: ${moved.join(", ")}`);
+const kinds = ["type", "space"].filter((k) => sBefore[k].length);
+check("and the other tokens changed", kinds.every((k) => moved.includes(k)), `changed: ${moved.join(", ")} of ${kinds.join(", ")}`);
 const rec = (await vars()).find((x) => x.id === shownId);
 check("its seeds are kept, so it can be made again", rec && LAYERS.filter((l) => l !== "colours").every((l) => typeof rec.v.seeds[l] === "number"));
 

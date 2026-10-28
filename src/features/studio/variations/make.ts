@@ -83,7 +83,7 @@ export function prepare(doc: VarDoc, palette: Palette, o: { name?: string; at?: 
   }
   return {
     doc, nodes, system: taken.system, faceRoles: faceRolesOf(nodes), pairs, width, pageIds,
-    shape: { sections: sectionCount(nodes, first, width), hue: accentHue(taken.system) },
+    shape: { sections: sectionCount(nodes, first, width), hue: accentHue(taken.system), spaces: taken.system.tokens.space.map((x) => x.px) },
   };
 }
 

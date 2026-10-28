@@ -34,6 +34,7 @@
  * Pure: no React, no store, no browser. Every import ends in .ts, so node
  * tests load it.
  */
+import { snapSpace } from "./tokens.ts";
 import { CORNERS, HARMONIES, MOTIONS, PAIRINGS, rng, type Corner, type Harmony, type MotionStyle } from "../siteTheme.ts";
 
 export type Layer = "colours" | "type" | "space" | "layout" | "order" | "motion";
@@ -112,6 +113,8 @@ export interface SiteShape {
   sections: number;
   /** The site's accent hue in degrees, when it has one. */
   hue: number | null;
+  /** The px of the site's space tokens, when known: a roll that would leave every one where it was is not a new spacing. */
+  spaces?: readonly number[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -285,16 +288,20 @@ export function rollSpec(o: RollOptions): { spec: Spec; seeds: Record<Layer, num
     /* Randomize again changes what it rolls: a roll that lands on the choice it had is rolled again (a few tries; a layer with one choice keeps it). */
     let s = layerSeed(o.seed, l), choice = rollLayer(l, s, o.aims, o.shape);
     const had = o.prev?.spec[l] ?? null;
-    for (let k = 1; k < 24 && had != null && sameChoice(l, choice, had); k++) { s = layerSeed(o.seed + k * 7919, l); choice = rollLayer(l, s, o.aims, o.shape); }
+    for (let k = 1; k < 24 && had != null && sameChoice(l, choice, had, o.shape); k++) { s = layerSeed(o.seed + k * 7919, l); choice = rollLayer(l, s, o.aims, o.shape); }
     (spec as unknown as Record<Layer, unknown>)[l] = choice;
     seeds[l] = s;
   }
   return { spec, seeds };
 }
 
-/** Two choices for a layer that would look the same: spacing is its step and density (a new corner alone leaves every gap where it was). */
-function sameChoice(l: Layer, a: unknown, b: unknown): boolean {
-  if (l === "space" && a && b) { const x = a as SpaceChoice, y = b as SpaceChoice; return x.step === y.step && x.density === y.density; }
+/** Two choices for a layer that would look the same: spacing is where its gaps land (a new corner alone leaves every gap where it was). */
+function sameChoice(l: Layer, a: unknown, b: unknown, shape: SiteShape): boolean {
+  if (l === "space" && a && b) {
+    const x = a as SpaceChoice, y = b as SpaceChoice;
+    /* A new step, and one that moves a gap (a 4 step on gaps already of 8 leaves them); with no gaps known, a new step will do. */
+    return x.step === y.step || (!!shape.spaces?.length && shape.spaces.every((px) => snapSpace(px, x) === snapSpace(px, y)));
+  }
   /* Type: its scale (a new pairing on the same scale leaves every size where it was). */
   if (l === "type" && a && b) { const x = a as TypeChoice, y = b as TypeChoice; return x.ratio === y.ratio && x.base === y.base; }
   return JSON.stringify(a) === JSON.stringify(b);
