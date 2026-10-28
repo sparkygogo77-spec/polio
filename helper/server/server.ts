@@ -103,6 +103,11 @@ export async function startHelperServer(opts: {
       res.writeHead(302, { location: "/dock/" });
       return res.end();
     }
+    // Browsers ask for this on their own; an empty answer keeps the dock's log clean.
+    if (method === "GET" && path === "/favicon.ico") {
+      res.writeHead(204, { "cache-control": "max-age=86400" });
+      return res.end();
+    }
     if (method === "GET" && (path === "/dock/" || DOCK_FILE.test(path) || path === "/contract.ts" || path === "/fake.ts")) {
       const file = path === "/dock/" ? DOCK_PAGE : fileURLToPath(new URL(`..${path}`, import.meta.url));
       const kind = extname(file);
