@@ -31,15 +31,13 @@ export const SAMPLE_MERGES: MergeLine[] = [
     line: "Wrap in column keeps the row's gap", shots: null, undo: false },
 ];
 
+/** A PC lane counts its tokens; a cloud lane's can't be read (null). No dollars anywhere. */
 export const SAMPLE_SPEND: Spend[] = [
-  { v, kind: "spend", requestId, tokens: { in: 510_000, out: 43_000 }, lanes: [
-    { lane: "hero-calm", pays: "plan", tokens: { in: 210_000, out: 18_000 }, seconds: 720, planShare: 0.06, usd: null },
-    { lane: "boxes-hug", pays: "cloud", tokens: { in: 300_000, out: 25_000 }, seconds: 1500, planShare: null, usd: 1.1 },
-  ] },
+  { v, kind: "spend", requestId, tokens: { in: 210_000, out: 18_000 }, lanes: [
+    { lane: "hero-calm", pays: "plan", tokens: { in: 210_000, out: 18_000 }, seconds: 720 },
+    { lane: "boxes-hug", pays: "cloud", tokens: null, seconds: 1500 },
+  ], plan: { used: 0.31, resetsAt: Math.floor(Date.UTC(2026, 9, 25, 23, 0) / 1000), status: "allowed" } },
 ];
-
-/** What the plan window and the cloud day held before these requests. */
-export const SAMPLE_BASE = { planShare: 0.25, planTokens: 1_400_000, usd: 2.05, cloudTokens: 640_000 };
 
 export type PcRow = { what: string; lane: string | null; age: string; cpu: string; mem: string; mine: boolean };
 export const PC_MEMORY = { usedGb: 19.2, totalGb: 32 };

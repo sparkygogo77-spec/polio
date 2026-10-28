@@ -14,6 +14,12 @@
       <p class="quiet" data-helper>fake runner, no helper yet</p>
     </header>
 
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="agents" aria-selected="true">Agents</button>
+      <button role="tab" data-tab="pc" aria-selected="false">Everything Claude is doing</button>
+    </nav>
+
+    <div class="tab-body" data-tab-body="agents">
     <section class="box" data-prompt-box>
       <h2>What should change?</h2>
       <textarea data-prompt rows="3" placeholder="The hero feels crowded. Fewer badges, calmer heading."></textarea>
@@ -48,15 +54,22 @@
       <h2>Spend</h2>
       <div class="meters" data-meters></div>
       <table class="compare">
-        <thead><tr><th>Lane</th><th>Pays</th><th>Tokens</th><th>Time</th><th>Cost</th><th>k/min</th></tr></thead>
+        <thead><tr><th>Lane</th><th>Where</th><th>Tokens</th><th>Time</th><th>k/min</th></tr></thead>
         <tbody data-compare></tbody>
       </table>
+      <ul class="compare-requests" data-compare-requests></ul>
     </section>
 
     <section class="box">
       <h2>On your PC now <span class="quiet right" data-pc-memory></span></h2>
       <ul class="pc" data-pc></ul>
+      <button class="small see-all" data-tab="pc">See everything Claude is doing</button>
     </section>
+    </div>
+
+    <div class="tab-body" data-tab-body="pc" hidden>
+      <section class="box pcview" data-pcview></section>
+    </div>
   </main>
 </body>
 </html>
