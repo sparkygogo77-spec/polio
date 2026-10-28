@@ -28,6 +28,8 @@ const CommandPalette = dynamic(() => import("@/core/commands/CommandPalette").th
 const ShortcutsSheet = dynamic(() => import("@/core/commands/ShortcutsSheet").then((m) => m.ShortcutsSheet), { ssr: false });
 const TweetConsole = dynamic(() => import("@/features/tweets/TweetConsole").then((m) => m.TweetConsole), { ssr: false });
 const Tour = dynamic(() => import("@/features/tour/Tour").then((m) => m.Tour), { ssr: false });
+/* New controls pointed out once after an update (`features/whatsnew`): the one place it is mounted. */
+const WhatsNew = dynamic(() => import("@/features/whatsnew/WhatsNew").then((m) => m.WhatsNew), { ssr: false });
 
 function Shortcuts() {
   useShortcuts();
@@ -58,6 +60,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <TweetConsole />
           <KeysPanel />
           <Tour />
+          <WhatsNew />
           <CommandPalette />
           <ShortcutsSheet />
           <ConfirmDialog />
