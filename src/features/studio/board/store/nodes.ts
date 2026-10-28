@@ -454,9 +454,20 @@ export function nodesActions(set: SetStudio, get: GetStudio, push: () => void, p
         const set_ = new Set(withHeld(s, ids));
         const asked = new Set(ids);
         const mark = uid("c");
-        const made = s.nodes
-          .filter((n) => set_.has(n.id))
-          .map((n) => ({ was: n.id, copy: { ...n, id: uid("n"), x: n.x + 24, y: n.y + 24, groupId: null, ...copyMark(n, mark) } }));
+        /*
+         * The copies land a step down and to the right of the originals, and
+         * inside the page: a part near the right edge used to copy past it
+         * (PST's withdraw field, sunkcoin's wallet strip, the hand-edit audit
+         * 2026-10-25), so the step goes left instead when right would cross
+         * the edge (`tests/copy-stays-on-page.mjs`). A part wider than the
+         * page keeps its place across.
+         */
+        const fw = s.frameWidth;
+        const taken = s.nodes.filter((n) => set_.has(n.id));
+        /* One step for the lot, so a button's copy keeps its words: left when any part would cross the right edge, straight down when left would cross the left one. */
+        let dx = taken.some((n) => n.w <= fw && n.x + n.w + 24 > fw) ? -24 : 24;
+        if (dx < 0 && taken.some((n) => n.x + dx < 0)) dx = 0;
+        const made = taken.map((n) => ({ was: n.id, copy: { ...n, id: uid("n"), x: n.x + dx, y: n.y + 24, groupId: null, ...copyMark(n, mark) } }));
         /* The copies of what was picked are picked: what they hold rides with them, as it does with the originals. */
         return { nodes: [...s.nodes, ...made.map((m) => m.copy)], selection: made.filter((m) => asked.has(m.was)).map((m) => m.copy.id) };
       });

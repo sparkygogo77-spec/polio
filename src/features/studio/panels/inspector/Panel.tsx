@@ -49,6 +49,7 @@ import { pushedOnPress } from "../../send-out/motionCss";
 import { PartSamples } from "../../states/ui";
 import { HoverField } from "./hoverField";
 import { fillByHand, hasOwnHover } from "../../hoverLook";
+import { isControl } from "../../control";
 import { MoveInFlow } from "./moveInFlow";
 
 export function Inspector() {
@@ -647,9 +648,11 @@ export function Inspector() {
           {node.worn || wordsOnly ? null : <LivingField node={node} />}
         </PanelSection>
 
-        {/* HOVER: the look its own hover gives it, captured or set, edited in place (`hoverField.tsx`). */}
-        {!node.worn && hasOwnHover(node.motion) ? (
-          <PanelSection id="hover" title="Hover" icon={<MousePointer2 />} note={fillByHand(node.motion) ? "set by you" : "as captured"}>
+        {/* HOVER: the look its own hover gives it, captured or set, edited in place (`hoverField.tsx`). Every button and link has
+            the section, a hover of its own or not: one made here, or captured from a page that never styled its hover, had no way
+            to be given one (the hand-edit audit, 2026-10-25; `tests/hover-any-button.mjs`). */}
+        {!node.worn && (hasOwnHover(node.motion) || isControl(node)) ? (
+          <PanelSection id="hover" title="Hover" icon={<MousePointer2 />} note={fillByHand(node.motion) ? "set by you" : hasOwnHover(node.motion) ? "as captured" : "none"}>
             <HoverField node={node} />
           </PanelSection>
         ) : null}
