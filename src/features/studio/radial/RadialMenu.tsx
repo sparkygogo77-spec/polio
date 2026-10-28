@@ -48,7 +48,7 @@ import { canRemake, openRemake } from "../RemakePicture";
 import { canClearBackground, openClearBackground } from "../ClearBackground";
 import { GRID_LABEL, gridOf } from "../gridOf";
 import * as React from "react";
-import { ArrowDown, ArrowUp, ChevronsDown, ChevronsUp, ClipboardPaste, MousePointer2, CopyPlus, LayoutGrid, Shuffle, Paintbrush, Ellipsis, Eraser, Eye, History, Layers, Lock, Maximize2, Pipette, Plus, Sparkles, Type, Undo2, Unlock } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronsDown, ChevronsUp, ClipboardPaste, MousePointer2, CopyPlus, LayoutGrid, Shuffle, Paintbrush, Ellipsis, Eraser, Eye, History, Layers, Lock, Maximize2, Pipette, Plus, Sparkles, Type, Undo2, Unlock, Bot } from "lucide-react";
 import { cn } from "@/core/lib/cn";
 import { AddDisc } from "../AddDisc";
 import { BACKGROUND_ID, heldBackground, livePath, useStudio } from "../board/store";
@@ -83,6 +83,7 @@ import { current, openedAt, pageSpot, openRadial, openBoard, closeRadial, moveRa
 import { canTrade, tradePlaces } from "../board/tradePlaces";
 import { hasOwnHover, hoverFill, hoverLift } from "../hoverLook";
 import { openSection } from "../panels/PartTreePanel";
+import { openAsk } from "@/features/agents/store";
 import { PULL_FROM, PULL_LOCK, TRAY_DROP, PullStage, Pull, SlotId, Slot, SLOTS, GREEN, GREEN_SHRINK, ANIM_SLAB, Choice, choicesFor, SLOTS_BG, bgChoicesFor, motionOptions } from "./choices";
 import { PullLine, PullEnds, RingPiece, inkOn, Ring, HueSwatch, textureWear, AuraSwatch, Editor } from "./ring";
 
@@ -609,6 +610,8 @@ export function RadialMenu() {
           id: "paste", label: "Paste look", icon: <ClipboardPaste className="size-3" />, disabled: !heldLook,
           onClick: () => { if (!heldLook) return; const n = pasteLook(pasteTargets(node!, heldLook), heldLook, useLookClip.getState().chosen); play(n ? "confirm" : "deny"); },
         },
+        /* Ask agents: the five part actions, beside the part; each opens the agents dock with the part's chips (features/agents, J 2026-10-25). */
+        { id: "ask-agents", label: "Ask agents…", icon: <Bot className="size-3" />, onClick: () => { const r = document.querySelector(`[data-node-id="${CSS.escape(node!.id)}"]`)?.getBoundingClientRect(); closeRadial(); openAsk(node!.id, r ? r.right + 8 : 80, r ? r.top : 80); } },
         /* On a captured page there may be no bare page left to right-click: every part's tray can bring one too, landing where the person is looking. */
         { id: "remix", label: "Bring from another site…", icon: <Shuffle className="size-3" />, onClick: () => { closeRadial(); openRemix(); } },
         /* Make all like this: every part of this kind on the site wears its look, with the facets and the keep-colour choice the panel holds (MakeAllLike.tsx); only the facets this part has, so a plain part wipes nobody's look. */

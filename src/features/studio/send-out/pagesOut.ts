@@ -57,7 +57,9 @@ export interface ExportedPage {
 }
 
 /** Classes the published page uses for its own machinery, not for looks: never carried. */
-const MACHINE = /^(sm-|mo$|mo-|ms\d|g-)/;
+const MACHINE = /^(sm-|mo$|mo-|ms\d|g-|link-fills-part(-frame)?$|site-root$)/;
+/** The published page's icon label ("icon · 2 strokes") says nothing to a reader: the icon is drawn as decoration, and the link or button around it carries the name. */
+const ICON_LABEL = /^icon(\s*·\s*\d+\s*strokes?)?$/i;
 
 /**
  * Rewrites every element under `root`: its inline style becomes Tailwind
@@ -76,6 +78,9 @@ function classify(root: Element, ctx: TwContext, link: (href: string) => string)
     } else if (had.length) el.setAttribute("class", had.join(" "));
     else el.removeAttribute("class");
     for (const a of Array.from(el.attributes)) if (a.name.startsWith("data-")) el.removeAttribute(a.name);
+    if (el.getAttribute("role") === "img" && ICON_LABEL.test(el.getAttribute("aria-label") ?? "")) {
+      el.removeAttribute("role"); el.removeAttribute("aria-label"); el.setAttribute("aria-hidden", "true");
+    }
     const src = el.getAttribute("src");
     if (src) el.setAttribute("src", assetPath(src));
     const href = el.getAttribute("href");
@@ -164,10 +169,17 @@ function flowDecls(f: Flow, border: Sides = NO_SIDES): [string, string][] {
     if (f.gap) d.push(["gap", px(f.gap)]);
   }
   const p = { top: Math.max(0, f.pad.top - border.top), right: Math.max(0, f.pad.right - border.right), bottom: Math.max(0, f.pad.bottom - border.bottom), left: Math.max(0, f.pad.left - border.left) };
+  /* A row whose parts sit in the middle, with the same wide space either side: `justify-center`, not hundreds of pixels of padding, so the row still centres when the window is narrower than the board. The parts' widths add up to the board's, so at the board's width nothing moves. */
+  if (centredRow(f, p)) { d.push(["justify-content", "center"]); p.left = p.right = 0; }
   if (p.top || p.right || p.bottom || p.left) d.push(["padding", `${px(p.top)} ${px(p.right)} ${px(p.bottom)} ${px(p.left)}`]);
   if (f.minHeight != null) d.push(["min-height", px(f.minHeight)]);
   if (f.placed.length) d.push(["position", "relative"]);
   return d;
+}
+
+/** A row of parts held in the middle by equal padding on both sides, wide enough (over 24px) to be a centring, not a margin. */
+export function centredRow(f: Flow, p: Sides): boolean {
+  return f.display !== "grid" && f.direction !== "column" && f.items.length > 0 && p.left > 24 && Math.abs(p.left - p.right) <= 1;
 }
 
 /**
@@ -237,6 +249,33 @@ interface Walk {
   missing: string[];
   /** The part's System component, when it is an instance of one the library writes. */
   instance: (id: string) => Instance | null;
+  /** The heading level a part is written at (`<h2>`), in page order, or null for a part that is no heading. */
+  heading: (id: string) => number | null;
+  /** The words a part's label quotes ('link “Docs”' → "Docs"), for a link's name when the link itself shows no words. */
+  words: (id: string) => string;
+}
+
+/** The capture names the element each heading was (`… > h2.`); the first heading of a page is its h1, and no level is skipped on the way down. */
+export function headingLevels(nodes: { id: string; label?: string | null; prompt?: string | null }[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const n of nodes) {
+    if (!/^heading\b/i.test(n.label ?? "")) continue;
+    const captured = Number(/>\s*h([1-6])\b[^>]*\.\s/.exec(n.prompt ?? "")?.[1] ?? 2);
+    out.set(n.id, captured);
+  }
+  return out;
+}
+
+/** Swaps the words' element for a heading one: the first `<p>` in the content, else the box the words sit in. Tailwind's base styles give headings no size, weight or margin of their own, so nothing moves. */
+function asHeading(e: El, inner: El | null, html: string, level: number): string {
+  const tag = `h${level}`;
+  if (/<p[\s>]/i.test(html)) {
+    const open = html.replace(/<p(?=[\s>])/i, `<${tag}`);
+    const at = open.lastIndexOf("</p>");
+    return at >= 0 ? `${open.slice(0, at)}</${tag}>${open.slice(at + 4)}` : open;
+  }
+  if (inner) inner.tag = tag; else if (e.tag === "div") e.tag = tag;
+  return html;
 }
 
 /** A part drawn as a library component: its name, its variant, and the look properties the variant already says. */
@@ -251,32 +290,33 @@ function partEl(id: string, flow: Flow | null, layout: [string, string][], w: Wa
     if (flow) fill(e, flow, w, NO_SIDES);
     return e;
   }
+  const look = declarations(ex.look).filter(([p]) => !LOOK_SIZING.has(p) && !(flow && LOOK_FLOW.has(p)));
   const placeDecls = declarations(ex.place);
   /* A part that sticks as the page scrolls keeps sticking, at the same distance from the top. */
   const sticky = placeDecls.some(([p, v]) => p === "position" && v === "sticky") && !layout.some(([p]) => p === "position");
   const keep = [...placeDecls.filter(([p]) => PLACE_KEEP.has(p)), ...(sticky ? placeDecls.filter(([p]) => p === "position" || p === "top") : [])];
   const inst = w.instance(id);
-  const look = declarations(ex.look).filter(([p]) => !LOOK_SIZING.has(p) && !(flow && LOOK_FLOW.has(p)));
   /* An instance says its variant's look by the variant's name; the part keeps only what the variant does not say. */
   const own = inst ? look.filter(([p]) => !inst.covers.has(p)) : look;
   const content = ex.content;
   const onlyWords = content.classes.length === 0 || (!flow && contentInherits(content.classes));
   const e = el("div", [...classesOf(layout, w.ctx), ...classesOf([...keep, ...own], w.ctx, (p) => p === "position" && !flow)], [["id", id]]);
+  const level = content.words ? w.heading(id) : null;
   /* A holder's own words or picture lie over it, inside its padding, as the board draws them; its parts flow over them. An empty one is nothing. */
   if (flow && content.html.trim()) {
     const pad = declarations(ex.look).filter(([p]) => p.startsWith("padding"));
     const inner = el("div", ["absolute", "inset-0", ...classesOf(pad, w.ctx), ...content.classes.filter((c) => !POSITIONED.includes(c))]);
-    inner.kids.push({ raw: htmlToJsx(content.html, "") });
+    inner.kids.push({ raw: htmlToJsx(level ? asHeading(e, inner, content.html, level) : content.html, "") });
     e.kids.push(inner);
     if (!e.cls.some((c) => POSITIONED.includes(c))) e.cls.push("relative");
   } else if (!flow && (content.html.trim() || (!onlyWords && content.classes.length))) {
     if (onlyWords) {
       /* A leaf whose content box only says how its words look: said on the part, the words straight inside. */
       for (const c of content.classes) if (!e.cls.includes(c)) e.cls.push(c);
-      if (content.html.trim()) e.kids.push({ raw: htmlToJsx(content.html, "") });
+      if (content.html.trim()) e.kids.push({ raw: htmlToJsx(level ? asHeading(e, null, content.html, level) : content.html, "") });
     } else {
       const inner = el("div", content.classes);
-      if (content.html.trim()) inner.kids.push({ raw: htmlToJsx(content.html, "") });
+      if (content.html.trim()) inner.kids.push({ raw: htmlToJsx(level ? asHeading(e, inner, content.html, level) : content.html, "") });
       e.kids.push(inner);
     }
   }
@@ -288,21 +328,28 @@ function partEl(id: string, flow: Flow | null, layout: [string, string][], w: Wa
     if (inst.pressable && (interactive || !!flow) && !(ex.link && !flow && !interactive)) e.attrs.push(["as", "div"]);
     else if (inst.pressable && !ex.link && !e.cls.some((c) => /^text-(left|center|right|justify|start|end)$/.test(c))) e.cls.push("text-start");
   }
-  if (ex.link) linkPart(e, ex.link, !!flow || interactive, !!inst);
+  if (ex.link) linkPart(e, ex.link, !!flow || interactive, !!inst, content.words ? "" : w.words(id));
   if (flow) fill(e, flow, w, borderOf(look));
   return e;
 }
 
-/** A part that is a link: an `<a>` itself, or, when it holds parts or links of its own (a link may not hold a link), a link laid over it. */
-function linkPart(e: El, link: NonNullable<ExportedPart["link"]>, holds: boolean, component = false): void {
-  const attrs: [string, string][] = [["href", link.href], ...(link.newTab ? [["target", "_blank"], ["rel", "noopener"]] as [string, string][] : [])];
+/**
+ * A part that is a link: an `<a>` itself, or, when it holds parts or links of
+ * its own (a link may not hold a link), a link laid over it. `name` is what a
+ * reader hears when the link shows no words of its own (an icon, a picture).
+ */
+function linkPart(e: El, link: NonNullable<ExportedPart["link"]>, holds: boolean, component = false, name = ""): void {
+  const attrs: [string, string][] = [["href", link.href], ...(link.newTab ? [["target", "_blank"], ["rel", "noopener"]] as [string, string][] : []), ...(name ? [["aria-label", name]] as [string, string][] : [])];
   /* A library component given an href draws as a link itself. */
   if (!holds && component) { e.attrs.push(...attrs); if (!e.cls.some((c) => /^(flex|grid|block|inline|hidden|contents)/.test(c))) e.cls.push("block"); return; }
   if (!holds) { e.tag = "a"; e.attrs.push(...attrs); if (!e.cls.some((c) => /^(flex|grid|block|inline|hidden|contents)/.test(c))) e.cls.push("block"); return; }
-  const over = el("a", ["absolute", "inset-0", "z-[1]"], [...attrs, ["aria-label", "Open"]]);
+  const over = el("a", ["absolute", "inset-0", "z-[1]"], name ? attrs : [...attrs, ["aria-label", "Open"]]);
   e.kids.unshift(over);
   if (!e.cls.some((c) => POSITIONED.includes(c))) e.cls.push("relative");
 }
+
+/** The element a section component's root is: a landmark where its name says one (Header, Footer, Nav), else a section. */
+const SECTION_TAG = (name: string): string => (/^Header\d*$/.test(name) ? "header" : /^Footer\d*$/.test(name) ? "footer" : /^Nav\d*$/.test(name) ? "nav" : "section");
 
 /** A content box whose classes are all words' looks (they pass down to the words). */
 function contentInherits(classes: string[]): boolean {
@@ -343,6 +390,7 @@ function itemOrSection(it: LayoutItem, parent: Flow, w: Walk, pull?: { start: nu
   const e = it.part ? partEl(it.part, it.flow, layout, w) : (() => { const g = el("div", classesOf(layout, w.ctx)); if (it.flow) fill(g, it.flow, w); return g; })();
   const name = w.sections.get(it.id);
   if (!name) return e;
+  if (e.tag === "div") e.tag = SECTION_TAG(name);
   w.out.set(name, e);
   return { use: name };
 }
@@ -359,7 +407,13 @@ function placedEl(p: Placed, w: Walk, border: Sides): El {
 /* Pages                                                               */
 /* ------------------------------------------------------------------ */
 
-export interface PagesNode extends LayoutPart { label?: string | null; state?: unknown; sys?: { c?: { component: string; variant: string } | null } | null }
+export interface PagesNode extends LayoutPart {
+  label?: string | null;
+  /** The capture's own words about the part, which name the element it was (`… > h2.`): a heading's level. */
+  prompt?: string | null;
+  state?: unknown;
+  sys?: { c?: { component: string; variant: string } | null } | null;
+}
 export interface PagesInput {
   /** The site's name, for the layout's title. */
   name: string;
@@ -517,7 +571,18 @@ export function pagesOut(input: PagesInput): PagesOut {
       sections.set(s.id, n);
     });
 
-    const w: Walk = { exported, ctx, sections, out: new Map(), missing: [], instance };
+    /* Headings in page order: the first is the h1, and each is at most one level under the one before it. */
+    const captured = headingLevels(input.nodes.filter((n) => n.pageId === page.id));
+    let last = 0;
+    const heading = (id: string): number | null => {
+      const c = captured.get(id);
+      if (c === undefined) return null;
+      const level = last === 0 ? 1 : Math.min(c, last + 1);
+      last = level;
+      return level;
+    };
+    const words = (id: string) => /“([^”]+)”/.exec(byId.get(id)?.label ?? "")?.[1]?.trim() ?? "";
+    const w: Walk = { exported, ctx, sections, out: new Map(), missing: [], instance, heading, words };
     /* The page's ground and words colour go on the body, said once for the site (the home page's). */
     const pageLook = declarations(exported.page).filter(([p]) => ["background", "background-color", "color", "font-family", "font-size", "line-height"].includes(p));
     if (!bodyClasses.length) bodyClasses = classesOf(pageLook, ctx);
