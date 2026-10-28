@@ -8,12 +8,17 @@
  *     the new harmony; its strength goes to the chosen chroma (greys stay
  *     grey, tinted toward the new hue). Words (`text`, `muted`, and colours
  *     the site uses for words) are then held at 4.5 to 1 on the page;
- *   · type: every size is read as a step n on the original's scale and
- *     drawn at base × ratio^n of the new one, so many near sizes become few;
- *     the faces become the pairing's (the largest face is the heading's);
+ *   · type: every size is read as how many steps of the NEW ratio it is
+ *     from the body size (the step nearest 16px), and drawn at base × ratio^n,
+ *     so the hierarchy is kept, many near sizes become few, and every size
+ *     is on a real scale whatever the original's was (a take can read a
+ *     scale of ×1.067, which no site should be snapped onto); the faces
+ *     become the pairing's (the largest face is the heading's);
  *   · space and corners: every space becomes a whole number of the chosen
  *     step (density folded in, nothing below one step, 0 stays 0); corners
- *     go to the chosen family by size, pills stay pills, square stays square;
+ *     go to the chosen family by size, on the 4px grid, pills stay pills,
+ *     square stays square; shadows go to the chosen depth (flat: none; a
+ *     ring with no blur is an outline and is kept);
  *   · motion: durations scaled to the style, easings set to its curve.
  *
  * A layer whose choice is null is left exactly as the original has it: its
@@ -79,19 +84,23 @@ function colours(s: System, c: ColourChoice): System {
   return out;
 }
 
-/** The step a size is on a scale, from its base. */
-const stepOf = (px: number, base: number, ratio: number) => Math.round(Math.log(px / base) / Math.log(ratio));
+/** The body size among the sizes: the one nearest 16px (the smaller on a tie). */
+export const bodyOf = (sizes: readonly number[]): number => sizes.filter((x) => x > 0).reduce((b, x) => (Math.abs(x - 16) < Math.abs(b - 16) || (Math.abs(x - 16) === Math.abs(b - 16) && x < b) ? x : b), 16);
 
-export function typeSizes(sizes: readonly number[], from: { ratio: number; base: number }, to: TypeChoice): number[] {
-  return sizes.map((px) => (px > 0 ? Math.max(10, Math.round(to.base * to.ratio ** stepOf(px, from.base, from.ratio))) : px));
+/** Each size as a step of the new ratio from the body: two under (a caption) to twelve over. */
+export function typeSizes(sizes: readonly number[], to: TypeChoice, body = bodyOf(sizes)): number[] {
+  return sizes.map((px) => {
+    if (!(px > 0)) return px;
+    const n = Math.max(-2, Math.min(12, Math.round(Math.log(px / body) / Math.log(to.ratio))));
+    return Math.round(to.base * to.ratio ** n);
+  });
 }
 
 const firstFamily = (stack: string) => stack.split(",")[0]!.trim().replace(/^['"]|['"]$/g, "");
 
 function type(s: System, t: TypeChoice, faceRoles: FaceRoles): System {
   const steps = s.tokens.type.steps;
-  const from = s.tokens.type.scale ?? { ratio: 1.25, base: 16 };
-  const sizes = typeSizes(steps.map((x) => x.px), from, t);
+  const sizes = typeSizes(steps.map((x) => x.px), t);
   let out = s;
   steps.forEach((x, i) => { out = setTokenValue(out, x.id, sizes[i]!) ?? out; });
   const p = pairingOf(t.pairing);
@@ -116,15 +125,25 @@ export function snapCorner(px: number, c: SpaceChoice): number {
   switch (c.corner) {
     case "square": return 0;
     case "soft": return big ? 8 : 4;
-    case "round": return big ? 20 : 10;
-    case "pill": return big ? 28 : 999;
+    case "round": return big ? 24 : 12;
+    case "pill": return big ? 32 : 999;
   }
 }
+
+/** The shadow each depth draws. */
+export const SHADOW_OF: Record<SpaceChoice["depth"], string> = {
+  flat: "none",
+  soft: "0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.06)",
+  lifted: "0 2px 4px rgba(0, 0, 0, 0.08), 0 12px 32px rgba(0, 0, 0, 0.14)",
+};
+/** A shadow with no blur and no offset is a ring: an outline, not depth. */
+export const isRing = (css: string) => /^(?:inset\s+)?0(?:px)?\s+0(?:px)?\s+0(?:px)?\s+[\d.]+px\s/.test(css.trim());
 
 function space(s: System, c: SpaceChoice): System {
   let out = s;
   for (const x of s.tokens.space) out = setTokenValue(out, x.id, snapSpace(x.px, c)) ?? out;
   for (const x of s.tokens.radius) out = setTokenValue(out, x.id, snapCorner(x.px, c)) ?? out;
+  for (const x of s.tokens.shadow) if (!isRing(x.css) && x.css !== "none") out = setTokenValue(out, x.id, SHADOW_OF[c.depth]) ?? out;
   return out;
 }
 
@@ -149,10 +168,34 @@ function motion(s: System, m: MotionChoice): System {
   return out;
 }
 
-/** The System as the spec has it; layers whose choice is null untouched. */
-export function systemFor(s: System, spec: Spec, faceRoles: FaceRoles = new Map()): System {
+/** Words and fills parts wear together, by token id, so the pair can be held readable. */
+export type WornPair = { text: string; fill: string };
+
+/**
+ * Every pair of words and fill worn together that read at AA before still
+ * does: the words are moved in lightness first; where they cannot move
+ * (white already), the fill is moved instead, keeping its hue.
+ */
+export function holdPairs(s: System, was: System, pairs: readonly WornPair[]): System {
   let out = s;
-  if (spec.colours) out = colours(out, spec.colours);
+  const val = (sys: System, id: string) => { const t = sys.tokens.colour.find((x) => x.id === id); return t ? oklchOf(t.value) : null; };
+  for (const { text, fill } of pairs) {
+    const t0 = val(was, text), f0 = val(was, fill);
+    if (!t0 || !f0 || t0.alpha < 0.999 || f0.alpha < 0.999 || contrast(t0, f0) < READABLE) continue;
+    const t = val(out, text), f = val(out, fill);
+    if (!t || !f || contrast(t, f) >= READABLE) continue;
+    const dark = t.l < f.l;
+    const held = readableOn(t, f, dark);
+    if (contrast(held, f) >= READABLE) { out = setTokenValue(out, text, cssOf(held)) ?? out; continue; }
+    out = setTokenValue(out, fill, cssOf(readableOn(f, t, !dark))) ?? out;
+  }
+  return out;
+}
+
+/** The System as the spec has it; layers whose choice is null untouched. */
+export function systemFor(s: System, spec: Spec, faceRoles: FaceRoles = new Map(), pairs: readonly WornPair[] = []): System {
+  let out = s;
+  if (spec.colours) out = holdPairs(colours(out, spec.colours), s, pairs);
   if (spec.type) out = type(out, spec.type, faceRoles);
   if (spec.space) out = space(out, spec.space);
   if (spec.motion) out = motion(out, spec.motion);

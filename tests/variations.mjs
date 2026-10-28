@@ -74,7 +74,9 @@ const DOC = readFileSync(join(SINK, "site/document.json"));
   check("pure: the first variation changes the colours", !same(T.colour, T1.colour), `${T.colour.length} colour tokens`);
   check("pure: colours locked and randomized again: every colour token unchanged", same(T1.colour, T2.colour), `${T2.colour.length} colour tokens`);
   const changed = NON_COLOUR.filter((k) => T1[k].length && !same(T1[k], T2[k]));
-  check("pure: and the other tokens changed", changed.includes("type") && changed.includes("space"), `changed: ${changed.join(", ")}`);
+  /* A kind the site has no tokens of cannot change (a capture may have no type tokens). */
+  const KINDS = ["type", "space"].filter((k) => T1[k].length);
+  check("pure: and the other tokens changed", KINDS.every((k) => changed.includes(k)), `changed: ${changed.join(", ")} of ${KINDS.join(", ")}`);
   const relaid = d2.doc.nodes.filter((n, i) => n.x !== d1.doc.nodes[i].x || n.y !== d1.doc.nodes[i].y || n.h !== d1.doc.nodes[i].h).length;
   check("pure: and the parts were laid out again", relaid > 0, `${relaid} parts moved between the two`);
   const fresh = differs(v1.spec, v2.spec);
@@ -129,8 +131,9 @@ await page.route("**/api/studio/better", async (r) => {
   const ask = JSON.parse(r.request().postData() ?? "{}").ask ?? {};
   const word = (ask.words ?? [])[0];
   const variant = (i) => ({
+    name: ["Calm editorial", "Bold product", "Quiet grid", "Warm friendly"][i],
     note: `Stub variant ${i + 1}`,
-    spec: { colours: { hue: 40 + i * 70, harmony: "analogous", chroma: 0.12 }, type: { pairing: "sans-sans", ratio: 1.333, base: 17 }, space: { step: 8, density: 1.25, corner: "round" }, layout: null, order: null, motion: { style: "calm" } },
+    spec: { colours: { hue: 40 + i * 70, harmony: "analogous", chroma: 0.12 }, type: { pairing: "sans-sans", ratio: 1.333, base: 17 }, space: { step: 8, density: 1.25, corner: "round", depth: "soft" }, layout: null, order: null, motion: { style: "calm" } },
     words: word && i === 0 ? [{ id: "w0_0", part: word.part, now: word.now, to: `${word.now} now`, why: "clearer" }] : [],
   });
   await r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, variants: [0, 1, 2, 3].map(variant), usage: { input: 0, output: 0 } }) });
@@ -259,7 +262,8 @@ await waitFor(async () => (await vars()).find((x) => x.id === shownId)?.made !==
 const sAfter = tokensOf(await sysOf(shownId));
 check("colours locked, Randomize again: every colour token unchanged", same(sBefore.colour, sAfter.colour), `${sAfter.colour.length} colour tokens`);
 const moved = NON_COLOUR.filter((k) => sBefore[k].length && !same(sBefore[k], sAfter[k]));
-check("and the other tokens changed", moved.includes("type") && moved.includes("space"), `changed: ${moved.join(", ")}`);
+const kinds = ["type", "space"].filter((k) => sBefore[k].length);
+check("and the other tokens changed", kinds.every((k) => moved.includes(k)), `changed: ${moved.join(", ")} of ${kinds.join(", ")}`);
 const rec = (await vars()).find((x) => x.id === shownId);
 check("its seeds are kept, so it can be made again", rec && LAYERS.filter((l) => l !== "colours").every((l) => typeof rec.v.seeds[l] === "number"));
 

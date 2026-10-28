@@ -3,14 +3,16 @@ import { NextResponse } from "next/server";
 import { keyFor } from "@/app/api/keyFor";
 import { answerCeiling } from "../budget";
 import { ANSWER_SCHEMA, SYSTEM, askText, parseJson, readAnswer, type BetterAsk } from "@/features/studio/better/prompt";
-import { AIMS, type Aim } from "@/features/studio/variations/model";
+import { AIMS, LAYERS, type Aim, type Layer, type SiteShape } from "@/features/studio/variations/model";
 
 /**
  * Variations from Claude (`features/studio/variations/`): one call with the
- * original site's pages as pictures, its sections and its System in short,
- * the aims ticked and the site named to be like. Claude answers with
- * several variant specs at once (`better/prompt.ts`), each read strictly:
- * a choice that is not one of the allowed ones is dropped.
+ * original site's pages as pictures, its sections, its layout tree and its
+ * System in short, the aims ticked, the layers locked and the site named to
+ * be like. Claude answers with four named directions at once
+ * (`better/prompt.ts`), each read strictly: a choice off the rules lands on
+ * them or is dropped, a locked layer is kept, two directions too close are
+ * pushed apart.
  *
  * The key is J's, picked the way every route picks it (`keyFor`): the one
  * typed into Keys, else the server's. It is used for this call and nothing
@@ -32,6 +34,8 @@ interface Body {
   effort?: string;
   pictures?: { data?: string; label?: string }[];
   ask?: Partial<BetterAsk>;
+  /** The page's shape, so directions too close can be pushed apart on this site. */
+  shape?: Partial<SiteShape>;
 }
 
 const MAX_PICTURES = 4;
@@ -53,10 +57,12 @@ export async function POST(request: Request) {
     aims: (Array.isArray(a.aims) ? a.aims : []).filter((x): x is Aim => AIMS.includes(x as Aim)),
     like: typeof a.like === "string" ? a.like.slice(0, 200) : null,
     count: Math.max(1, Math.min(6, Math.round(Number(a.count) || 4))),
+    locks: (Array.isArray(a.locks) ? a.locks : []).filter((x): x is Layer => LAYERS.includes(x as Layer)),
     site: {
       name: String(a.site?.name ?? "the site").slice(0, 120),
       sections: sections.map((s, i) => ({ index: i, words: String(s?.words ?? "").slice(0, 240), height: Number(s?.height) || 0 })),
       system: String(a.site?.system ?? "").slice(0, 6000),
+      layout: String(a.site?.layout ?? "").slice(0, 6000),
     },
     words: (Array.isArray(a.words) ? a.words : []).slice(0, 40).filter((w) => w && typeof w.part === "string" && typeof w.now === "string").map((w) => ({ part: w.part.slice(0, 80), now: w.now.slice(0, 300) })),
   };
@@ -96,7 +102,8 @@ export async function POST(request: Request) {
     };
     if (message.stop_reason === "refusal") return NextResponse.json({ ok: false, reason: "refusal", message: "Claude declined to make variations of this site.", usage });
     const text = message.content.filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text").map((b) => b.text).join("\n").trim();
-    const variants = readAnswer(parseJson(text), ask, ask.site.sections.length);
+    const shape: SiteShape = { sections: ask.site.sections.length, hue: typeof body.shape?.hue === "number" ? body.shape.hue : null };
+    const variants = readAnswer(parseJson(text), ask, ask.site.sections.length, shape);
     if (!variants.length) {
       return NextResponse.json({ ok: false, reason: message.stop_reason === "max_tokens" ? "truncated" : "unreadable", message: message.stop_reason === "max_tokens" ? "Claude ran out of room before it answered." : "Claude's answer held no variants.", usage });
     }

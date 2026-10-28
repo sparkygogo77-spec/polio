@@ -26,11 +26,10 @@ import type { FormatValues } from "../format";
 import type { Look } from "../look";
 import { keyHeader } from "../loop/agent";
 import { build, prepare, type Prepared, type VarDoc } from "./make";
-import { readLayout } from "../layout/read";
-import { emptySpec, rollSpec, type Aim, type Layer, type Variation } from "./model";
+import { directionName, emptySpec, rollSpec, type Aim, type Layer, type Variation } from "./model";
 import { useVariations } from "./store";
-import type { BetterAsk, BetterVariant } from "../better/prompt";
-import { tokenValues } from "./tokens";
+import type { BetterVariant } from "../better/prompt";
+import { askFor } from "./ask";
 
 const LIVE = "builder.studio";
 const slot = (id: string) => `builder.doc:${id}`;
@@ -133,12 +132,12 @@ export async function makeVariations(o: MakeOptions): Promise<MakeResult> {
       /* Locked layers stay as the variation they were locked on has them; Claude's choice fills the rest. */
       const spec = { ...x.spec };
       for (const l of o.locks ?? []) if (o.from) (spec as Record<Layer, unknown>)[l] = o.from.spec[l];
-      return { v: { spec, seeds: { colours: null, type: null, space: null, layout: null, order: null, motion: null, ...(o.from ? Object.fromEntries((o.locks ?? []).map((l) => [l, o.from!.seeds[l]])) : {}) }, aims: o.aims, locks: o.locks ?? [], by: "claude" as const, note: x.note, like: o.like ?? null, words: x.words, accepted: [] } };
+      return { v: { spec, seeds: { colours: null, type: null, space: null, layout: null, order: null, motion: null, ...(o.from ? Object.fromEntries((o.locks ?? []).map((l) => [l, o.from!.seeds[l]])) : {}) }, aims: o.aims, locks: o.locks ?? [], by: "claude" as const, name: x.name || directionName(spec), note: x.note, like: o.like ?? null, words: x.words, accepted: [] } };
     });
   } else {
     for (let i = 0; i < Math.max(1, Math.min(8, o.count)); i++) {
       const r = rollSpec({ seed: base + i * 104729, aims: o.aims, shape: got.p.shape, prev: o.from ?? null, locks: o.locks });
-      specs.push({ v: { spec: r.spec, seeds: r.seeds, aims: o.aims, locks: o.locks ?? [], by: "local", like: o.like ?? null, words: [], accepted: [] } });
+      specs.push({ v: { spec: r.spec, seeds: r.seeds, aims: o.aims, locks: o.locks ?? [], by: "local", name: directionName(r.spec), like: o.like ?? null, words: [], accepted: [] } });
     }
   }
   const ids: string[] = [];
@@ -160,7 +159,7 @@ export async function again(id: string, locks: Layer[], seed = newSeed()): Promi
   const name = useBuilds.getState().projects.find((p) => p.id === id)?.name ?? "";
   const n = Number(/variation (\d+)$/.exec(name)?.[1]) || nextNumber(v.of);
   /* Words he accepted stay, where the part still says what they replaced. */
-  const next: Variation = { ...v, spec: r.spec, seeds: r.seeds, locks, by: "local", note: null, made: Date.now() };
+  const next: Variation = { ...v, spec: r.spec, seeds: r.seeds, locks, by: "local", name: directionName(r.spec), note: null, made: Date.now() };
   await writeOne(v.of, next, { into: id, n });
   return { ok: true, ids: [id] };
 }
@@ -189,24 +188,6 @@ export async function acceptWord(id: string, wordId: string, on = true): Promise
 /* Claude                                                               */
 /* ------------------------------------------------------------------ */
 
-/** The words a part says, as plain text: what Claude reads and may suggest changing. */
-const plain = (c: unknown): string => (typeof c === "string" ? c : Array.isArray(c) ? c.map((s) => (s && typeof s === "object" && "text" in s ? String((s as { text: unknown }).text) : "")).join("") : "");
-
-/** The site in short, for the ask: its sections with their words, its System's tokens, the words that may be changed. */
-export function askFor(p: Prepared, o: Pick<MakeOptions, "aims" | "like" | "count">, name: string): BetterAsk {
-  const first = p.doc.activePageId ?? p.pageIds[0] ?? null;
-  const mine = p.nodes.filter((n) => !first || n.pageId === first);
-  const tree = readLayout(mine, { width: p.width });
-  const inside = (b: { x: number; y: number; w: number; h: number }, n: { x: number; y: number; w: number; h: number }) => n.x + n.w / 2 >= b.x && n.x + n.w / 2 <= b.x + b.w && n.y + n.h / 2 >= b.y && n.y + n.h / 2 <= b.y + b.h;
-  const sections = tree.sections.map((s, i) => ({ index: i, height: s.box.h, words: mine.filter((n) => inside(s.box, n)).map((n) => plain(n.content).trim()).filter(Boolean).join(" · ").slice(0, 240) }));
-  const T = tokenValues(p.system);
-  const system = Object.entries(T).map(([k, list]) => `${k}: ${list.slice(0, 24).join(", ")}${list.length > 24 ? ` (+${list.length - 24} more)` : ""}`).join("\n");
-  /* Words that may get a suggestion: the first screen's, and every short line that reads like a button. */
-  const s0 = tree.sections[0]?.box;
-  const words = mine.filter((n) => typeof n.content === "string" && n.content.trim() && n.content.length <= 160 && ((s0 && inside(s0, n)) || n.content.length <= 24)).slice(0, 30).map((n) => ({ part: n.id, now: n.content as string }));
-  return { aims: o.aims, like: o.like ?? null, count: o.count, site: { name, sections, system }, words };
-}
-
 /** Pictures of the original's pages, from the server's browser (the screenshot route), at most `limit`. */
 async function pictures(p: Prepared, limit: number): Promise<{ data: string; label: string }[]> {
   const out: { data: string; label: string }[] = [];
@@ -229,14 +210,14 @@ async function pictures(p: Prepared, limit: number): Promise<{ data: string; lab
 
 async function askClaude(o: MakeOptions, p: Prepared): Promise<{ ok: true; variants: BetterVariant[] } | { ok: false; says: string }> {
   const name = useBuilds.getState().projects.find((x) => x.id === o.of)?.name ?? "the site";
-  const ask = askFor(p, o, name);
+  const ask = askFor(p, { aims: o.aims, like: o.like, count: o.count, locks: o.locks }, name);
   const shots = await pictures(p, 3);
   try {
-    const res = await fetch("/api/studio/better", { method: "POST", headers: { "content-type": "application/json", ...keyHeader() }, body: JSON.stringify({ ask, pictures: shots }) });
+    const res = await fetch("/api/studio/better", { method: "POST", headers: { "content-type": "application/json", ...keyHeader() }, body: JSON.stringify({ ask, pictures: shots, shape: p.shape }) });
     const data = (await res.json()) as { ok: boolean; variants?: BetterVariant[]; message?: string };
     if (!data.ok || !data.variants?.length) return { ok: false, says: data.message ?? "Claude gave no variations." };
     /* Read again here: the route reads them strictly, and so does this side. */
-    return { ok: true, variants: data.variants.map((x) => ({ note: String(x.note ?? ""), spec: { ...emptySpec(), ...x.spec }, words: Array.isArray(x.words) ? x.words : [] })) };
+    return { ok: true, variants: data.variants.map((x) => ({ name: String(x.name ?? ""), note: String(x.note ?? ""), spec: { ...emptySpec(), ...x.spec }, words: Array.isArray(x.words) ? x.words : [] })) };
   } catch (e) {
     return { ok: false, says: `The call did not go through (${e instanceof Error ? e.message : "no answer"}).` };
   }

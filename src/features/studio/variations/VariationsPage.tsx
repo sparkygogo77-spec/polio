@@ -130,7 +130,7 @@ export function VariationsPage() {
                 <button key={x.id} type="button" data-variation={x.id} aria-pressed={x.id === current?.id} onClick={() => go({ v: x.id })}
                   className={cn("tactile max-w-64 rounded-md border px-2 py-1 text-left text-small", x.id === current?.id ? "border-accent bg-accent-soft text-fg" : "border-border text-fg-muted")}>
                   <div className="truncate font-medium">{name(x.id)}</div>
-                  <div className="truncate">{x.v.by === "claude" ? x.v.note || "From Claude" : specWords(x.v.spec)[0] ?? "As the original"}</div>
+                  <div className="truncate">{x.v.name || (x.v.by === "claude" ? x.v.note || "From Claude" : specWords(x.v.spec)[0] ?? "As the original")}</div>
                 </button>
               ))}
             </div>
@@ -141,6 +141,7 @@ export function VariationsPage() {
               <Pair a={{ id: of, name: `${name(of)} (the original)`, doc: docA }} b={{ id: current.id, name: name(current.id), doc: docB }} />
               <section className="mt-4 grid gap-4 md:grid-cols-[1fr_auto]" data-variation-controls="">
                 <div className="space-y-1" data-variation-layers="">
+                  {current.v.name ? <p className="text-plain font-medium text-fg">{current.v.name}</p> : null}
                   {current.v.note ? <p className="text-plain text-fg">{current.v.note}</p> : null}
                   {LAYERS.map((l) => {
                     const locked = locks.includes(l);
