@@ -204,6 +204,8 @@ try {
   check("the server serves nothing outside helper/", out === 404 || out === 403, `${out}`);
   const head = await fetch(`${BASE}/dock`).then((x) => x.headers.get("content-security-policy") ?? "");
   check("the dock may be framed by the Builder only", head.includes("frame-ancestors https://polio-two.vercel.app"), head);
+  const icon = await fetch(`${BASE}/favicon.ico`).then((x) => x.status);
+  check("the browser's own favicon ask gets an empty answer, not a 404", icon === 204, `${icon}`);
 
   check("no page errors", errors.length === 0, errors.join(" | "));
 } catch (e) {

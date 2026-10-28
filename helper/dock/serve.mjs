@@ -53,6 +53,8 @@ export async function serveDock({ port = 3151, pc = false } = {}) {
     const own = [`127.0.0.1:${server.address().port}`, `localhost:${server.address().port}`];
     if (!own.includes(req.headers.host ?? "")) { res.writeHead(403).end("not this host"); return; }
     const path = new URL(req.url ?? "/", "http://x").pathname;
+    // Browsers ask for this on their own; answer so the page logs no 404.
+    if (path === "/favicon.ico") { res.writeHead(204, { "cache-control": "max-age=86400" }).end(); return; }
     if (path.startsWith("/api/pc/")) {
       if (!watch) { json(res, 404, { error: "start with --pc to read the PC" }); return; }
       try {
