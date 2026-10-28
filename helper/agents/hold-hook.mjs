@@ -23,6 +23,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { isBuild, takeBuildLock, giveBuildLock } from "./build-lock.ts";
+import { touchesHelper } from "./guard.ts";
 
 const [mode, gateDir, lockDir, lane, holdArg] = process.argv.slice(2);
 const holdMs = Number(holdArg ?? 3300) * 1000;
@@ -40,6 +41,10 @@ if (mode === "post") {
   if (isBuild(command)) giveBuildLock(lockDir, lane);
   process.exit(0);
 }
+
+// The helper's port, folders and credentials are out of every lane's reach (guard.ts).
+const touched = touchesHelper(call, [gateDir, lockDir]);
+if (touched) refuse(touched);
 
 const end = Date.now() + holdMs;
 for (;;) {
