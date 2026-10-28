@@ -11,8 +11,16 @@
   <main class="dock">
     <header class="top">
       <h1>Agents <span class="mark" data-mark></span></h1>
-      <p class="quiet" data-helper>fake runner, no helper yet</p>
+      <p class="quiet" data-helper>starting…</p>
     </header>
+
+    <section class="box" data-pair hidden>
+      <h2>Pair with your PC</h2>
+      <p class="quiet">Polio Helper shows a code on your PC. Only someone at your PC can read it.</p>
+      <div class="go"><button data-pair-start>Show a code on my PC</button></div>
+      <div class="reply"><input data-pair-code inputmode="numeric" autocomplete="off" placeholder="123 456"><button class="primary" data-pair-send>Pair</button></div>
+      <p class="hint" data-pair-say></p>
+    </section>
 
     <nav class="tabs" role="tablist">
       <button role="tab" data-tab="agents" aria-selected="true">Agents</button>

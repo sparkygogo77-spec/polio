@@ -48,7 +48,7 @@ async function open({ reducedMotion = "no-preference" } = {}) {
   const page = await ctx.newPage();
   page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
   page.on("console", (m) => { if (m.type() === "error") errors.push(`console: ${m.text()}`); });
-  await page.goto(`${BASE}/dock?delay=0&demo=0`);
+  await page.goto(`${BASE}/dock?fake=1&delay=0&demo=0`);
   await page.waitForSelector("[data-dock-ready]");
   return page;
 }
@@ -179,7 +179,7 @@ try {
   // ---- the full dock, with its sample rows ------------------------------
   const p4 = await browser.newContext({ viewport: { width: 420, height: 1400 } }).then((c) => c.newPage());
   p4.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
-  await p4.goto(`${BASE}/dock`);
+  await p4.goto(`${BASE}/dock?fake=1`);
   await p4.waitForSelector("[data-dock-ready]");
   const S = await import("../helper/dock/sample.ts");
   const samples = [...S.SAMPLE_LANES, ...S.SAMPLE_MERGES, ...S.SAMPLE_SPEND];

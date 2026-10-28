@@ -22,6 +22,17 @@
  *
  * The stream is newline-delimited JSON over a plain streamed response, not
  * a WebSocket (Chrome's local-network rules gate those separately).
+ *
+ * The site relay (helper/mcp/site.ts → the Builder's bridge.ts):
+ *   POST /site        from a lane's MCP server: no Origin (a browser always
+ *                     sends one on a POST, so no page gets here), and the
+ *                     lane's ticket in x-polio-lane (tickets.ts). The request
+ *                     goes down the newest paired dock stream as a
+ *                     `{kind: "site", lane, request}` line; the dock posts it
+ *                     to the Builder and the answer comes back on
+ *   POST /site/reply  from the dock, with the token. The waiting /site call
+ *                     answers with the Builder's reply.
+ *   Nothing else is open to a ticket, and a ticket never reaches a control.
  */
 import { createServer, type IncomingMessage, type ServerResponse, type Server } from "node:http";
 import { existsSync, readFileSync } from "node:fs";
@@ -31,6 +42,7 @@ import { fileURLToPath } from "node:url";
 import { problems, type Message, type Plan } from "../contract.ts";
 import type { ControlResult } from "../agents/runner.ts";
 import type { Pairing } from "./pairing.ts";
+import type { SiteTickets } from "./tickets.ts";
 
 /** What the server needs behind it: the runner alone, or the coordinator's queue in front of it. */
 export type RunnerLike = {
@@ -43,9 +55,14 @@ export type RunnerLike = {
 export const BUILDER_ORIGIN = "https://polio-two.vercel.app";
 export const HELPER_PORT = 47821;
 const MAX_BODY = 1 << 20;
+const SITE_OPS = ["read", "shot", "apply"];
+/** How long a site call waits for the Builder before it says so. */
+export const SITE_WAIT_MS = 60_000;
 const DOCK_PAGE = fileURLToPath(new URL("../dock/index.html", import.meta.url));
 /** One plain file name inside helper/dock: no folders, no dot-dot. */
 const DOCK_FILE = /^\/dock\/[a-z0-9-]+\.(ts|css|js|mjs|svg)$/;
+/** The pure parts of helper/pc the dock's "Everything Claude is doing" imports (never read.ts, stop.ts or watch.ts). */
+const PC_FILE = /^\/pc\/(fake|plan|tree|label|types)\.ts$/;
 const TYPES: Record<string, string> = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".mjs": "text/javascript", ".ts": "text/javascript", ".svg": "image/svg+xml" };
 
 export type HelperServer = { server: Server; port: number; close(): Promise<void> };
@@ -54,10 +71,15 @@ type Who = "builder" | "dock" | "none";
 
 export async function startHelperServer(opts: {
   runner: RunnerLike; pairing: Pairing; port?: number; builderOrigin?: string;
+  /** Lane tickets for POST /site; without them the relay refuses every call. */
+  tickets?: SiteTickets; siteWaitMs?: number;
 }): Promise<HelperServer> {
   const builder = opts.builderOrigin ?? BUILDER_ORIGIN;
   let port = opts.port ?? HELPER_PORT;
   const streams = new Set<ServerResponse>();
+  /** Site calls waiting for the Builder, by the id the helper gave them. */
+  const pending = new Map<string, { lane: string; answer: (reply: unknown) => void }>();
+  let siteSeq = 0;
 
   const send = (res: ServerResponse, status: number, body: unknown, extra: Record<string, string> = {}) => {
     res.writeHead(status, { "content-type": "application/json", "cache-control": "no-store", "x-content-type-options": "nosniff", ...extra });
@@ -67,7 +89,10 @@ export async function startHelperServer(opts: {
 
   const whoIs = (req: IncomingMessage): Who | null => {
     const o = req.headers.origin;
-    if (o === undefined) return "none";
+    // A browser leaves Origin off a same-origin GET (the dock's GET /stream)
+    // and marks it with Sec-Fetch-Site instead, which no page script can set.
+    // The token is still what lets it in.
+    if (o === undefined) return req.method === "GET" && req.headers["sec-fetch-site"] === "same-origin" ? "dock" : "none";
     if (o === builder) return "builder";
     if (o === `http://127.0.0.1:${port}`) return "dock";
     return null;
@@ -116,7 +141,7 @@ export async function startHelperServer(opts: {
       res.writeHead(204, { "cache-control": "max-age=86400" });
       return res.end();
     }
-    if (method === "GET" && (path === "/dock/" || DOCK_FILE.test(path) || path === "/contract.ts" || path === "/fake.ts")) {
+    if (method === "GET" && (path === "/dock/" || DOCK_FILE.test(path) || PC_FILE.test(path) || path === "/contract.ts" || path === "/fake.ts")) {
       const file = path === "/dock/" ? DOCK_PAGE : fileURLToPath(new URL(`..${path}`, import.meta.url));
       const kind = extname(file);
       const page = path === "/dock/" && !existsSync(DOCK_PAGE);
@@ -129,6 +154,23 @@ export async function startHelperServer(opts: {
         "referrer-policy": "no-referrer",
       });
       return res.end(text);
+    }
+    // A lane's site call: no Origin, its own ticket. Nothing else answers to a ticket.
+    if (method === "POST" && path === "/site") {
+      if (who !== "none") return refuse(res, 403, "site calls come from a lane, not a page");
+      const lane = opts.tickets?.check(req.headers["x-polio-lane"]) ?? null;
+      if (!lane) return refuse(res, 401, "no lane ticket, or not this helper's");
+      const b = (await body(req)) as Record<string, unknown>;
+      if (!b || b.source !== "polio-dock" || b.kind !== "site" || b.v !== 1 || !SITE_OPS.includes(b.op as string)) return refuse(res, 400, "not a site request");
+      const dock = [...streams].at(-1);
+      if (!dock) return send(res, 503, { ok: false, says: "the Agents dock isn't open in the Builder, so the site can't be reached" });
+      const id = `${lane}-${++siteSeq}-${Date.now().toString(36)}`;
+      const reply = await new Promise<unknown>((answer) => {
+        const timer = setTimeout(() => { pending.delete(id); answer({ ok: false, says: "the Builder didn't answer in time" }); }, opts.siteWaitMs ?? SITE_WAIT_MS);
+        pending.set(id, { lane, answer: (r) => { clearTimeout(timer); pending.delete(id); answer(r); } });
+        dock.write(JSON.stringify({ kind: "site", lane, request: { ...b, id } }) + "\n");
+      });
+      return send(res, 200, reply);
     }
     if (who === "none") return refuse(res, 403, "a request with no Origin can't use the helper");
 
@@ -144,6 +186,7 @@ export async function startHelperServer(opts: {
     if (method === "POST" && path === "/unpair") { opts.pairing.unpair(); for (const s of streams) s.end(); return send(res, 200, { ok: true }); }
     if (method === "GET" && path === "/stream") {
       res.writeHead(200, { "content-type": "application/x-ndjson", "cache-control": "no-store", "x-content-type-options": "nosniff" });
+      res.flushHeaders(); // the dock knows it is live before the first message
       for (const m of opts.runner.snapshot()) res.write(JSON.stringify(m) + "\n");
       streams.add(res);
       const beat = setInterval(() => res.write("\n"), 15_000);
@@ -157,6 +200,14 @@ export async function startHelperServer(opts: {
       // The queue's submit waits on the lead's call, so this may take a while.
       try { return send(res, 200, { ok: true, plan: await opts.runner.submit(b as never) }); }
       catch (e) { return refuse(res, 409, String((e as Error).message)); }
+    }
+    if (method === "POST" && path === "/site/reply") {
+      const b = (await body(req)) as Record<string, unknown>;
+      const wait = typeof b?.id === "string" ? pending.get(b.id) : undefined;
+      if (!wait) return refuse(res, 404, "no site call waits with that id");
+      if (b.source !== "polio-builder" || b.kind !== "site" || typeof b.ok !== "boolean") return refuse(res, 400, "not a site reply");
+      wait.answer(b.ok ? { ok: true, result: b.result } : { ok: false, says: String(b.says ?? "the Builder refused the call") });
+      return send(res, 200, { ok: true });
     }
     if (method === "POST" && path === "/control") {
       const b = (await body(req)) as Record<string, unknown>;

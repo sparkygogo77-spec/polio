@@ -137,6 +137,8 @@ function Dock() {
           onLoad={() => setLoaded(true)}
           /* Its own page on its own origin: scripts and its forms, nothing reaching back into this one. */
           sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
+          /* Chrome's Local Network Access: a public page's frame of 127.0.0.1 loads only with this delegated (and J's yes once). */
+          allow="local-network-access"
           className="min-h-0 flex-1 border-0"
         />
       ) : reach === "down" ? <Setup /> : <p className="p-4 text-small text-fg-muted">Looking for the helper…</p>}
