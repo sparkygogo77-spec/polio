@@ -8,10 +8,15 @@
  * can't be ended by it (J's rule).
  *
  * Elsewhere (CI runs on Linux) the command gets its own process group and
- * Stop kills the group. A process that leaves the group (setsid) escapes;
- * that is the POSIX fallback's known gap, not the Windows path's.
+ * Stop kills the group. A process can leave the group (setsid, or Node's
+ * `detached`), so the command also gets a random mark in its environment,
+ * which every descendant inherits, and on Linux Stop then ends every process
+ * that still carries the mark. A process that clears its own environment and
+ * leaves the group escapes; elsewhere than Linux, leaving the group is enough.
  */
 import { spawn, type ChildProcess } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 export type Job = {
@@ -31,6 +36,19 @@ export type JobOptions = {
 };
 
 const LAUNCHER = fileURLToPath(new URL("./job.ps1", import.meta.url));
+const MARK = "POLIO_JOB_MARK";
+
+/** Linux only: the live processes whose environment carries this mark. */
+function marked(mark: string): number[] {
+  const want = `${MARK}=${mark}`;
+  let dirs: string[];
+  try { dirs = readdirSync("/proc").filter((d) => /^\d+$/.test(d)); } catch { return []; }
+  const pids: number[] = [];
+  for (const d of dirs) {
+    try { if (readFileSync(`/proc/${d}/environ`, "latin1").split("\0").includes(want)) pids.push(Number(d)); } catch { /* gone, or not ours */ }
+  }
+  return pids.filter((p) => p !== process.pid);
+}
 
 /** One argument, quoted the way CommandLineToArgvW reads it back. */
 export function quoteArg(a: string): string {
@@ -50,6 +68,7 @@ export const commandLine = (file: string, args: string[]) => [file, ...args].map
 
 export function startJob(file: string, args: string[], opts: JobOptions): Job {
   const platform = opts.platform ?? process.platform;
+  const mark = randomUUID();
   let child: ChildProcess;
   if (platform === "win32") {
     const spec = Buffer.from(JSON.stringify({ cmdline: commandLine(file, args), cwd: opts.cwd }), "utf8").toString("base64");
@@ -57,7 +76,7 @@ export function startJob(file: string, args: string[], opts: JobOptions): Job {
       cwd: opts.cwd, env: { ...opts.env, POLIO_JOB_SPEC: spec }, stdio: "pipe", windowsHide: true,
     });
   } else {
-    child = spawn(file, args, { cwd: opts.cwd, env: opts.env, stdio: "pipe", detached: true });
+    child = spawn(file, args, { cwd: opts.cwd, env: { ...opts.env, [MARK]: mark }, stdio: "pipe", detached: true });
   }
   const exited = new Promise<number | null>((resolve) => {
     child.once("exit", (code) => resolve(code));
@@ -65,10 +84,22 @@ export function startJob(file: string, args: string[], opts: JobOptions): Job {
   });
   let stopping: Promise<void> | null = null;
   const stop = () => stopping ??= (async () => {
-    if (child.exitCode !== null || child.signalCode !== null) return;
-    if (platform === "win32") child.kill();
-    else { try { process.kill(-child.pid!, "SIGKILL"); } catch { child.kill("SIGKILL"); } }
-    await exited;
+    const running = child.exitCode === null && child.signalCode === null;
+    if (platform === "win32") {
+      if (running) { child.kill(); await exited; }
+      return;
+    }
+    if (running) {
+      try { process.kill(-child.pid!, "SIGKILL"); } catch { child.kill("SIGKILL"); }
+      await exited;
+    }
+    // What left the group: a few rounds, in case one was starting a child.
+    for (let round = 0; round < 5; round++) {
+      const left = marked(mark);
+      if (left.length === 0) break;
+      for (const pid of left) { try { process.kill(pid, "SIGKILL"); } catch { /* already gone */ } }
+      await new Promise((r) => setTimeout(r, 50));
+    }
   })();
   return { child, exited, stop };
 }

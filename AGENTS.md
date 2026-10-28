@@ -64,6 +64,7 @@ Checklist before you say a feature is done:
 - [ ] Any list that can exceed ~100 rows uses `VirtualList`.
 - [ ] New options are `settings` on the manifest; most of them `advanced: true`.
 - [ ] Useful actions are also `commands` (so ⌘K finds them) and, if frequent, `shortcuts`.
+- [ ] A feature with a new control a person can find on screen adds one line to `src/features/whatsnew/registry.ts` (`id`, `find`, short `text`, `since`: the PR). The Builder points it out once after the update, and ⌘K "What's new" replays them all.
 - [ ] Sensitive numbers are wrapped in `<Blur>`; identifiers get the `streamer-hidden` class.
 - [ ] Nothing imports a store directly from a page when `useActions()` can do it.
 

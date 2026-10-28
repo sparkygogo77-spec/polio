@@ -162,6 +162,25 @@ export function systemMd(o: { mode: ExportMode; tokens: number; components: { na
     `${o.tokens} design tokens, in ${o.tokenFiles.map((f) => `\`${f}\``).join(", ")}: the same values as W3C design tokens, CSS variables, a Tailwind \`@theme\` (\`bg-accent\`, \`text-heading-1\`, \`p-space-4\`, \`rounded-small\`, \`shadow-low\`) and a typed object. The token files are Polio's: every export writes them again, so change a token in the Builder's System tab, or change \`tokens/tokens.json\` and Refresh in the Builder to take it back in.`,
     "",
   ];
+  if (o.mode === "clean") {
+    lines.push(
+      "### Where things are",
+      "",
+      "- `app/layout.tsx`: the one HTML shell (title, description, the body's ground and words colour). `app/globals.css` pulls in Tailwind and the tokens.",
+      "- `app/page.tsx`, `app/<route>/page.tsx`: one per page, each a `<main>` listing the page's sections in order. Anything not in a section (a fixed rail, a floating button) is written here too.",
+      "- `components/sections/*.tsx`: one component per section of a page, named by its first heading (`PricingPlans`) or its role (`Header`, `Footer`). The root is a `<header>`, `<footer>`, `<nav>` or `<section>`. Start here when changing what a page says.",
+      "- `components/ui/*.tsx`: the System's components (`Button`, `Card`…), each with a `variant` prop. Pages draw a part linked to one as `<Button variant=\"main\">`.",
+      "- `tokens/`: the design tokens (below). `public/assets/`: the pictures and files the pages use.",
+      "",
+      "### Reading a page",
+      "",
+      "- Every part keeps its board id (`id=\"n_box_12\"`): it is how the Builder, this file and the next export find the same part again. Leave the ids on.",
+      "- Layout is flex and grid on the holders; a part says its own width (`max-w-[…]`) and, when it holds nothing, its board height (`h-[…]`). Looks are Tailwind classes, the System's tokens by name (`bg-accent`, `p-space-4`, `text-heading-1`), one-off values as themselves (`text-[13.5px]`).",
+      "- Headings are `<h1>`…`<h6>` as the captured page had them, the first on each page an `<h1>`. Icons are decorative (`aria-hidden`); the link or button around one carries its name.",
+      "- The pages were drawn at the board's width. They shrink (rows centre, parts flex), but there are no breakpoints yet: adding `md:` and `sm:` classes where a row should stack is the first responsive edit to make.",
+      "",
+    );
+  }
   if (o.mode === "clean" && o.components.length) {
     lines.push(`Components, in \`components/ui/\` (import from \`@/components/ui\`), each with a \`variant\` prop and real hover, pressed, focus and disabled states:`, "");
     for (const c of o.components) lines.push(`- \`${c.name}\`: ${c.variants} variant${c.variants === 1 ? "" : "s"}`);
