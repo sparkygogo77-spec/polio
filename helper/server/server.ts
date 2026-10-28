@@ -28,9 +28,17 @@ import { existsSync, readFileSync } from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import { extname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { problems, type Message } from "../contract.ts";
-import type { Runner } from "../agents/runner.ts";
+import { problems, type Message, type Plan } from "../contract.ts";
+import type { ControlResult } from "../agents/runner.ts";
 import type { Pairing } from "./pairing.ts";
+
+/** What the server needs behind it: the runner alone, or the coordinator's queue in front of it. */
+export type RunnerLike = {
+  subscribe(fn: (m: Message) => void): () => void;
+  snapshot(): Message[];
+  submit(req: Message): Plan | Promise<Plan>;
+  control(c: Message): Promise<ControlResult>;
+};
 
 export const BUILDER_ORIGIN = "https://polio-two.vercel.app";
 export const HELPER_PORT = 47821;
@@ -45,7 +53,7 @@ export type HelperServer = { server: Server; port: number; close(): Promise<void
 type Who = "builder" | "dock" | "none";
 
 export async function startHelperServer(opts: {
-  runner: Runner; pairing: Pairing; port?: number; builderOrigin?: string;
+  runner: RunnerLike; pairing: Pairing; port?: number; builderOrigin?: string;
 }): Promise<HelperServer> {
   const builder = opts.builderOrigin ?? BUILDER_ORIGIN;
   let port = opts.port ?? HELPER_PORT;
@@ -146,7 +154,8 @@ export async function startHelperServer(opts: {
       const b = await body(req);
       const p = problems(b);
       if (p.length) return refuse(res, 400, p.join("; "));
-      try { return send(res, 200, { ok: true, plan: opts.runner.submit(b as never) }); }
+      // The queue's submit waits on the lead's call, so this may take a while.
+      try { return send(res, 200, { ok: true, plan: await opts.runner.submit(b as never) }); }
       catch (e) { return refuse(res, 409, String((e as Error).message)); }
     }
     if (method === "POST" && path === "/control") {
