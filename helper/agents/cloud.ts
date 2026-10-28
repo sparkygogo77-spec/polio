@@ -16,8 +16,8 @@
  *   so there are no steps or questions; the row links to the session.
  * - Pause or Stop it: no CLI or API for either; J does it on claude.ai.
  * - Read its tokens: none are published per session. Cloud sessions count
- *   toward J's plan limits, "no separate charge", so they are plan usage,
- *   not a second way of paying.
+ *   toward J's plan limits, "no separate charge": the row and the spend
+ *   line say "on your plan, not measured" (J accepted this, 2026-10-25).
  *
  * BELIEVED, test before relying on it: that `claude --cloud "<task>"` run
  * without a terminal prints the session id or link and returns. If it waits
@@ -61,7 +61,7 @@ export function cloudAdapter({ command, waitMs = 120_000 }: CloudOptions): Adapt
         }
         const url = URL_RE.exec(text)?.[0] ?? `https://claude.ai/code/${sessionId}`;
         yield { type: "started", sessionId, url };
-        yield { type: "note", note: `running in the cloud: ${url}` };
+        yield { type: "note", note: `running in the cloud, on your plan, not measured: ${url}` };
       }
       return {
         events: events(),

@@ -9,14 +9,15 @@
  *   turn 1: init; "[step:brief]" (one message sent as two blocks, so its
  *           usage arrives twice); waits for the file `go`; one Bash call
  *           through the PreToolUse hook (tool.log gets "ran" or "refused");
- *           "[step:red]"; a result.
+ *           "[step:red]"; a rate_limit_event (82% of the plan used); a result
+ *           (its total_cost_usd must be ignored).
  *   later turns: each user line goes into steer.log; "[step:live]"; a result.
  * Cloud: `--cloud "<task>"` prints a session id and link; `-p <line>
  *   --cloud <id> --output-format json` prints {ok, session_id, url} and
  *   adds the line to cloud.log.
  */
 import { spawn } from "node:child_process";
-import { appendFileSync, existsSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline";
 
 const args = process.argv.slice(2);
@@ -35,6 +36,9 @@ if (args.includes("--cloud")) {
   process.exit(0);
 }
 
+// What it was started with, so a test can check the plan path: the flags,
+// and whether any Claude credential reached it (none should).
+writeFileSync("argv.json", JSON.stringify({ args, credentials: ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN"].filter((k) => k in process.env) }));
 const settings = JSON.parse(readFileSync(flag("--settings"), "utf8"));
 const session_id = "fake-session-1";
 
@@ -74,6 +78,7 @@ for await (const line of rl) {
     out({ type: "user", session_id, message: { role: "user", content: [{ type: "tool_result", tool_use_id: "t1", content: code === 2 ? "refused" : "hi", is_error: code === 2 }] } });
     if (code !== 2) await runHooks("PostToolUse", call);
     assistant("m3", "[step:red] the red test fails on base", { input_tokens: 20, output_tokens: 20 });
+    out({ type: "rate_limit_event", session_id, uuid: "u1", rate_limit_info: { status: "allowed_warning", utilization: 0.82, resetsAt: 1793030400 } });
     out({ type: "result", subtype: "success", session_id, is_error: false, num_turns: 3, total_cost_usd: 0.01,
       usage: { input_tokens: 170, output_tokens: 35 } });
   } else {

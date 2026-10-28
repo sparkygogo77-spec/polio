@@ -1,7 +1,7 @@
 /**
- * A lane's pause flag, held two ways: in the helper's memory, for the SDK's
- * in-process hook, and as files in the lane's state folder, for the command
- * hook a `claude -p` run calls before every tool (hold-hook.mjs).
+ * A lane's pause flag, held in the helper's memory and as files in the
+ * lane's state folder, for the command hook a `claude -p` run calls before
+ * every tool (hold-hook.mjs).
  *
  *   <dir>/paused    exists while J has the lane paused
  *   <dir>/stopped   exists once J pressed Stop: every later tool call is refused

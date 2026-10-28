@@ -3,7 +3,7 @@
  * somewhere (the PC or the cloud) and turns what it says into AgentEvents;
  * the runner turns those into contract messages for the dock.
  */
-import type { Pays, Step, Tokens, Where } from "../contract.ts";
+import type { Pays, PlanUse, Step, Tokens, Where } from "../contract.ts";
 import type { Gate } from "./gate.ts";
 
 export type AgentEvent =
@@ -12,7 +12,9 @@ export type AgentEvent =
   | { type: "note"; note: string }
   | { type: "question"; text: string }
   /** Counted since the last usage event: add, don't replace. */
-  | { type: "usage"; tokens: Tokens; usd: number | null }
+  | { type: "usage"; tokens: Tokens }
+  /** Claude Code's plan-limit reading (a rate_limit_event), for the whole account. */
+  | { type: "plan"; plan: PlanUse }
   /** The turn finished and the agent waits for a message (steer or answer). */
   | { type: "idle" }
   | { type: "ended"; ok: boolean; reason: string };

@@ -6,8 +6,10 @@
  * its --settings before its one tool call, as Claude Code does. J pauses
  * the lane before the call: the call must not run while paused, and must
  * run once J resumes. Then a steer line reaches the same session and the
- * lane finishes. The Agent SDK path is checked the same way, with `query`
- * stubbed. Every message the runner sends passes the contract's checks.
+ * lane finishes. The run is on J's plan only: `claude -p` with stream-json,
+ * no --bare or --max-budget-usd, and no Claude credential in its env even
+ * when the helper has some; the plan-limit reading reaches the spend line,
+ * with no dollars anywhere. Every message passes the contract's checks.
  *
  *   node tests/agents-runner-pause.mjs
  */
@@ -35,7 +37,7 @@ try {
   S = await import("../helper/agents/spend.ts");
   C = await import("../helper/contract.ts");
 } catch (e) { console.log(`  (not there yet: ${e.message.split("\n")[0]})`); }
-check("the runner and the PC adapters load", !!(R && P && S));
+check("the runner and the PC adapter load", !!(R && P && S));
 
 const fake = fileURLToPath(new URL("../helper/agents/testing/fake-claude.mjs", import.meta.url));
 const request = (id, text) => ({ v: 1, kind: "request", id, text, target: "site", chips: [], action: null, how: "just-do-it" });
@@ -51,7 +53,8 @@ if (R && P && S) {
       spend: new S.SpendBook({ planWindowTokens: 1_000_000 }),
       memory: { ok: () => true, free: () => 8e9, minFree: 4e9 },
       workspace: (lane) => { const w = join(dir, `work-${lane}`); mkdirSync(w, { recursive: true }); return w; },
-      apiKey: () => "sk-test-not-a-key",
+      // The helper may have credentials of its own; none may reach the agent.
+      baseEnv: { ...process.env, ANTHROPIC_API_KEY: "sk-test-not-a-key", CLAUDE_CODE_OAUTH_TOKEN: "test-not-a-token", ANTHROPIC_AUTH_TOKEN: "test" },
     });
     runner.subscribe((m) => { seen.push(m); const p = C.problems(m); if (p.length) bad.push(p.join("; ")); });
     return runner;
@@ -66,6 +69,11 @@ if (R && P && S) {
     runner.submit(request("req-1", "Hero calm"));
     const brief = await until(() => rowOf(lane)?.note === "reading the brief");
     check("the lane starts and reports its first step", !!brief, JSON.stringify(rowOf(lane)));
+    const argv = JSON.parse(readFileSync(join(work, "argv.json"), "utf8"));
+    const flags = argv.args.join(" ");
+    check("the plan path runs claude -p with stream-json in and out", /-p --input-format stream-json --output-format stream-json --verbose --permission-mode auto/.test(flags), flags.slice(0, 160));
+    check("it never passes --bare or --max-budget-usd", ["--bare", "--max-budget-usd"].every((f) => !argv.args.includes(f)) && !argv.args.includes("bypassPermissions"));
+    check("no Claude credential reaches the agent: it uses J's own sign-in", argv.credentials.length === 0, argv.credentials.join(", "));
     const settings = JSON.parse(readFileSync(join(dir, "state", "lanes", lane, "settings.json"), "utf8"));
     const pre = settings.hooks?.PreToolUse?.[0]?.hooks?.[0];
     check("the lane's settings put the hold hook before every tool", settings.hooks?.PreToolUse?.[0]?.matcher === "*" && /hold-hook\.mjs" pre/.test(pre?.command ?? ""), pre?.command);
@@ -87,6 +95,9 @@ if (R && P && S) {
     check("a pause by the runner without the spend cap is refused", !notJ.ok, JSON.stringify(notJ));
 
     await until(() => rowOf(lane)?.state === "question");
+    const spendLine = seen.filter((m) => m.kind === "spend" && m.requestId === "req-1").at(-1);
+    check("the plan-limit reading reaches the spend line", spendLine?.plan?.used === 0.82 && spendLine.plan.status === "allowed_warning" && spendLine.plan.resetsAt === 1793030400, JSON.stringify(spendLine?.plan));
+    check("the lane's tokens are counted from its stream", spendLine?.lanes[0]?.pays === "plan" && spendLine.lanes[0].tokens.in === 100 + 80 + 20 && spendLine.lanes[0].tokens.out === 10 + 5 + 20, JSON.stringify(spendLine?.lanes[0]));
     const steer = await runner.control(j(lane, "steer", "keep the second badge row"));
     check("a steer line is taken", steer.ok, JSON.stringify(steer));
     const said = await until(() => existsSync(join(work, "steer.log")) && readFileSync(join(work, "steer.log"), "utf8"));
@@ -99,41 +110,8 @@ if (R && P && S) {
     await runner.stopAll();
   }
 
-  // ---- the API path: the Agent SDK's query(), stubbed --------------------
-  const ranSdk = [];
-  let options = null;
-  const query = ({ prompt, options: o }) => {
-    options = o;
-    return (async function* () {
-      for await (const m of prompt) {
-        yield { type: "system", subtype: "init", session_id: "sdk-1" };
-        yield { type: "assistant", session_id: "sdk-1", message: { id: "a1", content: [{ type: "text", text: "[step:brief] reading" }], usage: { input_tokens: 10, output_tokens: 1 } } };
-        while (!existsSync(join(dir, "sdk-go"))) await sleep(50);
-        const hook = o.hooks.PreToolUse[0].hooks[0];
-        const r = await hook({ hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command: "echo" } }, "t1", { signal: new AbortController().signal });
-        ranSdk.push(r?.hookSpecificOutput?.permissionDecision === "deny" ? "refused" : "ran");
-        yield { type: "result", subtype: "success", session_id: "sdk-1", total_cost_usd: 0.02 };
-        break;
-      }
-    })();
-  };
-  const api = make(P.pcApiAdapter({ query, apiKey: () => "sk-test-not-a-key" }));
-  try {
-    api.submit(request("req-2", "Sdk lane"));
-    await until(() => rowOf("sdk-lane")?.note === "reading");
-    check("an API lane gets the key in its env, and in auto mode", options?.env?.ANTHROPIC_API_KEY === "sk-test-not-a-key" && options?.permissionMode === "auto");
-    await api.control(j("sdk-lane", "pause"));
-    writeFileSync(join(dir, "sdk-go"), "");
-    await sleep(800);
-    check("while paused, the SDK lane's tool call waits in its hook", ranSdk.length === 0);
-    await api.control(j("sdk-lane", "resume"));
-    await until(() => ranSdk.length > 0);
-    check("after Resume, it runs", ranSdk[0] === "ran", JSON.stringify(ranSdk));
-  } finally {
-    await api.stopAll();
-  }
-
   check("every message the runner sent passes the contract", bad.length === 0 && seen.length > 0, bad.slice(0, 3).join(" | "));
+  check("no message carries dollars (the fake's total_cost_usd is ignored)", !seen.some((m) => /usd|planShare/i.test(JSON.stringify(m))));
   rmSync(dir, { recursive: true, force: true });
 }
 
