@@ -12,9 +12,10 @@
  */
 import {
   CONTRACT_VERSION as v, STEPS, problems,
-  type Chip, type Control, type ControlDo, type Lane, type LaneSpend, type MergeLine, type PlanUse, type Plan, type Request, type Spend, type Target,
+  type Chip, type Control, type ControlDo, type Lane, type LaneSpend, type MergeLine, type PartAction, type PlanUse, type Plan, type Request, type Spend, type Target,
 } from "../contract.ts";
 import { fakeRunner, fakeScript, type FakeRunner } from "../fake.ts";
+import { takeContext } from "./context.ts";
 import { fakeSource, liveSource, mountPcView } from "./pcview.ts";
 import { ringSvg } from "./ring.ts";
 import { PC_MEMORY, PC_NOW, SAMPLE_LANES, SAMPLE_MERGES, SAMPLE_SPEND } from "./sample.ts";
@@ -35,6 +36,9 @@ const ui = new Map<string, Ui>();
 const merges = new Map<string, MergeLine & { undoAsked?: boolean; askUndo?: boolean }>();
 const spends = new Map<string, Spend>();
 let chips: Chip[] = fakeScript().flatMap((m) => (m.kind === "request" ? m.chips : []));
+/** The part action the Builder's right-click chose, until J sends or drops it. */
+let action: PartAction | null = null;
+const contextsRefused: string[] = [];
 let runner: FakeRunner | null = null;
 let request: Request | null = null;
 let startPlan: (() => void) | null = null;
@@ -42,8 +46,10 @@ const sent: Control[] = [];
 const pcSent: unknown[] = [];
 const asks: { lane: string; what: "undo-merge" }[] = [];
 (window as unknown as { __dock: object }).__dock = {
-  sent, pcSent, asks, lanes,
+  sent, pcSent, asks, lanes, contextsRefused,
   get request() { return request; },
+  get chips() { return chips; },
+  get action() { return action; },
 };
 
 const uiOf = (lane: string) => ui.get(lane) ?? (ui.set(lane, {}), ui.get(lane)!);
@@ -75,12 +81,34 @@ function hint(text: string | null) {
   el.textContent = text ?? "";
 }
 
+const ACTION_WORDS: Record<PartAction, string> = {
+  change: "Change this", features: "Suggest features", security: "Security check", backend: "Build its backend", explain: "Explain",
+};
+
+/**
+ * Context from the Builder (context.ts): fills the chips and the part action,
+ * and picks the target. It starts nothing; J still presses Plan it.
+ */
+window.addEventListener("message", (e: MessageEvent) => {
+  const got = takeContext(e.origin, e.data);
+  if ("refused" in got) { contextsRefused.push(got.refused); return; }
+  chips = got.chips;
+  action = got.action;
+  drawChips();
+  const target = action === "backend" ? "backend" : "site";
+  const radio = $<HTMLInputElement>(`[name="target"][value="${target}"]`);
+  if (radio) radio.checked = true;
+  const prompt = $<HTMLTextAreaElement>("[data-prompt]");
+  if (action && !prompt.value.trim()) prompt.placeholder = `${ACTION_WORDS[action]}${got.part ? `: ${got.part.name || got.part.kind}` : ""}. Add anything else, then Plan it.`;
+  hint(action ? `From the Builder: ${ACTION_WORDS[action]}` : null);
+});
+
 function planIt() {
   const text = $<HTMLTextAreaElement>("[data-prompt]").value.trim();
   const target = ($<HTMLInputElement>('[name="target"]:checked')?.value ?? "site") as Target;
   const planFirst = $<HTMLInputElement>("[data-plan-first]").checked;
   if (!text) return hint("Say what should change first.");
-  const r: Request = { v, kind: "request", id: `req-${Date.now().toString(36)}`, text, target, chips, action: null, how: planFirst ? "plan-first" : "just-do-it" };
+  const r: Request = { v, kind: "request", id: `req-${Date.now().toString(36)}`, text, target, chips, action, how: planFirst ? "plan-first" : "just-do-it" };
   const p = problems(r);
   if (p.length) return hint(p.join("; "));
   hint(null);
