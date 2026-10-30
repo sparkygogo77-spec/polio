@@ -47,6 +47,7 @@ import { cloudAdapter } from "../agents/cloud.ts";
 import { pcPlanAdapter } from "../agents/pc.ts";
 import { SpendBook } from "../agents/spend.ts";
 import { addWorktree } from "../agents/worktree.ts";
+import { branchPushed } from "../agents/pushed.ts";
 import { claudeAsk } from "../coordinator/ask.ts";
 import { loadRules } from "../coordinator/brief.ts";
 import { OWNERS_FILE, ownersReader } from "../coordinator/owners.ts";
@@ -285,6 +286,7 @@ if (import.meta.main) {
       adapters: { pc: withSiteTickets(pcPlanAdapter({ command: pcCommand }), tickets, `http://127.0.0.1:${port}/site`), cloud: cloudAdapter({ command }) },
       stateDir,
       spend: new SpendBook({ caps: { tokensPerDay: count(values["tokens-per-day"]), tokensPerRequest: count(values["tokens-per-request"]) } }),
+      pushed: branchPushed,
       workspace: (lane, where, from) => where === "pc" ? addWorktree({ repo, root: agentsDir, lane, base: from }) : repo,
     },
     ask: claudeAsk({ file: command.file, cwd: repo }),

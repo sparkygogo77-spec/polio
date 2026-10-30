@@ -33,6 +33,7 @@ import type { Adapter, AgentRun } from "./types.ts";
 import { LANE_NAME, PortPool } from "./worktree.ts";
 
 export const MAX_AT_ONCE = 5;
+const PUSH = STEPS.indexOf("push");
 
 type Status = "waiting-start" | "queued" | "running" | "ended" | "stopped";
 
@@ -67,6 +68,11 @@ export type RunnerOptions = {
   /** How often a lane waiting for memory looks again. */
   memoryPollMs?: number;
   model?: (lane: PlanLane) => string | undefined;
+  /**
+   * Whether a PC lane's branch is on origin at its worktree's HEAD
+   * (pushed.ts). Asked when a turn ends at `push`: if so, push counts as done.
+   */
+  pushed?: (lane: string, cwd: string) => Promise<boolean>;
 };
 
 export type ControlResult = { ok: true } | { ok: false; error: string };
@@ -215,6 +221,12 @@ export class Runner {
           if (r.stepsDone >= STEPS.length - 1 && r.state !== "question") {
             await r.run.stop();
             return this.finish(lane, true, "live and checked");
+          }
+          // A turn that ends at push after the branch reached origin has pushed:
+          // count it, rather than ask J for a line.
+          if (r.stepsDone === PUSH && r.state === "working" && r.plan.where === "pc" && await this.opts.pushed?.(lane, cwd).catch(() => false)) {
+            this.update(lane, { stepsDone: PUSH + 1, note: `pushed claude/${lane}: waiting for CI` });
+            break;
           }
           if (r.state !== "question" && r.state !== "paused") this.update(lane, { state: "question", note: `stopped at ${STEPS[r.stepsDone]}: waiting for a line from you` });
           break;
