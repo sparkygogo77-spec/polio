@@ -51,7 +51,7 @@ export function fakeScript(): Message[] {
     // A cloud lane's tokens can't be read (v2): null, "on your plan, not measured".
     { v, kind: "spend", requestId, tokens: { in: 0, out: 0 },
       lanes: [{ lane, pays: "cloud", tokens: null, seconds: 1480 }],
-      plan: { used: 0.41, resetsAt: 1793030400, status: "allowed" } },
+      plan: { used: 0.41, resetsAt: 1793030400, status: "allowed", window: "five_hour" } },
   ];
 }
 

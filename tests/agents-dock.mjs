@@ -147,7 +147,7 @@ try {
   check("the cloud lane's row has no number, only not measured", (await page.textContent(`[data-spend-row="${LANE}"]`)).includes("not measured") && !/\d+k/.test(await page.textContent(`[data-spend-row="${LANE}"]`)));
   check("no dollars anywhere in spend", !spend.includes("$"), spend.replace(/\s+/g, " ").slice(0, 160));
   check("the request's line says its cloud tokens can't be compared", (await page.textContent(`[data-compare-request]`)).includes("cloud tokens aren't measured"));
-  check("the plan meter shows the plan reading the runner sent", (await page.textContent('[data-meter="plan"]')).includes("41% of your limit used"), await page.textContent('[data-meter="plan"]'));
+  check("the plan meter shows the plan reading the runner sent", (await page.textContent('[data-meter="plan"]')).includes("41% of your 5-hour limit used"), await page.textContent('[data-meter="plan"]'));
   const all = await sent(page);
   check("every message the dock sent is good", all.every((m) => problems(m).length === 0), all.map((m) => problems(m).join(";")).filter(Boolean).join(" | "));
   check("the dock sent exactly answer, pause, resume, approve", all.map((m) => m.do).join(",") === "answer,pause,resume,approve", all.map((m) => m.do).join(","));
@@ -189,7 +189,7 @@ try {
   check("each sample row carries a cloud or PC tag", tags.length >= 3 && tags.every((t) => t === "cloud" || t === "PC") && tags.includes("PC"), tags.join(","));
   const sp = (await p4.textContent("[data-spend]")).replace(/\s+/g, " ");
   check("a PC lane keeps its token count", (await p4.textContent('[data-spend-row="hero-calm"]')).includes("228k") && (await p4.textContent("[data-spend-pc]")).includes("228k tokens"), sp.slice(0, 160));
-  check("plan use shows only as Claude Code reported it", (await p4.textContent('[data-meter="plan"]')).includes("31% of your limit used"));
+  check("plan use shows only as Claude Code reported it", (await p4.textContent('[data-meter="plan"]')).includes("31% of your 5-hour limit used"));
   check("a request with both sides says plainly tokens can't be compared", (await p4.textContent("[data-compare-requests]")).includes("Tokens can't be compared: the cloud side isn't measured"), sp.slice(-200));
   check("no dollars with the sample rows either", !sp.includes("$"));
   const pc = await p4.$$eval("[data-pc-row]", (els) => els.map((e) => ({ mine: e.dataset.mine, buttons: e.querySelectorAll("button").length })));
