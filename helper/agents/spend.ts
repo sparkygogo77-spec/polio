@@ -32,7 +32,7 @@ export class SpendBook {
   private now() { return (this.opts.now ?? Date.now)(); }
 
   open(requestId: string, lane: string, pays: Pays, measured = true) {
-    if (!this.lanes.has(lane)) this.lanes.set(lane, { requestId, lane, pays, tokens: { in: 0, out: 0 }, ms: 0, since: null, measured });
+    if (!this.lanes.has(lane)) this.lanes.set(lane, { requestId, lane, pays, tokens: { in: 0, out: 0, cached: 0 }, ms: 0, since: null, measured });
   }
   /** The lane's clock runs only while its agent does (not while paused or queued). */
   running(lane: string, on: boolean) {
@@ -44,7 +44,8 @@ export class SpendBook {
   add(lane: string, tokens: Tokens) {
     const e = this.lanes.get(lane);
     if (!e || !e.measured) return;
-    e.tokens = { in: e.tokens.in + tokens.in, out: e.tokens.out + tokens.out };
+    // Cache reads are kept for the dock but never count toward a cap (contract.ts, Tokens).
+    e.tokens = { in: e.tokens.in + tokens.in, out: e.tokens.out + tokens.out, cached: (e.tokens.cached ?? 0) + (tokens.cached ?? 0) };
     const day = dayOf(this.now());
     this.days.set(day, (this.days.get(day) ?? 0) + sum(tokens));
   }
@@ -59,7 +60,7 @@ export class SpendBook {
   /** The contract's spend line for one request: its lanes, their sum, the plan reading. */
   message(requestId: string): Spend {
     const lanes = [...this.lanes.values()].filter((e) => e.requestId === requestId).map((e) => this.laneSpend(e));
-    const tokens = lanes.reduce((t, l) => (l.tokens ? { in: t.in + l.tokens.in, out: t.out + l.tokens.out } : t), { in: 0, out: 0 });
+    const tokens = lanes.reduce((t, l) => (l.tokens ? { in: t.in + l.tokens.in, out: t.out + l.tokens.out, cached: t.cached + (l.tokens.cached ?? 0) } : t), { in: 0, out: 0, cached: 0 });
     return { v: CONTRACT_VERSION, kind: "spend", requestId, lanes, tokens, plan: this.plan ? { ...this.plan } : null };
   }
 

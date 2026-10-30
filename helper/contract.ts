@@ -147,7 +147,14 @@ export type MergeLine = {
   undo: boolean;
 };
 
-export type Tokens = { in: number; out: number };
+/**
+ * `in` is fresh input plus cache writes; `out` is output. Those two are what
+ * a lane spent and what the caps count. `cached` (optional, a whole number)
+ * is cache reads: Claude Code re-reads the whole conversation from its
+ * prompt cache every turn, so it grows by the context size each turn and is
+ * shown apart, never added to `in` (smoke run, 2026-10-29).
+ */
+export type Tokens = { in: number; out: number; cached?: number };
 
 /**
  * Spend is tokens, never dollars. A PC lane's tokens are counted from its
@@ -298,6 +305,7 @@ function tokenProblems(t: unknown, at: string): string[] {
   const out: string[] = [];
   if (!isCount(t.in)) out.push(`${at}: tokens.in must be a whole number`);
   if (!isCount(t.out)) out.push(`${at}: tokens.out must be a whole number`);
+  if ("cached" in t && !isCount(t.cached)) out.push(`${at}: tokens.cached must be a whole number`);
   return out;
 }
 
@@ -414,7 +422,7 @@ function kindProblems(m: Obj): string[] {
       if (!isStr(m.requestId)) out.push("requestId missing");
       out.push(...tokenProblems(m.tokens, "request"));
       if (!Array.isArray(m.lanes)) return [...out, "lanes must be a list"];
-      let sumIn = 0, sumOut = 0;
+      let sumIn = 0, sumOut = 0, sumCached = 0;
       m.lanes.forEach((l, i) => {
         const at = `lanes[${i}]`;
         if (!isObj(l)) return void out.push(`${at} must be an object`);
@@ -423,9 +431,9 @@ function kindProblems(m: Obj): string[] {
         if (l.pays === "plan" || l.tokens !== null) out.push(...tokenProblems(l.tokens, at));
         if (!isCount(l.seconds)) out.push(`${at}: seconds missing`);
         if ("usd" in l || "planShare" in l) out.push(`${at}: spend is tokens only, no dollars`);
-        if (isObj(l.tokens)) { sumIn += Number(l.tokens.in) || 0; sumOut += Number(l.tokens.out) || 0; }
+        if (isObj(l.tokens)) { sumIn += Number(l.tokens.in) || 0; sumOut += Number(l.tokens.out) || 0; sumCached += Number(l.tokens.cached) || 0; }
       });
-      if (isObj(m.tokens) && (m.tokens.in !== sumIn || m.tokens.out !== sumOut)) out.push("request tokens must be the sum of its lanes'");
+      if (isObj(m.tokens) && (m.tokens.in !== sumIn || m.tokens.out !== sumOut || (Number(m.tokens.cached) || 0) !== sumCached)) out.push("request tokens must be the sum of its lanes'");
       if ("usd" in m) out.push("spend is tokens only, no dollars");
       if (m.plan !== null) {
         const p = m.plan;

@@ -97,7 +97,7 @@ if (R && P && S) {
     await until(() => rowOf(lane)?.state === "question");
     const spendLine = seen.filter((m) => m.kind === "spend" && m.requestId === "req-1").at(-1);
     check("the plan-limit reading reaches the spend line", spendLine?.plan?.used === 0.82 && spendLine.plan.status === "allowed_warning" && spendLine.plan.resetsAt === 1793030400, JSON.stringify(spendLine?.plan));
-    check("the lane's tokens are counted from its stream", spendLine?.lanes[0]?.pays === "plan" && spendLine.lanes[0].tokens.in === 100 + 80 + 20 && spendLine.lanes[0].tokens.out === 10 + 5 + 20, JSON.stringify(spendLine?.lanes[0]));
+    check("the lane's tokens are counted from its stream", spendLine?.lanes[0]?.pays === "plan" && spendLine.lanes[0].tokens.in === 100 + 55 + 20 && spendLine.lanes[0].tokens.cached === 25 && spendLine.lanes[0].tokens.out === 10 + 5 + 20, JSON.stringify(spendLine?.lanes[0]));
     const steer = await runner.control(j(lane, "steer", "keep the second badge row"));
     check("a steer line is taken", steer.ok, JSON.stringify(steer));
     const said = await until(() => existsSync(join(work, "steer.log")) && readFileSync(join(work, "steer.log"), "utf8"));
