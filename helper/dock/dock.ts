@@ -408,6 +408,8 @@ function drawSpend() {
   const pcRows = rows.filter((r) => r.pays === "plan");
   const cloudRows = rows.filter((r) => r.pays === "cloud");
   const pcTokens = pcRows.reduce((a, r) => a + (tokensOf(r) ?? 0), 0);
+  // Cache reads: the context re-read each turn. Said apart, never in the count or a cap.
+  const pcCached = pcRows.reduce((a, r) => a + (r.tokens?.cached ?? 0), 0);
   // The latest plan reading any spend line carried; it is the whole account's.
   const reading = all.map((s) => s.plan).filter((p): p is PlanUse => p !== null).at(-1) ?? null;
   const planSaid = reading
@@ -420,7 +422,7 @@ function drawSpend() {
     <div class="meter" data-meter="plan">
       <div class="name"><b>Your Claude plan</b> <span class="right">${planSaid}</span></div>${bar}
     </div>
-    <div class="meter" data-spend-pc><div class="name"><b>PC lanes</b> <span class="right">${pcRows.length ? `${k(pcTokens)} tokens` : "none yet"}</span></div></div>
+    <div class="meter" data-spend-pc><div class="name"><b>PC lanes</b> <span class="right">${pcRows.length ? `${k(pcTokens)} tokens${pcCached ? ` <span class="quiet" title="The conversation re-read from Claude Code's cache each turn. Not counted toward caps.">+ ${k(pcCached)} read from cache</span>` : ""}` : "none yet"}</span></div></div>
     <div class="meter" data-spend-cloud><div class="name"><b>Cloud lanes</b> <span class="right">${cloudRows.length ? NOT_MEASURED : "none yet"}</span></div></div>`;
   $("[data-compare]").innerHTML = rows.map((r) => {
     const t = tokensOf(r);

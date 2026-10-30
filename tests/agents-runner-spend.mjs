@@ -3,7 +3,8 @@
  *
  * J (2026-10-25): "no api, only plan usage and tokens".
  * - Reading the stream: an assistant message that arrives twice (once per
- *   content block) counts once; cache reads and writes count as input;
+ *   content block) counts once; cache writes count as input, cache reads
+ *   are kept apart (tests/agents-cache-tokens.mjs);
  *   `total_cost_usd` is ignored; a `rate_limit_event` becomes the plan-limit
  *   reading (0 to 1).
  * - The spend book: tokens per lane, the request's tokens are the sum of its
@@ -61,9 +62,9 @@ if (St && S && R && P && Cl && C?.CONTRACT_VERSION === 2) {
     { type: "result", subtype: "success", total_cost_usd: 0.05 },
   ]);
   const usage = first.filter((e) => e.type === "usage");
-  const s1 = usage.reduce((t, e) => ({ in: t.in + e.tokens.in, out: t.out + e.tokens.out }), { in: 0, out: 0 });
+  const s1 = usage.reduce((t, e) => ({ in: t.in + e.tokens.in, out: t.out + e.tokens.out, cached: t.cached + (e.tokens.cached ?? 0) }), { in: 0, out: 0, cached: 0 });
   check("a message sent as two blocks counts once, by its growth", s1.out === 15, JSON.stringify(s1));
-  check("cache reads and writes count as input", s1.in === 450, JSON.stringify(s1));
+  check("cache writes count as input; cache reads are kept apart", s1.in === 150 && s1.cached === 300, JSON.stringify(s1));
   check("total_cost_usd is ignored: no event carries dollars", !first.some((e) => "usd" in e) && usage.length === 3, JSON.stringify(first));
   const plan = events([{ type: "rate_limit_event", rate_limit_info: { status: "allowed", utilization: 0.4, resetsAt: 1793030400 } }]);
   check("a rate_limit_event becomes the plan reading", plan[0]?.type === "plan" && plan[0].plan.used === 0.4 && plan[0].plan.resetsAt === 1793030400 && plan[0].plan.status === "allowed", JSON.stringify(plan));

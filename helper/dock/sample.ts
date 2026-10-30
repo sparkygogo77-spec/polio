@@ -33,8 +33,8 @@ export const SAMPLE_MERGES: MergeLine[] = [
 
 /** A PC lane counts its tokens; a cloud lane's can't be read (null). No dollars anywhere. */
 export const SAMPLE_SPEND: Spend[] = [
-  { v, kind: "spend", requestId, tokens: { in: 210_000, out: 18_000 }, lanes: [
-    { lane: "hero-calm", pays: "plan", tokens: { in: 210_000, out: 18_000 }, seconds: 720 },
+  { v, kind: "spend", requestId, tokens: { in: 210_000, out: 18_000, cached: 1_900_000 }, lanes: [
+    { lane: "hero-calm", pays: "plan", tokens: { in: 210_000, out: 18_000, cached: 1_900_000 }, seconds: 720 },
     { lane: "boxes-hug", pays: "cloud", tokens: null, seconds: 1500 },
   ], plan: { used: 0.31, resetsAt: Math.floor(Date.UTC(2026, 9, 25, 23, 0) / 1000), status: "allowed" } },
 ];

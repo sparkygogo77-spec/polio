@@ -7,9 +7,12 @@
  *
  * Tokens: an assistant message can arrive more than once (once per content
  * block, with the same message id), so usage is kept per message id and
- * only the growth is counted. `in` is every input token the model read:
- * fresh, cache writes and cache reads; `out` is output tokens. Messages from
- * subagents come through the stream too and are counted the same way.
+ * only the growth is counted. `in` is fresh input plus cache writes, `out`
+ * is output, and `cached` is cache reads, kept apart: Claude Code re-reads
+ * the whole conversation from its cache every turn, so counting reads as
+ * input made a two-step task read as 424,000 tokens in 8 turns (the first
+ * smoke run on J's PC, 2026-10-29). Messages from subagents come through
+ * the stream too and are counted the same way.
  *
  * No dollars are read (J: plan usage and tokens only), so `total_cost_usd`
  * is ignored.
@@ -30,11 +33,12 @@ const STEP_LINE = new RegExp(`^\\s*\\[step:(${STEPS.join("|")})\\]\\s*(.*)$`, "m
 const QUESTION_LINE = /^\s*\[question\]\s*(.+)$/m;
 
 export function tokensOf(usage: Obj | undefined | null): Tokens {
-  if (!usage) return { in: 0, out: 0 };
+  if (!usage) return { in: 0, out: 0, cached: 0 };
   const n = (x: unknown) => (Number.isFinite(x) ? Number(x) : 0);
   return {
-    in: n(usage.input_tokens) + n(usage.cache_creation_input_tokens) + n(usage.cache_read_input_tokens),
+    in: n(usage.input_tokens) + n(usage.cache_creation_input_tokens),
     out: n(usage.output_tokens),
+    cached: n(usage.cache_read_input_tokens),
   };
 }
 
@@ -63,10 +67,11 @@ export class StreamReader {
     if (m.type === "assistant" && m.message) {
       const id = String(m.message.id ?? `anon-${this.seen.size}`);
       const now = tokensOf(m.message.usage);
-      const was = this.seen.get(id) ?? { in: 0, out: 0 };
-      const grow = { in: Math.max(0, now.in - was.in), out: Math.max(0, now.out - was.out) };
-      this.seen.set(id, { in: Math.max(now.in, was.in), out: Math.max(now.out, was.out) });
-      if (grow.in || grow.out) out.push({ type: "usage", tokens: grow });
+      const was = this.seen.get(id) ?? { in: 0, out: 0, cached: 0 };
+      const up = (k: "in" | "out" | "cached") => Math.max(0, (now[k] ?? 0) - (was[k] ?? 0));
+      const grow = { in: up("in"), out: up("out"), cached: up("cached") };
+      this.seen.set(id, { in: Math.max(now.in, was.in), out: Math.max(now.out, was.out), cached: Math.max(now.cached ?? 0, was.cached ?? 0) });
+      if (grow.in || grow.out || grow.cached) out.push({ type: "usage", tokens: grow });
       for (const block of Array.isArray(m.message.content) ? m.message.content : []) {
         if (block?.type !== "text" || typeof block.text !== "string") continue;
         for (const line of block.text.split("\n")) {
