@@ -179,6 +179,8 @@ export type PlanUse = {
   resetsAt: number | null;
   /** allowed, allowed_warning (near the limit) or rejected (at it). */
   status: "allowed" | "allowed_warning" | "rejected";
+  /** Which limit `used` is (Claude Code's names: "five_hour", "seven_day"), if said. Optional. */
+  window?: string;
 };
 
 export type Spend = {
@@ -440,6 +442,7 @@ function kindProblems(m: Obj): string[] {
         const ok = isObj(p) && typeof p.used === "number" && p.used >= 0 && p.used <= 1
           && (p.resetsAt === null || isCount(p.resetsAt)) && ["allowed", "allowed_warning", "rejected"].includes(p.status as string);
         if (!ok) out.push("plan must be null, or used 0 to 1 with resetsAt and status");
+        if (isObj(p) && "window" in p && !(isStr(p.window) && p.window.length <= 40)) out.push("plan.window must be a short name");
       }
       return out;
     }

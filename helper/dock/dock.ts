@@ -397,6 +397,8 @@ function onFeedClick(e: Event) {
 // shows only what Claude Code itself reported about the plan's limit.
 
 const NOT_MEASURED = "on your plan, not measured";
+/** Claude Code's limit windows, in J's words. */
+const WINDOW_WORDS: Record<string, string> = { five_hour: "5-hour ", seven_day: "weekly ", seven_day_opus: "weekly Opus " };
 const k = (n: number) => (n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : `${Math.round(n / 1000)}k`);
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 const mins = (s: number) => `${Math.round(s / 60)} min`;
@@ -413,8 +415,8 @@ function drawSpend() {
   // The latest plan reading any spend line carried; it is the whole account's.
   const reading = all.map((s) => s.plan).filter((p): p is PlanUse => p !== null).at(-1) ?? null;
   const planSaid = reading
-    ? `${pct(reading.used)} of your limit used${reading.resetsAt ? `, resets ${new Date(reading.resetsAt * 1000).toTimeString().slice(0, 5)}` : ""}`
-    : "use not reported yet";
+    ? `${pct(reading.used)} of your ${WINDOW_WORDS[reading.window ?? ""] ?? ""}limit used${reading.resetsAt ? `, resets ${new Date(reading.resetsAt * 1000).toTimeString().slice(0, 5)}` : ""}`
+    : "not reported by Claude Code yet";
   const bar = reading
     ? `<div class="bar-track"><div class="bar-fill ${reading.status !== "allowed" || reading.used >= 0.8 ? "warn" : ""}" style="width:${Math.min(100, reading.used * 100).toFixed(1)}%"></div></div>`
     : "";

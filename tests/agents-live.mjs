@@ -267,7 +267,7 @@ if (!chromium) done(1);
       return { state: row?.dataset.state, steps: row?.dataset.stepsDone, merge: document.querySelector("[data-merge-line='export-gallery']")?.dataset.status, plan: document.querySelector("[data-meter='plan']")?.textContent.replace(/\s+/g, " ").trim() };
     });
     check("the ring fills from the stream: 8/8, done", ring.state === "done" && ring.steps === "8", JSON.stringify(ring));
-    check("merge and spend lines come from the stream too", ring.merge === "checked" && /41% of your limit/.test(ring.plan ?? ""), JSON.stringify(ring));
+    check("merge and spend lines come from the stream too", ring.merge === "checked" && /41% of your 5-hour limit/.test(ring.plan ?? ""), JSON.stringify(ring));
 
     // A lane's site call: helper → dock frame → Builder → back.
     const ticket = tickets.issue("export-gallery");

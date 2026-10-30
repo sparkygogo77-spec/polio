@@ -17,12 +17,17 @@
  * No dollars are read (J: plan usage and tokens only), so `total_cost_usd`
  * is ignored.
  *
- * Plan use: a `rate_limit_event` (SDKRateLimitEvent in the Agent SDK's
- * TypeScript reference, the same stream `claude -p` writes) carries
- * `rate_limit_info: { status, resetsAt?, utilization? }`. BELIEVED, check on
- * J's PC: `utilization` is the used share of the current plan window, 0 to 1
- * (a figure over 1 is read as a percentage), `resetsAt` is Unix seconds, and
- * the event comes when the session meets a limit, not with every reply.
+ * Plan use: a `rate_limit_event` carries `rate_limit_info`. MEASURED on J's
+ * PC (Claude Code 2.1.309, 2026-10-29): one comes with every turn of
+ * `claude -p --output-format stream-json --verbose` (none in plain `json`),
+ * shaped `{status, resetsAt, rateLimitType, …, unifiedWindows: {five_hour:
+ * {utilization, resetsAt}, seven_day: {…}}}`, with no top-level
+ * `utilization`. So the share is read from the window nearest its limit
+ * (the highest utilization), named in `window`; a top-level `utilization`,
+ * when an older or newer CLI sends one, still wins. Shares are 0 to 1 (over 1
+ * is read as a percentage); `resetsAt` is Unix seconds (ms are divided).
+ * A `rejected` status with no share at all reads as used 1, so the runner
+ * still pauses on it.
  */
 import { STEPS, type PlanUse, type Step, type Tokens } from "../contract.ts";
 import type { AgentEvent } from "./types.ts";
@@ -47,11 +52,20 @@ const STATUSES = ["allowed", "allowed_warning", "rejected"] as const;
 /** A rate_limit_info to the contract's plan reading; null when it holds no share. */
 export function planUseOf(info: Obj): PlanUse | null {
   const status = STATUSES.find((s) => s === info.status);
-  const raw = Number(info.utilization);
-  if (!status || !Number.isFinite(raw) || raw < 0) return null;
-  const used = Math.min(1, raw > 1 ? raw / 100 : raw);
-  const resets = Number(info.resetsAt);
-  return { used, status, resetsAt: Number.isFinite(resets) && resets > 0 ? Math.round(resets > 1e11 ? resets / 1000 : resets) : null };
+  if (!status) return null;
+  const share = (x: unknown) => { const n = Number(x); return x !== undefined && x !== null && Number.isFinite(n) && n >= 0 ? Math.min(1, n > 1 ? n / 100 : n) : null; };
+  const seconds = (x: unknown) => { const n = Number(x); return Number.isFinite(n) && n > 0 ? Math.round(n > 1e11 ? n / 1000 : n) : null; };
+  const named = typeof info.rateLimitType === "string" ? { window: info.rateLimitType.slice(0, 40) } : {};
+  const top = share(info.utilization);
+  if (top !== null) return { used: top, status, resetsAt: seconds(info.resetsAt), ...named };
+  // The windows: the one nearest its limit is the one that would stop J.
+  const windows = Object.entries(info.unifiedWindows && typeof info.unifiedWindows === "object" ? info.unifiedWindows as Obj : {})
+    .map(([name, w]) => ({ name: name.slice(0, 40), used: share(w?.utilization), resetsAt: seconds(w?.resetsAt) }))
+    .filter((w): w is { name: string; used: number; resetsAt: number | null } => w.used !== null)
+    .sort((a, b) => b.used - a.used);
+  const near = windows[0];
+  if (near) return { used: near.used, status, resetsAt: near.resetsAt ?? seconds(info.resetsAt), window: near.name };
+  return status === "rejected" ? { used: 1, status, resetsAt: seconds(info.resetsAt), ...named } : null;
 }
 
 export class StreamReader {
