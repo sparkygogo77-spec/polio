@@ -46,8 +46,21 @@ export function readPress(e: PressEvent, p: Point, tool: Tool, st: StudioState, 
   const shapeEl = target.closest?.("[data-shape-id]") as HTMLElement | null;
   const shapeId = shapeEl?.dataset?.shapeId && shapeEl.dataset.shapeId !== "live" ? shapeEl.dataset.shapeId : null;
   /* The site's own wrapper is never under the hand: the press is on the page (`owner.ts#wrapperIds`). */
-  const hitId = nodeEl?.dataset.nodeId && !isWrapper(st.nodes, { id: nodeEl.dataset.nodeId }) ? nodeEl.dataset.nodeId : null;
-  const hit = hitId ? st.nodes.find((n) => n.id === hitId) ?? null : null;
+  const domId = nodeEl?.dataset.nodeId && !isWrapper(st.nodes, { id: nodeEl.dataset.nodeId }) ? nodeEl.dataset.nodeId : null;
+  const domHit = domId ? st.nodes.find((n) => n.id === domId) ?? null : null;
+  /*
+   * A CLICK-THROUGH PART GIVES WAY TO WHAT IS UNDER THE HAND (EDIT-ISSUES #50). The page made sol face's 450px moving
+   * picture `pointer-events: none`, so a click on it reached the line of words under it. The board keeps an inert part
+   * narrower than a sheet pickable (trumpmorty's planet, `tests/inert-picture-press.mjs`), and so it caught every press
+   * meant for those words: one press picked the picture, two dug through but opened nothing, and a model driving the
+   * Builder typed into the picture three times with no sign (INTERFACE-OPTIONS.md section 4). Where a smaller part lies
+   * under the hand inside an inert part, the press is on that part, as the page's own click was; where nothing does,
+   * the inert part is still picked and moved. Not once it is picked: a press on a picked part takes it
+   * (`tests/press-through-inert.mjs`).
+   */
+  const through = domHit && (domHit as { inert?: boolean }).inert && !st.selection.includes(domHit.id) ? underInert(st, domHit, p) : null;
+  const hit = through ?? domHit;
+  const hitId = hit?.id ?? null;
   const twice = !!prior && !!hitId && prior.id === hitId && e.timeStamp - prior.at < DOUBLE_MS && Math.hypot(p.x - prior.x, p.y - prior.y) < DOUBLE_SLOP;
 
   const pal = resolvePalette(st.format, st.look);
@@ -105,6 +118,21 @@ export function readPress(e: PressEvent, p: Point, tool: Tool, st: StudioState, 
     },
     hitId, hit, id, node, ids, groupHandle, resizeHandle, shapeId,
   };
+}
+
+/** The smallest part shown under the hand inside a click-through part's box, as the page's own click would have reached it: a part at the point, smaller than the inert one and not the site's wrapper. */
+function underInert(st: StudioState, inert: StudioNode, p: Point): StudioNode | null {
+  const shown = shownOnBoard(st), places = placedOnBoard(st);
+  const box = (n: StudioNode) => places.get(n.id) ?? n;
+  const o = box(inert);
+  let best: StudioNode | null = null;
+  for (const n of st.nodes) {
+    if (n.id === inert.id || n.pageId !== inert.pageId || !shown(n) || isWrapper(st.nodes, n)) continue;
+    const b = box(n);
+    if (!(p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) || b.w * b.h >= o.w * o.h) continue;
+    if (!best || b.w * b.h < box(best).w * box(best).h) best = n;
+  }
+  return best;
 }
 
 /** The picked part, when it holds `hit` and the parts it holds leave none of it bare to press on. */
