@@ -33,7 +33,7 @@ const { total, functions } = JSON.parse(execFileSync(process.execPath, ["scripts
 const BROWSER = ["api/studio/element", "api/studio/preview-video", "api/studio/reference", "api/studio/render", "api/studio/screenshot", "api/studio/zip"];
 const carries = (f) => f.heaviest.some(([k]) => /@sparticuz\/chromium|playwright-core/.test(k));
 const mb = (b) => `${(b / 1048576).toFixed(1)} MB`;
-check("the five routes that open a browser carry it", BROWSER.every((r) => carries(functions.find((f) => f.fn === r) ?? { heaviest: [] })), BROWSER.filter((r) => !carries(functions.find((f) => f.fn === r) ?? { heaviest: [] })).join(", "));
+check("the routes that open a browser carry it", BROWSER.every((r) => carries(functions.find((f) => f.fn === r) ?? { heaviest: [] })), BROWSER.filter((r) => !carries(functions.find((f) => f.fn === r) ?? { heaviest: [] })).join(", "));
 const others = functions.filter((f) => !BROWSER.includes(f.fn));
 check("no other function carries it", others.every((f) => !carries(f)), others.filter(carries).map((f) => `${f.fn} ${mb(f.bytes)}`).join(", "));
 check("every other function is under 8 MB", others.every((f) => f.bytes < 8 * 1048576), others.filter((f) => f.bytes >= 8 * 1048576).map((f) => `${f.fn} ${mb(f.bytes)}`).join(", "));
