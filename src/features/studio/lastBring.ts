@@ -33,6 +33,7 @@ import { useStudio } from "./board/store";
 import { snapshot } from "./board/store/history";
 import type { Doc } from "./board/store/model";
 import { idbGet, idbSet } from "./docStore";
+import { testHooksOpen } from "./testHooks";
 
 export interface LastBring { at: number; repo: string | null; doc: Doc; frameWidth: number; builder?: string | null }
 
@@ -119,7 +120,7 @@ export function useLastBring(): LastBring | null {
   return known.get(keyOf(site)) ?? null;
 }
 
-if (typeof window !== "undefined") {
+if (typeof window !== "undefined" && testHooksOpen()) {
   /* For the checks (tests/reset-last-bring.mjs): keep the board as it stands as its last bring-in, as a landing does. */
   (window as unknown as { __studioKeepLastBring?: () => void }).__studioKeepLastBring = keepLastBring;
   /* And mark this site's copy as read by an older build, as one kept before a builder update is (tests/reread-latest-builder.mjs). */

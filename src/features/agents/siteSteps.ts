@@ -22,7 +22,7 @@ export const SITE_OPS = ["updateNode", "updatePage", "setLook", "removeNodes", "
 export type SiteRequest =
   | { source: "polio-dock"; kind: "site"; v: 1; id: string; op: "read"; site?: string }
   | { source: "polio-dock"; kind: "site"; v: 1; id: string; op: "shot"; site?: string; page?: string; part?: string }
-  | { source: "polio-dock"; kind: "site"; v: 1; id: string; op: "apply"; site: string; name: string; steps: SiteStep[] };
+  | { source: "polio-dock"; kind: "site"; v: 1; id: string; op: "apply"; site: string; name: string; steps: SiteStep[]; base?: string };
 
 export type SiteReply = { source: "polio-builder"; kind: "site"; v: 1; id: string } & ({ ok: true; result: unknown } | { ok: false; says: string });
 
@@ -35,7 +35,29 @@ const FORBIDDEN_FIELDS = new Set(["token", "pairToken", "pairing", "auth", "auth
 const KEY_SHAPED = /\b(gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|vc[pk]_[A-Za-z0-9]{20,}|Bearer\s+\S{10,})/;
 
 /** The board, as much of it as a check needs. */
-export interface BoardLike { site: string | null; nodeIds: ReadonlySet<string>; pageIds: ReadonlySet<string>; tokenIds: ReadonlySet<string> }
+export interface BoardLike {
+  site: string | null; nodeIds: ReadonlySet<string>; pageIds: ReadonlySet<string>; tokenIds: ReadonlySet<string>;
+  /** The board's version now (`versionOf`): a request's `base` must match it. */
+  version?: string;
+  /** False when the System would refuse this value for this token. */
+  tokenTakes?: (id: string, value: string | number) => boolean;
+  /** True when a step would leave the board exactly as it is. */
+  unchanged?: (step: SiteStep) => boolean;
+}
+
+/**
+ * The version of a copy of the board: a hash of what it holds, so it moves
+ * with any change, undo included, and comes back if the board does. A count
+ * of undo steps would not: undo one step and make another, and the count is
+ * the same on a different board. FNV-1a and the length; it only has to tell a
+ * copy from the one before it.
+ */
+export function versionOf(copy: unknown): string {
+  const text = JSON.stringify(copy) ?? "";
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return `${text.length.toString(36)}-${(h >>> 0).toString(36)}`;
+}
 
 /** Why an apply request must be refused whole; an empty list means it may run. */
 export function checkApply(r: unknown, board: BoardLike): string[] {
@@ -45,6 +67,8 @@ export function checkApply(r: unknown, board: BoardLike): string[] {
   if (q.source !== "polio-dock" || q.kind !== "site" || q.op !== "apply") return ["not a site apply request"];
   if (typeof q.name !== "string" || !q.name.trim()) out.push("a request needs a name, such as \"calmer hero\"");
   if (!board.site || q.site !== board.site) out.push(`the request is for site ${JSON.stringify(q.site)}, but the open site is ${JSON.stringify(board.site)}`);
+  /* `base` is optional, so a caller that never sends one still works. Sent, it must be the board as it is now. */
+  if (q.base !== undefined && q.base !== board.version) out.push(`this was written against an older copy of the board (${JSON.stringify(q.base)}; the open board is ${JSON.stringify(board.version)}): read the site again and write it against what is there now`);
   if (!Array.isArray(q.steps) || !q.steps.length) return [...out, "a request needs at least one step"];
   const walk = (v: unknown, at: string) => {
     if (typeof v === "string") { if (KEY_SHAPED.test(v)) out.push(`${at} looks like a key`); return; }
@@ -64,11 +88,11 @@ export function checkApply(r: unknown, board: BoardLike): string[] {
         break;
       case "updatePage":
         if (typeof st.id !== "string" || !board.pageIds.has(st.id)) out.push(`${at}: page ${JSON.stringify(st.id)} is not on the open site`);
-        if (!st.patch || typeof st.patch !== "object") out.push(`${at}: no patch`);
+        if (!st.patch || typeof st.patch !== "object" || !Object.keys(st.patch as object).length) out.push(`${at}: an empty patch`);
         else walk(st.patch, `${at}.patch`);
         break;
       case "setLook":
-        if (!st.patch || typeof st.patch !== "object") out.push(`${at}: no patch`);
+        if (!st.patch || typeof st.patch !== "object" || !Object.keys(st.patch as object).length) out.push(`${at}: an empty patch`);
         else walk(st.patch, `${at}.patch`);
         break;
       case "removeNodes":
@@ -78,10 +102,15 @@ export function checkApply(r: unknown, board: BoardLike): string[] {
       case "setToken":
         if (typeof st.id !== "string" || !board.tokenIds.has(st.id)) out.push(`${at}: token ${JSON.stringify(st.id)} is not in the open site's System`);
         if (typeof st.value !== "string" && typeof st.value !== "number") out.push(`${at}: a token takes a string or a number`);
-        else walk(st.value, `${at}.value`);
+        else {
+          walk(st.value, `${at}.value`);
+          if (typeof st.id === "string" && board.tokenIds.has(st.id) && board.tokenTakes && !board.tokenTakes(st.id, st.value)) out.push(`${at}: token ${JSON.stringify(st.id)} can't hold ${JSON.stringify(st.value)}`);
+        }
         break;
     }
   });
+  /* Only a request that is otherwise good: nothing to change would still leave an empty undo step. */
+  if (!out.length && board.unchanged && (q.steps as SiteStep[]).every(board.unchanged)) out.push("nothing would change: every step already matches the board");
   return out;
 }
 

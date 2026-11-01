@@ -30,7 +30,7 @@ export const SITE_RELAY = process.env.POLIO_SITE_RELAY ?? "http://127.0.0.1:4782
 export const SITE_TOOLS = [
   {
     name: "site.read",
-    description: "The site J has open in the Builder: its pages, every part (id, page, kind, label, words, box, colour, font, System links) and its System. Read before you change anything.",
+    description: "The site J has open in the Builder: its pages, every part (id, page, kind, label, words, box, colour, font, System links) and its System, with the board's `version`. Read before you change anything.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
@@ -40,13 +40,14 @@ export const SITE_TOOLS = [
   },
   {
     name: "site.apply",
-    description: "Change the open site. One call is one undo step on J's board, named after `name` (\"calmer hero\" shows as \"Agent: calmer hero\"). Steps run through the Builder's own actions: updateNode {id, patch}, updatePage {id, patch}, setLook {patch}, removeNodes {ids}, setToken {id, value}. A step on a part that is not on the open site, or on keys, the Account or publishing, refuses the whole call. More than 20 parts makes a copy of the site first and offers Compare.",
+    description: "Change the open site. One call is one undo step on J's board, named after `name` (\"calmer hero\" shows as \"Agent: calmer hero\"). Steps run through the Builder's own actions: updateNode {id, patch}, updatePage {id, patch}, setLook {patch}, removeNodes {ids}, setToken {id, value}. A step on a part that is not on the open site, or on keys, the Account or publishing, refuses the whole call, as does a call that would change nothing. Send `base` so a change written against an older copy of the board is refused; the answer gives the new `version` for the next call. More than 20 parts makes a copy of the site first and offers Compare.",
     inputSchema: {
       type: "object",
       required: ["site", "name", "steps"],
       properties: {
         site: { type: "string", description: "The site id from site.read. The call is refused for any other site." },
         name: { type: "string", description: "What this change is, in J's words: \"calmer hero\"." },
+        base: { type: "string", description: "The `version` from the site.read or site.apply this change was written against." },
         steps: {
           type: "array", minItems: 1,
           items: {
@@ -73,7 +74,7 @@ export function toRequest(name: string, args: Record<string, unknown> | undefine
   switch (name) {
     case "site.read": return { ...base, op: "read" };
     case "site.shot": return { ...base, op: "shot", ...(typeof a.page === "string" ? { page: a.page } : {}), ...(typeof a.part === "string" ? { part: a.part } : {}) };
-    case "site.apply": return { ...base, op: "apply", site: a.site, name: a.name, steps: a.steps };
+    case "site.apply": return { ...base, op: "apply", site: a.site, name: a.name, steps: a.steps, ...(a.base !== undefined ? { base: a.base } : {}) };
     default: return null;
   }
 }

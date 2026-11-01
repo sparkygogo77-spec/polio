@@ -59,6 +59,7 @@ import { mergeStep, type MergeJob, type MergeStep } from "../merge/route.ts";
 import { readGithubToken } from "../merge/token.ts";
 import { Pairing } from "./pairing.ts";
 import { startHelperServer, HELPER_PORT, type RunnerLike } from "./server.ts";
+import { BridgeLog } from "./bridgeLog.ts";
 import { SiteTickets, siteMcpConfig, withSiteTickets } from "./tickets.ts";
 
 // ---- after green: merge, then the live check ---------------------------------
@@ -322,7 +323,7 @@ if (import.meta.main) {
   });
 
   const pairing = new Pairing({ show: (code) => console.log(`\n  Pair with polio-two.vercel.app?  Code: ${code.slice(0, 3)} ${code.slice(3)}\n@pair ${code}`) });
-  const helper = await startHelperServer({ runner, pairing, tickets, port });
+  const helper = await startHelperServer({ runner, pairing, tickets, port, siteLog: new BridgeLog(stateDir) });
   console.log(`Polio Helper on http://127.0.0.1:${helper.port} (on your plan, ${coordinator.atOnce} lanes at once)\n@ready ${helper.port}`);
 
   const quit = async () => { clearInterval(every); await coordinator.stopAll(); await helper.close(); process.exit(0); };

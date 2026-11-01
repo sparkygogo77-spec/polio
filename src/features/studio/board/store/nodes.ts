@@ -158,6 +158,8 @@ export function nodesActions(set: SetStudio, get: GetStudio, push: () => void, p
     },
 
     updateNode: (id, patch) => {
+      /* A part that isn't on the board: nothing to change, so no undo step for it. */
+      if (!get().nodes.some((n) => n.id === id)) return;
       // Words typed into a part's own fields are one edit per run of
       // typing; anything else is its own step, as it always was.
       const keys = Object.keys(patch);

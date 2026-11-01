@@ -21,9 +21,13 @@ const KEY = "polio-helper-token";
 /** A site call the helper relays from a lane (helper/mcp/site.ts → bridge.ts). */
 export type SiteCall = { kind: "site"; lane: string; request: Record<string, unknown> & { id: string } };
 
+/** A site call the helper refused or the Builder did (helper/server/bridgeLog.ts). */
+export type SiteRefusal = { at: number; lane: string | null; op: string | null; name?: string; steps?: string[]; ok: boolean; why?: string };
+
 export type LiveEvents = {
   message(m: Message): void;
   site(call: SiteCall): void;
+  siteRefused(entry: SiteRefusal): void;
   /** "pair" when a token is needed, "live" once the stream is open, "down" while the helper can't be reached. */
   state(s: "pair" | "live" | "down", why?: string): void;
 };
@@ -60,6 +64,8 @@ export function liveHelper(on: LiveEvents, { base = "", retryMs = 2000 } = {}) {
     try { m = JSON.parse(text); } catch { return; }
     const x = m as SiteCall;
     if (x && x.kind === "site" && typeof x.lane === "string" && x.request && typeof x.request.id === "string") return on.site(x);
+    const logged = m as { kind?: unknown; entry?: SiteRefusal };
+    if (logged?.kind === "site-log") { if (logged.entry && typeof logged.entry.at === "number") on.siteRefused(logged.entry); return; }
     if (problems(m).length) { console.warn("dock: dropped", m, problems(m)); return; }
     on.message(m as Message);
   };

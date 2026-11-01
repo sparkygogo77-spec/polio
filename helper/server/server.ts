@@ -33,6 +33,8 @@
  *   POST /site/reply  from the dock, with the token. The waiting /site call
  *                     answers with the Builder's reply.
  *   Nothing else is open to a ticket, and a ticket never reaches a control.
+ *   Every call is logged, accepted or refused (bridgeLog.ts); a refusal also
+ *   goes down the dock's stream as a `{kind: "site-log", entry}` line.
  */
 import { createServer, type IncomingMessage, type ServerResponse, type Server } from "node:http";
 import { existsSync, readFileSync } from "node:fs";
@@ -41,6 +43,7 @@ import { extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { problems, type Message, type Plan } from "../contract.ts";
 import type { ControlResult } from "../agents/runner.ts";
+import { describeCall, type BridgeLog } from "./bridgeLog.ts";
 import type { Pairing } from "./pairing.ts";
 import type { SiteTickets } from "./tickets.ts";
 
@@ -73,6 +76,8 @@ export async function startHelperServer(opts: {
   runner: RunnerLike; pairing: Pairing; port?: number; builderOrigin?: string;
   /** Lane tickets for POST /site; without them the relay refuses every call. */
   tickets?: SiteTickets; siteWaitMs?: number;
+  /** Where every site call is kept; without one, refusals still reach an open dock. */
+  siteLog?: BridgeLog;
 }): Promise<HelperServer> {
   const builder = opts.builderOrigin ?? BUILDER_ORIGIN;
   let port = opts.port ?? HELPER_PORT;
@@ -111,6 +116,12 @@ export async function startHelperServer(opts: {
 
   const onMessage = (m: Message) => { const line = JSON.stringify(m) + "\n"; for (const s of streams) s.write(line); };
   const unsubscribe = opts.runner.subscribe(onMessage);
+  /** One site call, as it ended. */
+  const noteSite = (lane: string | null, request: unknown, ok: boolean, why?: string) => {
+    const entry = describeCall(lane, request, ok, why);
+    opts.siteLog?.record(entry);
+    if (!ok) { const line = JSON.stringify({ kind: "site-log", entry }) + "\n"; for (const s of streams) s.write(line); }
+  };
 
   async function handle(req: IncomingMessage, res: ServerResponse) {
     if (req.headers.host !== `127.0.0.1:${port}`) return refuse(res, 421, "wrong Host: the helper answers only to 127.0.0.1");
@@ -157,19 +168,27 @@ export async function startHelperServer(opts: {
     }
     // A lane's site call: no Origin, its own ticket. Nothing else answers to a ticket.
     if (method === "POST" && path === "/site") {
-      if (who !== "none") return refuse(res, 403, "site calls come from a lane, not a page");
+      const no = (lane: string | null, request: unknown, status: number, why: string) => { noteSite(lane, request, false, why); return refuse(res, status, why); };
+      if (who !== "none") return no(null, null, 403, "site calls come from a lane, not a page");
       const lane = opts.tickets?.check(req.headers["x-polio-lane"]) ?? null;
-      if (!lane) return refuse(res, 401, "no lane ticket, or not this helper's");
-      const b = (await body(req)) as Record<string, unknown>;
-      if (!b || b.source !== "polio-dock" || b.kind !== "site" || b.v !== 1 || !SITE_OPS.includes(b.op as string)) return refuse(res, 400, "not a site request");
+      if (!lane) return no(null, null, 401, "no lane ticket, or not this helper's");
+      let b: Record<string, unknown>;
+      try { b = (await body(req)) as Record<string, unknown>; } catch (e) { return no(lane, null, 400, String((e as Error).message)); }
+      if (!b || b.source !== "polio-dock" || b.kind !== "site" || b.v !== 1 || !SITE_OPS.includes(b.op as string)) return no(lane, b, 400, "not a site request");
       const dock = [...streams].at(-1);
-      if (!dock) return send(res, 503, { ok: false, says: "the Agents dock isn't open in the Builder, so the site can't be reached" });
+      if (!dock) {
+        const says = "the Agents dock isn't open in the Builder, so the site can't be reached";
+        noteSite(lane, b, false, says);
+        return send(res, 503, { ok: false, says });
+      }
       const id = `${lane}-${++siteSeq}-${Date.now().toString(36)}`;
       const reply = await new Promise<unknown>((answer) => {
         const timer = setTimeout(() => { pending.delete(id); answer({ ok: false, says: "the Builder didn't answer in time" }); }, opts.siteWaitMs ?? SITE_WAIT_MS);
         pending.set(id, { lane, answer: (r) => { clearTimeout(timer); pending.delete(id); answer(r); } });
         dock.write(JSON.stringify({ kind: "site", lane, request: { ...b, id } }) + "\n");
       });
+      const end = reply as { ok?: unknown; says?: unknown };
+      noteSite(lane, b, end.ok === true, end.ok === true ? undefined : String(end.says ?? "the Builder refused the call"));
       return send(res, 200, reply);
     }
     if (who === "none") return refuse(res, 403, "a request with no Origin can't use the helper");
@@ -188,6 +207,7 @@ export async function startHelperServer(opts: {
       res.writeHead(200, { "content-type": "application/x-ndjson", "cache-control": "no-store", "x-content-type-options": "nosniff" });
       res.flushHeaders(); // the dock knows it is live before the first message
       for (const m of opts.runner.snapshot()) res.write(JSON.stringify(m) + "\n");
+      for (const entry of opts.siteLog?.refusals() ?? []) res.write(JSON.stringify({ kind: "site-log", entry }) + "\n");
       streams.add(res);
       const beat = setInterval(() => res.write("\n"), 15_000);
       res.on("close", () => { clearInterval(beat); streams.delete(res); });
