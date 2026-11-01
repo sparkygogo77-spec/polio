@@ -18,6 +18,7 @@ import { uid } from "@/core/lib/ids";
 import { otherTab, swapDoc, takeCarriedRepo, takeOpenSite, useStudio } from "@/features/studio/board/store";
 import { flushDocs, isPointer, readDoc, readMirror, shapeOfRaw, unpackDocText, writeDocNow } from "@/features/studio/docStore";
 import type { PreviewDoc } from "@/features/studio/SitePreview";
+import { dropRecords } from "@/features/studio/reference/store";
 
 /** A hydration settled the list (`settle`), and storage does not have it yet. */
 let unsettled = false;
@@ -351,6 +352,7 @@ export const useBuilds = create<Builds>()(
         await caughtUp();
         const was = get().activeId;
         await write(slot(id), null);
+        void dropRecords(id);
         set((s) => {
           const left = s.projects.filter((p) => p.id !== id);
           return { projects: left, activeId: s.activeId === id ? (left[0]?.id ?? null) : s.activeId };

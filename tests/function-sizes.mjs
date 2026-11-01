@@ -30,7 +30,7 @@ import { tmpdir } from "node:os";
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${ok === true || !detail ? "" : ` — ${detail}`}`); };
 const { total, functions } = JSON.parse(execFileSync(process.execPath, ["scripts/function-sizes.mjs", "--json"], { encoding: "utf8", maxBuffer: 1 << 26 }));
-const BROWSER = ["api/studio/element", "api/studio/preview-video", "api/studio/render", "api/studio/screenshot", "api/studio/zip"];
+const BROWSER = ["api/studio/element", "api/studio/preview-video", "api/studio/reference", "api/studio/render", "api/studio/screenshot", "api/studio/zip"];
 const carries = (f) => f.heaviest.some(([k]) => /@sparticuz\/chromium|playwright-core/.test(k));
 const mb = (b) => `${(b / 1048576).toFixed(1)} MB`;
 check("the five routes that open a browser carry it", BROWSER.every((r) => carries(functions.find((f) => f.fn === r) ?? { heaviest: [] })), BROWSER.filter((r) => !carries(functions.find((f) => f.fn === r) ?? { heaviest: [] })).join(", "));

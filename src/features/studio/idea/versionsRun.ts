@@ -7,7 +7,8 @@
  *                 (`versions.ts#localVersions`) when J chooses it, or when
  *                 there is no key or the call fails, saying why;
  *   styleFor      the house style, else the site's System, else one rolled on
- *                 the idea's words and kept in the library (`houseStyle.ts`);
+ *                 the idea's words and kept in the library (`houseStyle.ts`),
+ *                 in the colours of the site named when it was read;
  *   buildPicked   the pages J ticked, loaded as the site's document in ONE
  *                 undo step: one Ctrl+Z puts back what was there before;
  *   acceptOffer   one suggested line put in, as its own undo step, and only
@@ -31,6 +32,7 @@ import type { SiteTheme } from "../siteTheme";
 import type { Idea } from "./plan";
 import { pickStyle, type StyleFrom } from "./houseStyle";
 import { buildSite, localVersions, type Picks, type Versions, type WordOffer } from "./versions";
+import { systemInColours } from "../reference/colours";
 
 export interface Asked {
   versions: Versions;
@@ -47,7 +49,7 @@ const siteName = () => {
 type Answer = { ok: true; versions: Versions; usage?: { model?: string; input?: number; output?: number; cached?: number; written?: number } } | { ok: false; reason?: string; message?: string };
 
 /** The versions: Claude's (one call for all of them) or the free local ones. */
-export async function askVersions(idea: Idea, o: { claude: boolean }): Promise<Asked> {
+export async function askVersions(idea: Idea, o: { claude: boolean; referenceShot?: string | null }): Promise<Asked> {
   const name = siteName();
   if (!o.claude) return { versions: localVersions(idea, { name, seed: newSeed() }), plain: null, spend: null };
   const from = Date.now();
@@ -57,7 +59,7 @@ export async function askVersions(idea: Idea, o: { claude: boolean }): Promise<A
       method: "POST",
       signal: AbortSignal.timeout(CALL_DEADLINE_MS),
       headers: { "content-type": "application/json", ...keyHeader() },
-      body: JSON.stringify({ idea, name, versions: true, effort: heldEffort() }),
+      body: JSON.stringify({ idea, name, versions: true, effort: heldEffort(), referenceShot: o.referenceShot ?? null }),
     });
     answer = (await res.json()) as Answer;
   } catch (e) {
@@ -68,12 +70,18 @@ export async function askVersions(idea: Idea, o: { claude: boolean }): Promise<A
   return { versions: localVersions(idea, { name, seed: newSeed() }), plain: `${why} These are the free versions, made here from the catalogue.`, spend: null };
 }
 
-export interface Style { system: System; from: StyleFrom; theme: SiteTheme | null }
+export interface Style {
+  system: System;
+  from: StyleFrom;
+  theme: SiteTheme | null;
+  /** The site named whose colours it wears, when one was read. */
+  coloursOf?: string | null;
+}
 
 /** The System everything is drawn in, put in the library when it is new. */
 export function styleFor(idea: Idea, name: string): Style {
   const picked = pickStyle({ library: libraryList(), site: siteSystem(), words: idea.text, seed: newSeed(), name: `${name} style` });
-  return picked;
+  return idea.reference ? { ...picked, system: systemInColours(picked.system, idea.reference.palette, idea.reference.host), coloursOf: idea.reference.host } : picked;
 }
 
 export interface Built { pages: number; parts: number; offers: WordOffer[]; style: { id: string; name: string; from: StyleFrom } }
