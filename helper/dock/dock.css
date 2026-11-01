@@ -164,3 +164,4 @@ button.small { padding: 1px 7px; font-size: 11px; }
 .pc-item { position: relative; padding-right: 52px; }
 .pc-item .what [data-pc-stop] { position: absolute; right: 6px; top: 4px; }
 .compare-requests { margin-top: 6px; display: grid; gap: 3px; }
+.refused { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; overflow-wrap: anywhere; }

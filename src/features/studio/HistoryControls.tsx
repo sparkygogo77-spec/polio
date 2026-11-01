@@ -23,6 +23,7 @@ import { FORMAT_FIELDS } from "./format";
 import { stepNameKept, type NameHelp, type StepDoc } from "./historyNames";
 import { PROCESS } from "./loop";
 import { snapshot, useStudio } from "./board/store";
+import { testHooksOpen } from "./testHooks";
 
 /** How many steps the list shows, newest first. */
 export const HISTORY_SHOWN = 50;
@@ -142,7 +143,8 @@ export function HistoryControls() {
       undo: undoName,
       redo: redoName,
       rows: historyRows,
-      act: (name: string, ...args: unknown[]) => (useStudio.getState() as unknown as Record<string, (...a: unknown[]) => unknown>)[name]!(...args),
+      /* Any store action by name, "clear everything" among them: only on this PC's own addresses (`testHooks.ts`). */
+      ...(testHooksOpen() ? { act: (name: string, ...args: unknown[]) => (useStudio.getState() as unknown as Record<string, (...a: unknown[]) => unknown>)[name]!(...args) } : {}),
       /* The document as the store holds it now: a big site's is in IndexedDB, packed, so localStorage has only a pointer. */
       doc: () => { const s = useStudio.getState(); return { nodes: s.nodes, pages: s.pages, frameWidth: s.frameWidth, statesOn: s.statesOn, zoom: s.zoom, activePageId: s.activePageId, styleSource: (s.look as { styleSource?: unknown } | undefined)?.styleSource }; },
     };
