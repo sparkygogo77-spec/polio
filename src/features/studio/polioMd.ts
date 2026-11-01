@@ -215,6 +215,8 @@ export interface PolioSite {
   source?: SourceNote | null;
   /** The address it goes live at, when known. */
   address?: string | null;
+  /** Parts whose form an export wires to a server route (`send-out/formsOut.ts`): no longer "sent nowhere". */
+  formsSend?: ReadonlySet<string>;
 }
 
 const one = (s: string) => s.replace(/\s+/g, " ").trim();
@@ -514,7 +516,7 @@ export function polioMd(site: PolioSite): string {
     for (const n of nowhere) say(`| ${code(n.id)} | ${where(n)} | ${partSays(n)} |`);
     say("");
   }
-  const forms = nodes.filter((n) => FORMS.has(n.featureId ?? "") && !usesOf(n.work).length);
+  const forms = nodes.filter((n) => FORMS.has(n.featureId ?? "") && !usesOf(n.work).length && !site.formsSend?.has(n.id));
   if (forms.length) {
     say("### Forms with no action", "", "What is typed here is sent nowhere: each needs an endpoint and what to do with the answer.", "", "| Part | Kind | Where |", "|---|---|---|");
     for (const n of forms) say(`| ${code(n.id)} | ${cell(n.featureId ?? "form", 24)} | ${where(n)} |`);

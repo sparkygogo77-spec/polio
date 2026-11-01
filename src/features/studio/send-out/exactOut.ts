@@ -27,8 +27,11 @@ import { homeFor, routeOf, type Routed } from "../homePage.ts";
 import { jsxAttr } from "../scaffolding/jsx.ts";
 import { assetPath, routeLink } from "./pagesOut.ts";
 import { POLIO_HEADER, TOKEN_FILES, cssColour, tokenNames } from "./tokensOut.ts";
+import { EXACT_FORM_SCRIPT, exactFormScript, type SiteForm } from "./formsOut.ts";
 
 export interface ExactInput {
+  /** The site's forms (`formsOut.ts`): a page holding one loads the script that sends it, beside its markup. */
+  forms?: SiteForm[];
   name: string;
   pages: (Routed & { id: string; name?: string | null })[];
   /** Each page's published document, by page id. */
@@ -157,7 +160,7 @@ export default function Page() {
   return (
     <>
 ${head.map((h) => `      ${h}`).join("\n")}
-      <div className="contents" dangerouslySetInnerHTML={{ __html: markup }} />
+      <div className="contents" dangerouslySetInnerHTML={{ __html: markup }} />${input.forms?.some((f) => f.pageId === page.id) ? `\n      <script src="/${EXACT_FORM_SCRIPT}" defer />` : ""}
     </>
   );
 }
@@ -170,5 +173,6 @@ ${head.map((h) => `      ${h}`).join("\n")}
   files.push({ path: "app/globals.css", content: exactGlobalsCss(input.system, roles) });
   files.push({ path: "app/layout.tsx", content: exactLayoutTsx() });
   for (const a of input.assets) if (!/\.html?$/.test(a.path) && a.path !== "vercel.json") files.push({ path: `public/${a.path}`, content: a.content });
+  if (input.forms?.length) files.push({ path: `public/${EXACT_FORM_SCRIPT}`, content: exactFormScript(input.forms) });
   return { files, pages };
 }

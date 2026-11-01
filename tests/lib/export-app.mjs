@@ -48,7 +48,7 @@ export async function buildApp(tag, files, { keepDefaults = [] } = {}) {
   const next = join(ROOT, "node_modules", "next", "dist", "bin", "next");
   const log = await new Promise((done) => {
     let out = "";
-    const p = spawn(process.execPath, [next, "build"], { cwd: dir, env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1", NODE_OPTIONS: "--max-old-space-size=4096" } });
+    const p = spawn(process.execPath, [next, "build", ...(process.env.EXPORT_BUILD_FLAGS?.split(" ") ?? [])], { cwd: dir, env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1", NODE_OPTIONS: "--max-old-space-size=4096" } });
     p.stdout.on("data", (d) => (out += d));
     p.stderr.on("data", (d) => (out += d));
     p.on("close", (code) => done({ code, out }));

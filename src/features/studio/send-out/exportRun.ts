@@ -13,7 +13,7 @@
  * Both carry the four token files (`tokensOut.ts`), POLIO.md with the System
  * and what is still placed by hand, design/record.json with token and
  * component ids, polio/export.json, and the app's setup (package.json with
- * Tailwind, vercel.json saying Next.js). To a repository it goes through Go
+ * Tailwind, vercel.json saying Next.js), and, for a site with a form, the route that sends it (`formsOut.ts`). To a repository it goes through Go
  * live (one commit, then Vercel), sending only what `exportSync.ts` says
  * Polio may write: a file edited in the repository is kept.
  */
@@ -25,6 +25,7 @@ import { goLive, pushTo } from "./goLive";
 import { exactOut } from "./exactOut";
 import { pagesOut, stillPlacedMd, type PagesReport } from "./pagesOut";
 import { libraryOut } from "./libraryOut";
+import { cleanFormFiles, destinationSetting, formFiles, formsMd, formsOf } from "./formsOut";
 import { tokenNames, tokenCss, tokensOut, TOKEN_FILES } from "./tokensOut";
 import { gitBlobSha } from "./designBranch";
 import { zipFiles } from "./zipWrite";
@@ -102,25 +103,27 @@ export async function buildExport(choice: ExportChoice): Promise<Exported> {
   const siteCss = byPath.get("assets/site.css")?.content ?? "";
   const name = s.brief.name?.trim() || activeProject()?.name?.trim() || "Site";
   const palette = s.look.palette as Record<string, string>;
-  const files: { path: string; content: string | Uint8Array }[] = [...tokensOut(system)];
+  const forms = formsOf(nodes as never, s.pages, published);
+  const destination = destinationSetting(s.format as Record<string, unknown>);
+  const files: { path: string; content: string | Uint8Array }[] = [...tokensOut(system), ...formFiles(forms, destination)];
   let report: PagesReport | null = null;
   let components = 0;
   if (choice.mode === "exact") {
     const assets = site.map((f) => ({ path: f.path.replace(/^\/+/, ""), content: isBinary(f) ? Uint8Array.from(atob(f.content), (c) => c.charCodeAt(0)) : f.content }));
-    files.push(...exactOut({ name, pages: s.pages, published, assets, system }).files);
+    files.push(...exactOut({ name, pages: s.pages, published, assets, system, forms: forms.forms }).files);
   } else {
     const lib = choice.library ? libraryOut(system, { gallery: choice.gallery }) : null;
     components = lib ? system.components.length : 0;
-    const out = pagesOut({ name, description: s.brief.description ?? "", pages: s.pages, nodes: nodes as never, frameWidth: s.frameWidth, system, palette, published, siteCss, library: lib?.names });
+    const out = pagesOut({ name, description: s.brief.description ?? "", pages: s.pages, nodes: nodes as never, frameWidth: s.frameWidth, system, palette, published, siteCss, library: lib?.names, forms: forms.forms });
     report = out.report;
-    files.push(...(lib?.files ?? []), ...out.files);
+    files.push(...(lib?.files ?? []), ...out.files, ...cleanFormFiles(forms));
     for (const f of site) if (f.path.replace(/^\/+/, "").startsWith("assets/pictures/")) files.push({ path: `public/${f.path.replace(/^\/+/, "")}`, content: isBinary(f) ? Uint8Array.from(atob(f.content), (c) => c.charCodeAt(0)) : f.content });
   }
   /* What both carry: the app's setup, POLIO.md with the System, the design record. */
   files.push(...appSetup(appFiles({ name, parts: [] } as unknown as ScaffoldInput)));
-  const md = polioMd({ brief: s.brief, pages: s.pages, nodes: s.nodes as never, format: s.format as Record<string, unknown>, look: s.look as never, frameWidth: s.frameWidth });
+  const md = polioMd({ brief: s.brief, pages: s.pages, nodes: s.nodes as never, format: s.format as Record<string, unknown>, look: s.look as never, frameWidth: s.frameWidth, formsSend: new Set(forms.forms.map((f) => f.part)) });
   const sysMd = systemMd({ mode: choice.mode, tokens: allTokens(system).length, components: (choice.mode === "clean" && choice.library ? system.components : []).map((c) => ({ name: c.name, variants: c.variants.length })), tokenFiles: Object.values(TOKEN_FILES) });
-  files.push({ path: POLIO_MD, content: `${md.trimEnd()}\n\n${sysMd}\n${report ? stillPlacedMd(report) : ""}` });
+  files.push({ path: POLIO_MD, content: `${md.trimEnd()}\n\n${sysMd}\n${report ? stillPlacedMd(report) : ""}${formsMd(forms, destination)}` });
   files.push({ path: "design/record.json", content: recordWithSystem(system, nodes, s.pages, s.frameWidth, palette) });
   return {
     files: files.map(generated), mode: choice.mode, system, report,

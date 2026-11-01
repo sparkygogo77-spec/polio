@@ -33,6 +33,7 @@ import { htmlToJsx, jsxAttr } from "../scaffolding/jsx.ts";
 import { classesOf, declarations, twContext, type TwContext } from "./tailwindOf.ts";
 import { POLIO_HEADER, TOKEN_FILES } from "./tokensOut.ts";
 import type { LibraryName } from "./libraryOut.ts";
+import { formDomId, submitOf, wireForClean, type SiteForm } from "./formsOut.ts";
 
 /* ------------------------------------------------------------------ */
 /* Reading the published page                                          */
@@ -253,6 +254,8 @@ interface Walk {
   heading: (id: string) => number | null;
   /** The words a part's label quotes ('link “Docs”' → "Docs"), for a link's name when the link itself shows no words. */
   words: (id: string) => string;
+  /** The `<form>` a part is the send button of, by its page id (`formsOut.ts`). */
+  sends: Map<string, string>;
 }
 
 /** The capture names the element each heading was (`… > h2.`); the first heading of a page is its h1, and no level is skipped on the way down. */
@@ -329,6 +332,13 @@ function partEl(id: string, flow: Flow | null, layout: [string, string][], w: Wa
     else if (inst.pressable && !ex.link && !e.cls.some((c) => /^text-(left|center|right|justify|start|end)$/.test(c))) e.cls.push("text-start");
   }
   if (ex.link) linkPart(e, ex.link, !!flow || interactive, !!inst, content.words ? "" : w.words(id));
+  /* A form's send button is a real one, joined to its form wherever the layout put it. A drawn button's words sit where the board drew them, not in a button's middle. */
+  const sends = w.sends.get(id);
+  if (sends && !ex.link && !interactive) {
+    if (inst) e.attrs = e.attrs.filter(([k]) => k !== "as");
+    else { e.tag = "button"; if (!e.cls.some((c) => /^text-(left|center|right|justify|start|end)$/.test(c))) e.cls.push("text-start"); e.cls.push("cursor-pointer"); }
+    e.attrs.push(["type", "submit"], ["form", sends]);
+  }
   if (flow) fill(e, flow, w, borderOf(look));
   return e;
 }
@@ -430,6 +440,8 @@ export interface PagesInput {
   library?: Map<string, LibraryName>;
   /** The published site's stylesheet (`assets/site.css`): its font faces and keyframes are carried. */
   siteCss?: string;
+  /** The site's forms (`formsOut.ts`): their fields are written as real controls. */
+  forms?: SiteForm[];
 }
 
 export interface StillPlaced { page: string; id: string; label: string; why: string }
@@ -551,6 +563,8 @@ export function pagesOut(input: PagesInput): PagesOut {
     const doc = input.published.get(page.id);
     if (!doc) continue;
     const file = home.file(page);
+    const pageForms = (input.forms ?? []).filter((f) => f.pageId === page.id);
+    wireForClean(doc, pageForms, (id) => byId.get(id)?.h ?? 0);
     const exported = readExportedPage(doc, ctx, (h) => routeLink(h, routes, file));
     const tree = readLayout(input.nodes, { pageId: page.id, width: input.frameWidth });
     trees.push(tree);
@@ -582,11 +596,12 @@ export function pagesOut(input: PagesInput): PagesOut {
       return level;
     };
     const words = (id: string) => /“([^”]+)”/.exec(byId.get(id)?.label ?? "")?.[1]?.trim() ?? "";
-    const w: Walk = { exported, ctx, sections, out: new Map(), missing: [], instance, heading, words };
+    const w: Walk = { exported, ctx, sections, out: new Map(), missing: [], instance, heading, words, sends: submitOf(pageForms) };
     /* The page's ground and words colour go on the body, said once for the site (the home page's). */
     const pageLook = declarations(exported.page).filter(([p]) => ["background", "background-color", "color", "font-family", "font-size", "line-height"].includes(p));
     if (!bodyClasses.length) bodyClasses = classesOf(pageLook, ctx);
     const main = el("main", ["relative", "w-full", "overflow-x-clip"]);
+    for (const f of pageForms) main.kids.push(el("FormSender", [], [["id", formDomId(f)], ["name", f.id]]));
     fill(main, tree.root, w);
     letStick(main, w.out);
     report.missing.push(...w.missing);
@@ -598,7 +613,7 @@ export function pagesOut(input: PagesInput): PagesOut {
     }
     const route = routeOf(home, page);
     const jsx = printJsx(main, "    ");
-    const imports = [uiImport(jsx), ...[...w.out.keys()].map((n) => `import ${n} from "@/components/sections/${n}";`)].filter(Boolean).join("\n");
+    const imports = [uiImport(jsx), ...(pageForms.length ? [`import FormSender from "@/components/FormSender";`] : []), ...[...w.out.keys()].map((n) => `import ${n} from "@/components/sections/${n}";`)].filter(Boolean).join("\n");
     files.push({
       path: route ? `app/${route}/page.tsx` : "app/page.tsx",
       content: `${HEADER_TSX}\n${imports}${imports ? "\n\n" : ""}export default function Page() {\n  return (\n${jsx}\n  );\n}\n`,
