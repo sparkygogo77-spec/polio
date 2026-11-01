@@ -23,6 +23,8 @@
  *   newSystem(name?)        a new, empty System for the open site
  *   setHouse(id | null)     the house style: what a site with no System uses
  *   setVariantState, addVariant, makeComponent    a component's variants
+ *   tidyPlanOf(on)          what tidying the System would move: nothing changes
+ *   tidySystem(on)          fold its sizes onto a scale, one undo step (`tidy.ts`)
  *
  * The React side: `useSiteSystem()` (the open site's System, live) and
  * `useLibrary()` (every System held).
@@ -47,6 +49,7 @@ import { LOOK_SLOTS, holdOwn, instanceOf, overridesOf, rebind, resetInstance, sl
 import { materialise, rolesOf, sameValue } from "./resolve";
 import { linksHold, takeSystem, withSys, type TakeNode, type TakeReport } from "./take";
 import * as L from "./link";
+import { tidyPlan, type TidyOn, type TidyPlan } from "./tidy";
 import { houseOf, libraryList, markHouse, newer, useSystems } from "./store";
 
 /* ------------------------------------------------------------------ */
@@ -385,6 +388,25 @@ export function makeComponent(partId: string, name?: string): { ok: true; id: st
   return { ok: true, id: r.id };
 }
 
+/* Tidy: the sizes folded onto a scale, read first, then one undo step. */
+
+/** What tidying the open site's System would do, for the dialog: reads everything, changes nothing. */
+export function tidyPlanOf(on?: Partial<TidyOn>): TidyPlan | Refused {
+  const s = siteSystem();
+  if (!s) return { ok: false, says: "This site has no System yet. Take one from the site first." };
+  return tidyPlan(s, useStudio.getState().nodes as unknown as Parameters<typeof tidyPlan>[1], on);
+}
+
+/** Tidy the System: the plan applied, one undo step. The parts pointing at a folded token follow; a field set apart by hand, and every part holding its own values, stay. */
+export function tidySystem(on?: Partial<TidyOn>): { ok: true; plan: TidyPlan } | Refused {
+  const plan = tidyPlanOf(on);
+  if ("ok" in plan && plan.ok === false) return plan;
+  const p = plan as TidyPlan;
+  if (p.nothing) return { ok: false, says: "Every size already sits on the scale. Nothing to tidy." };
+  step(p.after, (now) => now.map((n) => { const link = p.links.get(n.id); return link ? withSys(n, link) : n; }));
+  return { ok: true, plan: p };
+}
+
 /* ------------------------------------------------------------------ */
 /* React                                                               */
 /* ------------------------------------------------------------------ */
@@ -438,6 +460,9 @@ const testHook = {
   setToken, renameToken, addToken, removeToken, linkPart, unlinkPart, detachPart, forkSite, pointSiteAt, usedBy,
   newSystem, setVariantState, addVariant, makeComponent, setHouse,
   setVariantSlot, resetPart, holdOwnPart, overridesOfPart,
+  /** The tidy's plan, as counts and part ids (the Map of links left out), and the tidy itself. */
+  tidyPlan: (on?: Partial<TidyOn>) => { const p = tidyPlanOf(on); return "ok" in p && p.ok === false ? p : { ...(p as TidyPlan), after: { rev: (p as TidyPlan).after.rev, tidied: (p as TidyPlan).after.tidied ?? null }, links: [...(p as TidyPlan).links.keys()] }; },
+  tidy: (on?: Partial<TidyOn>) => { const r = tidySystem(on); return r.ok ? { ok: true, fields: r.plan.fields, parts: r.plan.parts, stays: r.plan.stays } : r; },
   /** A part's instance: its component, variant, parts, and the fields each slot paints. */
   instance: (id: string) => {
     const s = siteSystem();

@@ -118,6 +118,33 @@ function namer() {
   };
 }
 
+/**
+ * Names for text sizes, in the order given: the largest above the body is the
+ * display size, the next three the headings, any others down to the body
+ * "Large"; the body is "Body"; below it "Small", "Small 2" and so on. The
+ * tidy names its folded steps the same way (`tidy.ts`).
+ */
+export function typeStepNames(pxs: readonly number[], body: number): string[] {
+  const name = namer();
+  const above = [...new Set(pxs.filter((px) => px > body))].sort((a, b) => b - a);
+  const below = [...new Set(pxs.filter((px) => px < body))].sort((a, b) => b - a);
+  const word = (px: number) => {
+    if (px === body) return "Body";
+    const i = above.indexOf(px);
+    if (i >= 0) return i === 0 ? "Display" : i <= 3 ? `Heading ${i}` : `Large ${i - 3}`;
+    const k = below.indexOf(px);
+    return k === 0 ? "Small" : `Small ${k + 1}`;
+  };
+  return pxs.map((px) => name(word(px)));
+}
+
+/** Names for corners, smallest first as given: Small, Medium, Large, Larger, Largest, then "Corner n"; a pill (999px or more) is "Round". */
+export function cornerNames(pxs: readonly number[]): string[] {
+  const CORNER = ["Small", "Medium", "Large", "Larger", "Largest"];
+  const name = namer();
+  return pxs.map((px, i) => name(px >= 999 ? "Round" : CORNER[i] ?? `Corner ${i + 1}`));
+}
+
 /** The nearest even scale to a list of sizes: their middle step, from the body size. */
 export function scaleOf(steps: readonly number[], base: number): { ratio: number; base: number } | null {
   const up = [...new Set(steps.filter((s) => s >= base))].sort((a, b) => a - b);
@@ -197,11 +224,9 @@ export function takeSystem(input: TakeInput): Taken {
   const sizes = worn("type").map(([, t]) => ({ px: Number(t.value), parts: t.parts.size })).sort((a, b) => b.px - a.px);
   const body = [...sizes].sort((a, b) => b.parts - a.parts)[0]?.px ?? 16;
   const above = sizes.filter((s) => s.px > body), below = sizes.filter((s) => s.px < body).sort((a, b) => b.px - a.px);
-  const typeName = namer();
-  /* The largest is the display size, the next three the headings, any others between them and the body "Large". */
-  for (const [i, s] of above.entries()) tokens.type.steps.push({ id: nextId("type"), name: typeName(i === 0 ? "Display" : i <= 3 ? `Heading ${i}` : `Large ${i - 3}`), px: s.px });
-  if (sizes.some((s) => s.px === body)) tokens.type.steps.push({ id: nextId("type"), name: typeName("Body"), px: body });
-  for (const [i, s] of below.entries()) tokens.type.steps.push({ id: nextId("type"), name: typeName(i === 0 ? "Small" : `Small ${i + 1}`), px: s.px });
+  const stepPx = [...above.map((s) => s.px), ...(sizes.some((s) => s.px === body) ? [body] : []), ...below.map((s) => s.px)];
+  const stepNames = typeStepNames(stepPx, body);
+  stepPx.forEach((px, i) => tokens.type.steps.push({ id: nextId("type"), name: stepNames[i]!, px }));
   tokens.type.scale = scaleOf(sizes.map((s) => s.px), body);
   const faceName = namer();
   for (const [, t] of worn("face").sort((a, b) => b[1].parts.size - a[1].parts.size)) {
@@ -212,10 +237,9 @@ export function takeSystem(input: TakeInput): Taken {
 
   /* 4. Space, corners, shadows: smallest first. */
   for (const [i, [, t]] of worn("space").sort((a, b) => Number(a[1].value) - Number(b[1].value)).entries()) tokens.space.push({ id: nextId("space"), name: `Space ${i + 1}`, px: Number(t.value) });
-  const CORNER = ["Small", "Medium", "Large", "Larger", "Largest"];
   const radii = worn("radius").map(([, t]) => Number(t.value)).sort((a, b) => a - b);
-  const cornerName = namer();
-  radii.forEach((px, i) => tokens.radius.push({ id: nextId("radius"), name: cornerName(px >= 999 ? "Round" : CORNER[i] ?? `Corner ${i + 1}`), px }));
+  const radiusNames = cornerNames(radii);
+  radii.forEach((px, i) => tokens.radius.push({ id: nextId("radius"), name: radiusNames[i]!, px }));
   const SHADOW = ["Low", "Medium", "High", "Higher", "Highest"];
   const shadows = worn("shadow").map(([, t]) => String(t.value)).sort((a, b) => blurOf(a) - blurOf(b));
   shadows.forEach((css, i) => tokens.shadow.push({ id: nextId("shadow"), name: SHADOW[i] ?? `Shadow ${i + 1}`, css }));
