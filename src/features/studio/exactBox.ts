@@ -12,16 +12,5 @@
  * the published page at the width it was measured. At the small widths the
  * page's own rules size it again (`smallCss.ts`, `height: auto !important`).
  * `tests/published-picture-box.mjs`.
- *
- * SO IS A CAPTURED BOX THE PAGE CUTS ITS CONTENTS TO. gotchi.gg's activity
- * card is a 440px window over a list of rows that scrolls inside it
- * (`overflow: hidden` or `auto`, recorded as `art.overflow`). Drawn as a
- * floor, the window grew to every row it held, 440 → 582, and the three
- * sections under it moved down 88 to 142px on the first settle: a board that
- * no longer stood where the page did, with nobody asking it to. The page's
- * window is a window: its height is a height, and what it holds is cut, as
- * the page cuts it. Only a box: a words part keeps its floor, so words are
- * never cut off. `tests/clipped-box-keeps-height.mjs`.
  */
-export const exactBox = (n: { featureId: string; from?: { selector?: string | null } | null; art?: { overflow?: string | null } | null }): boolean =>
-  n.featureId === "picture" || (n.featureId === "box" && !!n.from?.selector && /hidden|clip|auto|scroll/.test(n.art?.overflow ?? ""));
+export const exactBox = (n: { featureId: string }): boolean => n.featureId === "picture";

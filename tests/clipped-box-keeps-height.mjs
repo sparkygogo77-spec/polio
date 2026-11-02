@@ -4,14 +4,20 @@
  *
  * The import checkup (2026-11-01) brought every captured site in at 1440 and
  * read the board against the capture. gotchi.gg's activity card, a 440px box
- * the page cuts its rows to (`art.overflow: hidden`), was drawn as a floor and
- * grew to every row it held: 440 → 582 on the first settle, and the three
- * sections under it moved down 88 to 142px. Nothing asked the board to move.
+ * the page cuts its rows to (`art.overflow: auto`), arrived 582 tall: the
+ * import grows every captured wrapper until it holds what it owns
+ * (`owns.ts#grownTo`), and the 142px of rows the page never showed counted as
+ * fallen out. The three sections under it moved down 88 to 142px. Nothing
+ * asked the board to move.
  *
  * So, on every repo fixture brought in through the real door and left to
  * settle:
  *   1. every captured box the page cuts (`art.overflow` hidden, clip, auto or
- *      scroll) keeps the height the capture measured (2px either way);
+ *      scroll) whose captured contents run past its foot keeps the height
+ *      the capture measured (2px either way): the overhang was scrolled or
+ *      cut out of sight, not fallen out. (A clipped box whose words grow
+ *      inside it may still grow by those words: that is the marquee's case,
+ *      `tests/ribbon-one-line.mjs`, not this one.)
  *   2. the number of parts whose box differs from the capture does not grow
  *      past what the base build left (the checkup's count per site), so a
  *      fix that keeps one box from growing moves nothing else.
@@ -19,7 +25,7 @@
  *   npm run build && npx next start -p 3013
  *   node tests/clipped-box-keeps-height.mjs http://127.0.0.1:3013 [fixture,fixture,…]
  *
- * Covers: src/features/studio/exactBox.ts, src/features/studio/textFit.ts
+ * Covers: src/features/studio/owns.ts, src/features/studio/board/store/nodes.ts
  */
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -51,9 +57,13 @@ for (const site of SITES) {
   await page.waitForTimeout(Number(process.env.SETTLE ?? 15000));
   const nodes = await store();
   const byId = new Map(nodes.map((n) => [n.id, n]));
-  const cut = doc.nodes.filter((n) => !n.state && n.featureId === "box" && n.from?.selector && /hidden|clip|auto|scroll/.test(n.art?.overflow ?? ""));
+  /* A window: a captured clipping box whose in-flow contents (by the recorded path, as `owns.ts` reads it) run past its foot. */
+  const under = (p, k) => k.startsWith(p) && k.slice(p.length).startsWith(" > ");
+  const cut = doc.nodes.filter((n) => !n.state && n.featureId === "box" && n.from?.selector && /hidden|clip|auto|scroll/.test(n.art?.overflow ?? ""))
+    .map((n) => ({ ...n, over: Math.max(0, ...doc.nodes.filter((k) => k.pageId === n.pageId && !k.state && k.from?.selector && under(n.from.selector, k.from.selector) && k.from.position !== "absolute" && k.from.position !== "fixed").map((k) => k.y + k.h - (n.y + n.h))) }))
+    .filter((n) => n.over > 2);
   const grown = cut.filter((d) => { const n = byId.get(d.id); return n && Math.abs(n.h - d.h) > 2; });
-  check(`${site}: every captured window keeps its height (${cut.length} boxes)`, grown.length === 0, grown.slice(0, 5).map((d) => `${d.id} ${d.h}→${byId.get(d.id).h}`).join(", "));
+  check(`${site}: every captured window keeps its height (${cut.length} windows)`, grown.length === 0, grown.slice(0, 5).map((d) => `${d.id} ${d.h}→${byId.get(d.id).h} (contents run ${d.over} past its foot)`).join(", "));
   const moved = doc.nodes.filter((d) => { const n = byId.get(d.id); return n && !d.state && off(d, n) > 3; });
   check(`${site}: parts off the capture ${moved.length}, not more than base's ${MOVED_ON_BASE[site] ?? "?"}`, moved.length <= (MOVED_ON_BASE[site] ?? Infinity), moved.slice(0, 6).map((d) => `${d.id} ${geo(d)}→${geo(byId.get(d.id))}`).join("; "));
   check(`${site}: no page errors`, errors.length === 0, errors[0]);

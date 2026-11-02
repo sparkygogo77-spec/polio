@@ -55,6 +55,14 @@ const trump = [n("ribbon", R, -73, 823, 1586, 141), n("track", `${R} > div`, -12
 check("a ribbon round a marquee track stays where it was: not lifted, not widened",
   grown(trump, trump[0]) === null, JSON.stringify(grown(trump, trump[0])));
 
+/* gotchi.gg's activity card: a 440px window (overflow auto) over a 582px list the capture recorded whole. */
+const G = "body > main > div > section:nth-of-type(7) > div > div:nth-of-type(1) > div:nth-of-type(2)";
+const gotchi = [{ ...n("window", G, 165, 3163, 342, 440), art: { overflow: "auto" } }, n("list", `${G} > ul`, 165, 3163, 342, 582), n("row9", `${G} > ul > li:nth-of-type(9)`, 165, 3530, 342, 43)];
+check("a box the page cuts its contents to keeps its height: the rows below its foot were scrolled out of sight, not adrift",
+  !grownTo(gotchi).some((x) => x.id === "window"), JSON.stringify(grownTo(gotchi).map((x) => [x.id, x.was.h, x.h])));
+check("…but the same window with no clip is grown round its list, as before",
+  grownTo(gotchi.map((f) => f.id === "window" ? { ...f, art: undefined } : f)).some((x) => x.id === "window" && x.h === 582));
+
 /* Controls: what the grow step is for still happens. */
 const H = "body > div > header";
 const header = [n("banner", H, 0, 0, 1763, 82), n("logo", `${H} > a > img`, 700, -11, 112, 112)];
