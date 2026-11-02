@@ -43,14 +43,26 @@
  *   · CORNERS fold their near-duplicates together: radii within an eighth
  *     (or a pixel: a 3px corner and a 4px one are the same corner) of the
  *     one most parts wear become that one, so 3, 4 and 5 become 4 while 3
- *     and 7 stay apart. The pixel is why corners alone may fold their
- *     smallest or largest away: 3 into 4 is not a smaller corner lost.
- *     A pill (a radius of 999px or more, which rounds the whole end of a
- *     part whatever its size) is never folded: it is a shape, not a size.
+ *     and 7 stay apart. The most-worn corner gathers first, then the
+ *     most-worn of what is left, and so on; a corner near two leads goes to
+ *     the heavier. So no two surviving corners are within the tolerance of
+ *     each other, and a second tidy finds nothing to gather (a nearest-pair
+ *     chain is not so: 24 pairs with 22 because 24 cannot reach 20, and the
+ *     next tidy folds 22 into 20, moving the old 24 further than an eighth
+ *     in two steps; gotchi did this in the Builder, 2026-11-01). The pixel
+ *     is why corners alone may fold their smallest or largest away: 3 into
+ *     4 is not a smaller corner lost. A pill (a radius of 999px or more,
+ *     which rounds the whole end of a part whatever its size) is never
+ *     folded: it is a shape, not a size.
  *
  *   · THE SMALLEST AND LARGEST text size and space step are kept exactly.
  *     The scale's range is the site's range: nothing gets bigger than the
  *     biggest thing on the site or smaller than the smallest.
+ *
+ *   · TWICE IS ONCE. Every fold is a fixed point: the text scale is recorded
+ *     and tried first, the grid is the grid, and the corners' leads are not
+ *     near each other. So a second Tidy moves nothing (or only a size added
+ *     since). `tests/system-tidy.mjs` checks it on every capture.
  *
  *   · WHICH TOKEN SURVIVES a fold is the one most fields point at; it keeps
  *     its id (so other sites sharing the System keep their pointers) and
@@ -150,7 +162,19 @@ export function foldSpace(sizes: readonly Sized[]): Fold {
   return { to, ratio: null, base: null };
 }
 
-/** Corners: near-duplicates (within an eighth or a pixel) become the one most parts wear; pills stay; the smallest and largest stay. */
+/** Within an eighth, or a pixel: the same corner to a reader. Symmetric, which is what makes the fold below a fixed point. */
+const nearCorner = (a: number, b: number) => Math.abs(b - a) <= 1 + 1e-9 || away(a, b) <= EIGHTH + 1e-9;
+
+/**
+ * Corners: near-duplicates (within an eighth or a pixel) become the one most
+ * parts wear; pills stay. The most-worn corner leads first and gathers every
+ * loose corner near it; then the most-worn of what is left, and so on. Every
+ * corner lands within the tolerance of its lead, and no two leads are near
+ * each other (a corner near a heavier lead went to it), so folding the folded
+ * corners again changes nothing, whatever their weights have become. A
+ * nearest-pair-first clustering is not so (see the header): it pairs 22 with
+ * 24 when 24 cannot reach 20, and the next tidy then folds 22 into 20.
+ */
 export function foldRadius(sizes: readonly Sized[]): Fold {
   const to = new Map<number, number>();
   if (!sizes.length) return { to, ratio: null, base: null };
@@ -158,32 +182,15 @@ export function foldRadius(sizes: readonly Sized[]): Fold {
   for (const s of sizes) weight.set(s.px, (weight.get(s.px) ?? 0) + s.weight);
   const pills = [...weight.keys()].filter((px) => px >= PILL);
   for (const px of pills) to.set(px, px);
-  const rest = [...weight.keys()].filter((px) => px < PILL).sort((a, b) => a - b);
-  if (!rest.length) return { to, ratio: null, base: null };
-  /* Clusters of neighbours, the nearest two merged first, while every member of the merged cluster is within the tolerance of its lead (so 3, 4, 5 fold to 4, but a chain never creeps past an eighth). */
-  const near = (a: number, b: number) => Math.abs(b - a) <= 1 + 1e-9 || away(a, b) <= EIGHTH + 1e-9;
-  let clusters = rest.map((px) => [px]);
-  for (;;) {
-    let at = -1, best = Infinity;
-    for (let i = 0; i + 1 < clusters.length; i++) {
-      const merged = [...clusters[i]!, ...clusters[i + 1]!];
-      const l = lead(merged, weight);
-      if (!merged.every((px) => near(l, px))) continue;
-      const d = away(lead(clusters[i]!, weight), lead(clusters[i + 1]!, weight));
-      if (d < best) { best = d; at = i; }
-    }
-    if (at < 0) break;
-    clusters = [...clusters.slice(0, at), [...clusters[at]!, ...clusters[at + 1]!], ...clusters.slice(at + 2)];
-  }
-  for (const c of clusters) {
-    const value = lead(c, weight);
-    for (const px of c) to.set(px, value);
+  /* Most worn first; of two as worn, the smaller (the one the words' boxes wear rather than a card's). */
+  const loose = [...weight.keys()].filter((px) => px < PILL).sort((a, b) => (weight.get(b) ?? 0) - (weight.get(a) ?? 0) || a - b);
+  const leads: number[] = [];
+  for (const px of loose) {
+    const lead = leads.find((l) => nearCorner(l, px));
+    to.set(px, lead ?? px);
+    if (lead === undefined) leads.push(px);
   }
   return { to, ratio: null, base: null };
-}
-/** The member of a cluster most fields wear (of two, the smaller). */
-function lead(c: readonly number[], weight: Map<number, number>): number {
-  return [...c].sort((a, b) => (weight.get(b) ?? 0) - (weight.get(a) ?? 0) || a - b)[0]!;
 }
 
 /* ------------------------------------------------------------------ */

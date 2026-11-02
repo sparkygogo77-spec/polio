@@ -31,7 +31,10 @@
  *   node tests/system-tidy.mjs http://127.0.0.1:3311 <the capture folder>
  *
  * PURE=1 runs part 1 only (no server). Run on sol face, mochi and sunkcoin
- * (capture/sites/thesolface3, mochi3, sunk2) and the repo fixtures.
+ * (capture/sites/thesolface3, mochi3, sunk2) and the six repo fixtures; the
+ * fixtures have several pages, and the board draws only the open one, so the
+ * board checks read the parts it draws and the document checks read them all.
+ * DIAG=1 prints page errors' stacks and what the followers changed.
  */
 import { readFileSync, readdirSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -52,7 +55,8 @@ if (!SINK || !existsSync(join(SINK, "site/document.json"))) {
 const TAG = SINK.replace(/[\\/]+$/, "").split(/[\\/]/).pop();
 
 const T0 = Date.now();
-const say = (w) => console.log(`       … ${w} (${((Date.now() - T0) / 1000).toFixed(0)}s)`);
+let phase = "starting";
+const say = (w) => { phase = w; console.log(`       … ${w} (${((Date.now() - T0) / 1000).toFixed(0)}s)`); };
 const results = [];
 const check = (name, ok, detail = "") => {
   results.push(ok === true);
@@ -160,6 +164,19 @@ const doc = JSON.parse(DOC.toString("utf8"));
   check("fold: the space grid grows with the size", J(spaceGrid(70)) === J([1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 24, 28, 32, 40, 48, 56, 64, 80]), J(spaceGrid(70)));
   const fr = foldRadius([{ px: 3, weight: 12 }, { px: 4, weight: 21 }, { px: 5, weight: 3 }, { px: 7, weight: 4 }, { px: 999, weight: 9 }]);
   check("fold: corners 3, 4, 5 fold to 4 (the one most worn); 7 stays apart; the pill stays", fr.to.get(3) === 4 && fr.to.get(4) === 4 && fr.to.get(5) === 4 && fr.to.get(7) === 7 && fr.to.get(999) === 999, J([...fr.to]));
+  /* Twice is once for every fold: folding the folded values (with their gathered weights) changes nothing. 20, 22, 24 is the case a nearest-pair chain gets wrong (22 and 24 pair off, then 22 folds into 20 next time). */
+  const twice = (fold, sizes) => {
+    const once = fold(sizes);
+    const gathered = new Map();
+    for (const z of sizes) { const px = once.to.get(z.px); gathered.set(px, (gathered.get(px) ?? 0) + z.weight); }
+    const again = fold([...gathered].map(([px, weight]) => ({ px, weight })), once.ratio ? { ratio: once.ratio, base: once.base } : undefined);
+    return { once, same: [...again.to].every(([a, b]) => a === b) };
+  };
+  const fr2 = twice(foldRadius, [{ px: 20, weight: 10 }, { px: 22, weight: 5 }, { px: 24, weight: 1 }]);
+  check("fold: 22 folds into 20 and 24 stays (it cannot reach 20); folding the result again changes nothing", fr2.once.to.get(22) === 20 && fr2.once.to.get(24) === 24 && fr2.same, J([...fr2.once.to]));
+  const corners = [{ px: 2, weight: 3 }, { px: 3, weight: 12 }, { px: 4, weight: 21 }, { px: 5, weight: 3 }, { px: 6, weight: 2 }, { px: 7, weight: 4 }, { px: 8, weight: 1 }, { px: 9, weight: 2 }, { px: 10, weight: 2 }, { px: 12, weight: 9 }, { px: 13, weight: 1 }, { px: 16, weight: 8 }, { px: 18, weight: 1 }, { px: 20, weight: 6 }, { px: 22, weight: 2 }, { px: 24, weight: 11 }, { px: 28, weight: 1 }, { px: 30, weight: 1 }, { px: 32, weight: 3 }, { px: 999, weight: 5 }];
+  check("fold: a long run of corners folds once and then holds still, every corner within an eighth or a pixel of where it lands", twice(foldRadius, corners).same && [...twice(foldRadius, corners).once.to].every(([a, b]) => Math.abs(a - b) <= 1 || away(a, b) <= EIGHTH + 1e-9), J([...twice(foldRadius, corners).once.to]));
+  check("fold: the space grid and the text scale hold still too", twice(foldSpace, [{ px: 9, weight: 7 }, { px: 11, weight: 4 }, { px: 13, weight: 2 }, { px: 23, weight: 1 }, { px: 25, weight: 7 }, { px: 1, weight: 72 }, { px: 70, weight: 2 }]).same && twice(foldType, [{ px: 11, weight: 70 }, { px: 12, weight: 20 }, { px: 13, weight: 20 }, { px: 16, weight: 24 }, { px: 22, weight: 28 }, { px: 44, weight: 8 }]).same);
 }
 
 if (process.env.PURE) await finish(null);
@@ -181,8 +198,9 @@ const tree = [
 const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
 const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });
 const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+/* Page errors, with when they came (which phase of the run) so a failure says where to look; DIAG prints the stack. */
 const errors = [];
-page.on("pageerror", (e) => errors.push(e.message));
+page.on("pageerror", (e) => { errors.push(`[${((Date.now() - T0) / 1000).toFixed(0)}s, ${phase}] ${e.message}`); if (process.env.DIAG) console.log(`       page error: ${e.stack ?? e.message}`); });
 await page.route("https://api.github.com/**", (r) => {
   const u = new URL(r.request().url());
   const j = (b, code = 200) => r.fulfill({ status: code, contentType: "application/json", body: JSON.stringify(b) });
@@ -366,8 +384,17 @@ const s2 = await settled();
 const board2 = s2.board;
 const listed = new Set(plan.parts);
 const d2 = differ(board0, board2);
-const missing = plan.parts.filter((id) => !d2.includes(id));
-check("the parts the plan listed show their change on the board (but for a gap with nothing to space or a padding nothing draws)", missing.length <= Math.ceil(plan.parts.length / 20), `${d2.length} parts differ on the board, ${plan.parts.length} listed; ${missing.length} listed but not visibly changed (${missing.slice(0, 4).join(", ")})`);
+/*
+ * THE BOARD DRAWS THE OPEN PAGE. A site with several pages (gotchi: 13, share:
+ * 3, parasiteonsol: 12) has most of its parts on pages the board is not
+ * showing, and those are not in the DOM at all, so they cannot show a change
+ * there; the document check below covers every listed part. Here: the listed
+ * parts the board draws (read before the press) show their change.
+ */
+const drawn = plan.parts.filter((id) => id in board0);
+const elsewhere = plan.parts.length - drawn.length;
+const missing = drawn.filter((id) => !d2.includes(id));
+check("the listed parts the board draws show their change (but for a gap with nothing to space or a padding nothing draws)", drawn.length > 0 && missing.length <= Math.ceil(drawn.length / 20), `${d2.length} parts differ on the board, ${plan.parts.length} listed, ${drawn.length} of them drawn (${elsewhere} on other pages); ${missing.length} drawn but not visibly changed (${missing.slice(0, 4).join(", ")})`);
 /*
  * THE DOCUMENT SAYS EXACTLY WHAT CHANGED. The listed parts change the fields
  * their tokens hold (font, pad, gap, radius). The Builder then does what it
@@ -396,7 +423,7 @@ check("…in one undo step", (await page.evaluate(() => window.__studioUndoDepth
 const undoName = await page.evaluate(() => window.__studioHistory.undo());
 check("the undo step is named for the tidy", /^tidy the System: /.test(undoName ?? ""), J(undoName));
 const again = await sys((S) => S.tidyPlan());
-check("a second tidy would move nothing", again.nothing === true && again.fields === 0, `${again.fields} values`);
+check("a second tidy would move nothing", again.nothing === true && again.fields === 0, `${again.fields} values: ${J(again.kinds?.flatMap((k) => k.steps.flatMap((st) => st.gathers.filter((g) => g.fields).map((g) => `${k.word} ${g.from}→${g.to} ×${g.fields}`))))}`);
 const px2 = await shot();
 console.log(`       after Tidy it: ${outside(px0[0], px2, mask)} px differ from the untouched board (the moved parts)`);
 

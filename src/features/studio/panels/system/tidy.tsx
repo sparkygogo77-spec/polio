@@ -89,12 +89,14 @@ export function TidyDialog({ open, onOpenChange, system }: { open: boolean; onOp
   const nodes = useStudio((s) => s.nodes);
   const [on, setOn] = React.useState<TidyOn>({ type: true, space: true, radius: true });
   const [plan, setPlan] = React.useState<TidyPlan | Refused | null>(null);
-  /* Read on open and whenever a switch turns (a frame later, so the dialog shows first: a large site's plan takes a moment). */
+  /* Read on open and again when the System or the parts change while it is open (a frame later, so the dialog shows first: a large site's plan takes a moment). Closed, it does nothing: the parts change on every edit, and a closed dialog has nothing to read. */
   React.useEffect(() => {
-    if (!open) { setPlan(null); light(null, null); return; }
+    if (!open) return;
     const t = window.setTimeout(() => setPlan(tidyPlanOf()), 30);
     return () => window.clearTimeout(t);
   }, [open, system, nodes]);
+  /* On close: the plan goes, and the light with it. */
+  React.useEffect(() => { if (!open) { setPlan(null); light(null, null); } }, [open]);
   /* The light goes out with the dialog. */
   React.useEffect(() => () => light(null, null), []);
   const shown = plan && !("ok" in plan && plan.ok === false) ? (plan as TidyPlan) : null;
