@@ -16,6 +16,8 @@ export type ChatState = "need" | "work" | "done" | "park";
 export interface LaneChat {
   id: string;
   name: string;
+  /** Its folder without `work-`, what a heartbeat calls it; `name` is free to be the words J reads. */
+  lane: string;
   state: ChatState;
   note: string;
   last: string;
@@ -47,7 +49,7 @@ export function readFeed(raw: unknown): LanesFeed | null {
     const chats: LaneChat[] = [];
     for (const x of c.chats as Record<string, unknown>[]) {
       if (!x || typeof x.id !== "string" || !STATES.has(x.state as string)) continue;
-      chats.push({ id: x.id, name: words(x.name) || x.id, state: x.state as ChatState, note: words(x.note), last: words(x.last), sentAt: typeof x.sentAt === "number" ? x.sentAt : null, helper: x.helper === true });
+      chats.push({ id: x.id, name: words(x.name) || x.id, lane: words(x.lane), state: x.state as ChatState, note: words(x.note), last: words(x.last), sentAt: typeof x.sentAt === "number" ? x.sentAt : null, helper: x.helper === true });
     }
     coordinators.push({ id: c.id, name: words(c.name) || c.id, note: words(c.note), chats });
   }
@@ -61,7 +63,7 @@ const plain = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
  * A chat that called a tool in the last two minutes is working, whatever the
  * feed last said, except one that needs J: it still does, and red is the
  * colour that must not hide. A beat knows its chat by the session or the lane
- * name; a chat with no beat keeps the feed's word (a cloud chat never has one).
+ * (the name, for a chat the feed gives no lane); a chat with no beat keeps the feed's word (a cloud chat never has one).
  */
 export function withBeats(feed: LanesFeed, beats: LaneBeat[], now: number): LanesFeed {
   const fresh = beats.filter((b) => now - b.at < BEAT_MS);
@@ -72,7 +74,7 @@ export function withBeats(feed: LanesFeed, beats: LaneBeat[], now: number): Lane
     ...feed,
     coordinators: feed.coordinators.map((c) => ({
       ...c,
-      chats: c.chats.map((x) => (x.state !== "need" && (sessions.has(x.id) || names.has(plain(x.name))) ? { ...x, state: "work" as const } : x)),
+      chats: c.chats.map((x) => (x.state !== "need" && (sessions.has(x.id) || names.has(plain(x.lane || x.name))) ? { ...x, state: "work" as const } : x)),
     })),
   };
 }

@@ -51,6 +51,10 @@ if (L) {
   const form = B.chats[3], hard = A.chats[0], em = C.chats[0];
   check("a beat under 2 minutes old turns a parked chat blue, by session", state(L.withBeats(feed, [{ session: form.id, name: "", at: now - 60_000 }], now), form.id) === "work");
   check("…and by lane name, however it is written", state(L.withBeats(feed, [{ session: "x", name: "form-backend", at: now - 1000 }], now), form.id) === "work");
+  const named = L.readFeed({ coordinators: [{ id: "c", chats: [{ id: "x1", name: "Forms on exported sites", lane: "form-backend", state: "park" }, { id: "x2", name: "Form backend", lane: "other-lane", state: "park" }] }] });
+  const beatNamed = L.withBeats(named, [{ session: "x", name: "form-backend", at: now }], now);
+  check("a chat's lane is what a beat matches, so its name can be the words J reads", state(beatNamed, "x1") === "work");
+  check("…and its name isn't matched when it has a lane", state(beatNamed, "x2") === "park");
   check("an old beat doesn't", state(L.withBeats(feed, [{ session: form.id, name: "", at: now - 121_000 }], now), form.id) === "park");
   check("a chat that needs J stays red while it works", state(L.withBeats(feed, [{ session: em.id, name: "", at: now }], now), em.id) === "need");
   check("a done chat at work again is blue", state(L.withBeats(feed, [{ session: hard.id, name: "", at: now }], now), hard.id) === "work");
