@@ -29,7 +29,7 @@
  *   npx next start -p 3321
  *   node tests/reference-sites.mjs http://127.0.0.1:3321 capture/sites/<name> …
  *
- * Covers: src/features/studio/reference/model.ts, src/features/studio/reference/open.ts, src/features/studio/reference/pageRead.ts, src/features/studio/reference/colours.ts, src/app/api/studio/reference/route.ts, src/features/studio/idea/ask.ts, src/features/studio/better/prompt.ts
+ * Covers: src/features/studio/reference/model.ts, src/features/studio/reference/open.ts, src/features/studio/reference/pageRead.ts, src/features/studio/reference/colours.ts, src/app/api/studio/element/route.ts, src/features/studio/idea/ask.ts, src/features/studio/better/prompt.ts
  */
 import { createServer } from "node:http";
 import { existsSync, readFileSync } from "node:fs";
@@ -222,8 +222,9 @@ const json = (r, o) => r.fulfill({ status: 200, contentType: "application/json",
 await page.route("**/api/keys/status", (r) => json(r, { set: {}, repo: null, branch: "main" }));
 const fetched = [];
 const failing = new Set(["https://closed.example"]);
-await page.route("**/api/studio/reference", (r) => {
-  const url = JSON.parse(r.request().postData() || "{}").url;
+await page.route("**/api/studio/element", (r) => {
+  const { url, reference } = JSON.parse(r.request().postData() || "{}");
+  if (reference !== true) return json(r, { ok: false, reason: "failed", message: "not a reference read" });
   fetched.push(url);
   if (failing.has(url)) return json(r, { ok: false, reason: "status", message: "the page answered 403." });
   return json(r, { ok: true, record: { ...rec, url: `https://${url.replace(/^https:\/\//, "")}/`, host: url.replace(/^https:\/\//, "") } });
@@ -292,10 +293,10 @@ check("…and the photograph as a JPEG, last, for its layout", last?.data === re
 await wait(1500);
 
 /* The real route. */
-await page.unroute("**/api/studio/reference");
-const refused = await page.evaluate(async () => (await (await fetch("/api/studio/reference", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: "https://127.0.0.1/" }) })).json()));
+await page.unroute("**/api/studio/element");
+const refused = await page.evaluate(async () => (await (await fetch("/api/studio/element", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ reference: true, url: "https://127.0.0.1/" }) })).json()));
 check("the real route refuses a private address, softly", refused.ok === false && refused.reason === "private", J(refused));
-const http = await page.evaluate(async () => (await (await fetch("/api/studio/reference", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: "http://example.com/" }) })).json()));
+const http = await page.evaluate(async () => (await (await fetch("/api/studio/element", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ reference: true, url: "http://example.com/" }) })).json()));
 check("…and anything not https", http.ok === false && http.reason === "not-https", J(http));
 
 check("the page raised no errors", errors.length === 0, errors.slice(0, 3).join(" | "));

@@ -1,7 +1,7 @@
 "use client";
 /**
  * A REFERENCE, ASKED FOR: what the site keeps if it is recent, else one read
- * by the server (`api/studio/reference`) and kept with the site. The dialog's
+ * by the server (`api/studio/element`, `reference: true`) and kept with the site. The dialog's
  * note and the ask both come here, so a page being read is read once.
  */
 import { addressKey, looksLikeAddress, type ReferenceRecord } from "./model";
@@ -39,7 +39,7 @@ export function referenceFor(project: string | null, text: string): Promise<Refe
     const kept = await storedReference(project, text);
     if (kept && Date.now() - kept.at < FRESH_MS) return { ok: true, record: kept };
     try {
-      const res = await fetch("/api/studio/reference", { method: "POST", signal: AbortSignal.timeout(WAIT_MS), headers: { "content-type": "application/json" }, body: JSON.stringify({ url: text.trim() }) });
+      const res = await fetch("/api/studio/element", { method: "POST", signal: AbortSignal.timeout(WAIT_MS), headers: { "content-type": "application/json" }, body: JSON.stringify({ reference: true, url: text.trim() }) });
       const data = (await res.json()) as { ok?: boolean; record?: ReferenceRecord; message?: string };
       if (!data.ok || !data.record) return { ok: false, message: data.message ?? "the server gave no reason." };
       if (project) await keepRecord(project, data.record);
