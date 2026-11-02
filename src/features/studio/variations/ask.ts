@@ -8,7 +8,7 @@
  *     there rather than guess;
  *   · its System's tokens by kind;
  *   · the aims, the locks (layers Claude must leave alone) and the site
- *     named to be like;
+ *     named to be like, as read off its page when it could be;
  *   · the parts whose words may get a suggestion: the first screen's, and
  *     every short line that reads like a button.
  *
@@ -18,6 +18,7 @@ import { readLayout, type Flow, type LayoutTree } from "../layout/read.ts";
 import type { BetterAsk } from "../better/prompt.ts";
 import type { Prepared } from "./make.ts";
 import type { Aim, Layer } from "./model.ts";
+import type { ReferenceSummary } from "../reference/model.ts";
 import { tokenValues } from "./tokens.ts";
 
 /** The words a part says, as plain text: what Claude reads and may suggest changing. */
@@ -48,7 +49,7 @@ export function layoutLines(tree: LayoutTree): string[] {
   return out;
 }
 
-export interface AskOptions { aims: readonly Aim[]; like?: string | null; count: number; locks?: readonly Layer[] }
+export interface AskOptions { aims: readonly Aim[]; like?: string | null; reference?: ReferenceSummary | null; count: number; locks?: readonly Layer[] }
 
 /** The site in short, for the ask. */
 export function askFor(p: Prepared, o: AskOptions, name: string): BetterAsk {
@@ -64,5 +65,5 @@ export function askFor(p: Prepared, o: AskOptions, name: string): BetterAsk {
   ].join("\n");
   const s0 = tree.sections[0]?.box;
   const words = mine.filter((n) => typeof n.content === "string" && n.content.trim() && n.content.length <= 160 && ((s0 && inside(s0, n)) || n.content.length <= 24)).slice(0, 30).map((n) => ({ part: n.id, now: n.content as string }));
-  return { aims: [...o.aims], like: o.like ?? null, count: o.count, locks: [...(o.locks ?? [])], site: { name, sections, system, layout: layoutLines(tree).join("\n") }, words };
+  return { aims: [...o.aims], like: o.like ?? null, reference: o.reference ?? null, count: o.count, locks: [...(o.locks ?? [])], site: { name, sections, system, layout: layoutLines(tree).join("\n") }, words };
 }

@@ -3,13 +3,14 @@ import { NextResponse } from "next/server";
 import { keyFor } from "@/app/api/keyFor";
 import { answerCeiling } from "../budget";
 import { ANSWER_SCHEMA, SYSTEM, askText, parseJson, readAnswer, type BetterAsk } from "@/features/studio/better/prompt";
+import { readSummary } from "@/features/studio/reference/model";
 import { AIMS, LAYERS, type Aim, type Layer, type SiteShape } from "@/features/studio/variations/model";
 
 /**
  * Variations from Claude (`features/studio/variations/`): one call with the
  * original site's pages as pictures, its sections, its layout tree and its
  * System in short, the aims ticked, the layers locked and the site named to
- * be like. Claude answers with four named directions at once
+ * be like, measured off its page when it could be read (`reference/`). Claude answers with four named directions at once
  * (`better/prompt.ts`), each read strictly: a choice off the rules lands on
  * them or is dropped, a locked layer is kept, two directions too close are
  * pushed apart.
@@ -32,7 +33,7 @@ const UPSTREAM_TIMEOUT_MS = Math.max(5_000, ANSWER_BUDGET_MS - 3_000);
 
 interface Body {
   effort?: string;
-  pictures?: { data?: string; label?: string }[];
+  pictures?: { data?: string; label?: string; media?: string }[];
   ask?: Partial<BetterAsk>;
   /** The page's shape, so directions too close can be pushed apart on this site. */
   shape?: Partial<SiteShape>;
@@ -56,6 +57,7 @@ export async function POST(request: Request) {
   const ask: BetterAsk = {
     aims: (Array.isArray(a.aims) ? a.aims : []).filter((x): x is Aim => AIMS.includes(x as Aim)),
     like: typeof a.like === "string" ? a.like.slice(0, 200) : null,
+    reference: readSummary(a.reference),
     count: Math.max(1, Math.min(6, Math.round(Number(a.count) || 4))),
     locks: (Array.isArray(a.locks) ? a.locks : []).filter((x): x is Layer => LAYERS.includes(x as Layer)),
     site: {
@@ -71,7 +73,7 @@ export async function POST(request: Request) {
   for (const p of (body.pictures ?? []).slice(0, MAX_PICTURES)) {
     if (typeof p?.data !== "string" || !p.data || p.data.length > MAX_PICTURE_BYTES) continue;
     content.push({ type: "text", text: String(p.label ?? "A page of the site:").slice(0, 200) });
-    content.push({ type: "image", source: { type: "base64", media_type: "image/png", data: p.data } });
+    content.push({ type: "image", source: { type: "base64", media_type: p.media === "image/jpeg" ? "image/jpeg" : "image/png", data: p.data } });
   }
   content.push({ type: "text", text: askText(ask) });
 
