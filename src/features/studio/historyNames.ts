@@ -16,7 +16,7 @@
  *
  * Pure: no store, no React, so a test and the store can both read it.
  */
-import { partName, type Named } from "./partNames";
+import { partName, type Named } from "./partNames.ts";
 
 /** The fields of a document a step can change: what `snapshot` keeps in `past`. */
 export interface StepDoc {
@@ -30,6 +30,8 @@ export interface StepDoc {
   look: Record<string, unknown>;
   motion: readonly { id?: string; name?: string }[];
   taken?: unknown;
+  /** The site's copy of its System (`system/model.ts`), when it has one. */
+  system?: unknown;
 }
 
 export interface NameHelp {
@@ -114,6 +116,10 @@ export function stepName(before: StepDoc, after: StepDoc, help: NameHelp = {}): 
   /* A part by its own name, bare, as the owner reads it: "move COPY CA". */
   const name = (n: Named) => partName(n, all, help.featureName).trim() || "a part";
 
+  /* The System tidied (`system/tidy.ts`): named for itself, before the parts, which all moved by it. "tidy the System: 35 text sizes to 12, 39 space steps to 22". */
+  const tidied = tidyName(before.system, after.system);
+  if (tidied) return tidied;
+
   /* A site brought in is the biggest thing a step can be, and says so rather than counting its parts. */
   if (before.taken !== after.taken && after.taken) return "bring in a site";
 
@@ -194,6 +200,17 @@ export function stepName(before: StepDoc, after: StepDoc, help: NameHelp = {}): 
   }
   if (before.taken !== after.taken) return "forget the site brought in";
   return "an edit";
+}
+
+type SystemLike = { id?: string; tidied?: number; tokens?: { type?: { steps?: unknown[] }; space?: unknown[]; radius?: unknown[] } } | null | undefined;
+/** "tidy the System: 35 text sizes to 12" when `after` is `before` tidied; null otherwise. */
+function tidyName(b: unknown, a: unknown): string | null {
+  const sb = b as SystemLike, sa = a as SystemLike;
+  if (!sb || !sa || sb === sa || !sa.tidied || sa.tidied === sb.tidied || sb.id !== sa.id) return null;
+  const counts = (s: NonNullable<SystemLike>): [string, number][] => [["text size", s.tokens?.type?.steps?.length ?? 0], ["space step", s.tokens?.space?.length ?? 0], ["corner", s.tokens?.radius?.length ?? 0]];
+  const was = counts(sb), now = counts(sa);
+  const folded = was.map(([w, n], i) => [w, n, now[i]![1]] as const).filter(([, n, m]) => n > m);
+  return folded.length ? `tidy the System: ${folded.map(([w, n, m]) => `${plural(n, w)} to ${m}`).join(", ")}` : "tidy the System: sizes onto the scale";
 }
 
 /*
