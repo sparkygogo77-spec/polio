@@ -55,6 +55,7 @@ import { BACKGROUND_ID, heldBackground, livePath, useStudio } from "../board/sto
 import { createSpaceAt } from "../createSpace";
 import { PREVIEW } from "../colourMenu";
 import { BackgroundEditor } from "../BackgroundEditors";
+import { WheelPopup } from "./WheelPopup";
 import { openImport } from "../ImportFlow";
 import {
 BLUE_RINGS, GREEN_RINGS, middleOf, piece, Q_BOTTOM, Q_DELETE, Q_EMPTY, Q_TOP, QUADS, ROUND, type Pt
@@ -96,6 +97,7 @@ export function RadialMenu() {
   const ctx = useActions();
   const [picked, setPicked] = React.useState<SlotId | null>(null);
   const [subPick, setSubPick] = React.useState<string | null>(null);
+  const closePopup = React.useCallback(() => setSubPick(null), []);
   // The pencil's old five, shown under "more" instead of the one box's pair.
   const [writeMore, setWriteMore] = React.useState(false);
   // The page's wheel turned into the add disc: pressed from its middle.
@@ -724,6 +726,16 @@ export function RadialMenu() {
     lit: editing && editing in ANIM_SLAB ? ANIM_SLAB[editing as keyof typeof ANIM_SLAB] : undefined,
   };
 
+  /*
+   * Edge is a pop-up beside the hand (`WheelPopup.tsx`), not the three slabs:
+   * it leaves along its slab's angle, turned with the wheel, and starts past
+   * the wheel's edge at that angle.
+   */
+  const popupOn = editing === "edge" && !bg && !!node;
+  const popupSlab = popupOn ? greenPieces.find((p) => p.choice.id === editing) : null;
+  const popupWay = popupSlab ? Math.atan2(popupSlab.at[1], popupSlab.at[0]) : 0;
+  const popupReach = GREEN_RINGS.reach / (shape === "square" ? Math.max(Math.abs(Math.cos(popupWay)), Math.abs(Math.sin(popupWay))) : 1);
+
   return (
     // Above the top bar and the status bar, or a menu opened near an edge has
     // pieces behind the chrome, unreachable.
@@ -888,7 +900,7 @@ export function RadialMenu() {
           </div>
         ) : null}
 
-        {group && editing ? (
+        {group && editing && !popupOn ? (
           <div data-radial-editor={editing} className="pointer-events-none absolute left-0 top-0">
             <QuadrantConsole span={consoleSpan} onGrip={carry}>
               {(slabs) => (bg ? <BackgroundEditor which={editing} slabs={slabs} page={page} /> : <Editor which={editing} node={node!} slabs={slabs} onMore={showMore} />)}
@@ -947,6 +959,7 @@ export function RadialMenu() {
 
         {pull ? <PullEnds pull={pull} /> : null}
       </div>
+      {popupOn ? <WheelPopup node={node!} palette={palette} cx={px} cy={py} angle={popupWay + spin * Math.PI * 2} reach={popupReach} onClose={closePopup} /> : null}
     </div>
   );
 }
