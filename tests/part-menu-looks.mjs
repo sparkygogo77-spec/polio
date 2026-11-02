@@ -118,7 +118,7 @@ await popKey("Shadow").click();
 await popKey("Hard offset").click();
 await page.waitForTimeout(300);
 n = await nodesNow();
-check("Hard offset gives it the cartoon drop shadow", /d+px d+px 0px 0px$/.test(n.c.edge?.shadow ?? ""), n.c.edge?.shadow);
+check("Hard offset gives it the cartoon drop shadow", /\dpx \dpx 0px 0px$/.test(n.c.edge?.shadow ?? ""), n.c.edge?.shadow);
 await page.locator(`[data-popup-swatch="The site's accent"]`).click();
 await page.waitForTimeout(300);
 const n2 = await nodesNow();
