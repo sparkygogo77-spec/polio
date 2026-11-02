@@ -46,7 +46,7 @@ export function cleanExport(site, { library = false, gallery = false, edit = nul
   const lib = library ? libraryOut(system, { gallery }) : null;
   const out = pagesOut({
     name: site.name, pages, nodes, frameWidth: board.frameWidth ?? 1440, system, palette, published,
-    siteCss: byPath.get("assets/site.css")?.bytes.toString("utf8") ?? "", library: lib?.names,
+    siteCss: byPath.get("assets/site.css")?.bytes.toString("utf8") ?? "", library: lib?.names, siteFile: (path) => byPath.get(path)?.bytes.toString("utf8"),
   });
   const assets = site.files.filter((f) => f.path.startsWith("assets/") && !/\.(css|js)$/.test(f.path)).map((f) => ({ path: `public/${f.path}`, content: f.bytes }));
   return { system, out, lib, files: [...tokensOut(system), ...(lib?.files ?? []), ...out.files, ...assets], board: { ...board, nodes } };

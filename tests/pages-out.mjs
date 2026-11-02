@@ -61,7 +61,7 @@ for (const load of sources) {
   check("every page and section says it is Polio's", code.every((f) => f.content.startsWith("/* Made by Polio.")));
   const inline = code.filter((f) => /\sstyle=\{/.test(f.content)).map((f) => f.path);
   check("no inline style anywhere", !inline.length, inline.slice(0, 3).join(", "));
-  const placedIds = new Set(report.placed.map((p) => p.id));
+  const placedIds = new Set([...report.placed.map((p) => p.id), ...report.states.map((p) => p.id)]);
   const all = code.map((f) => f.content).join("\n");
   const absolute = [...all.matchAll(/<div id="([^"]+)" className="([^"]*)"/g)].filter(([, id, c]) => /(^|\s)(absolute|fixed)(\s|$)/.test(c) && !placedIds.has(id)).map(([, id]) => id);
   check("nothing in the flow is absolutely placed", !absolute.length, absolute.slice(0, 5).join(", "));
