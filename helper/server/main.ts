@@ -323,7 +323,7 @@ if (import.meta.main) {
   });
 
   const pairing = new Pairing({ show: (code) => console.log(`\n  Pair with polio-two.vercel.app?  Code: ${code.slice(0, 3)} ${code.slice(3)}\n@pair ${code}`) });
-  const helper = await startHelperServer({ runner, pairing, tickets, port, siteLog: new BridgeLog(stateDir) });
+  const helper = await startHelperServer({ runner, pairing, tickets, port, siteLog: new BridgeLog(stateDir), lanes: { file: join(handoversDir, "lanes.json"), beats: join(agentsDir, "lanes") } });
   console.log(`Polio Helper on http://127.0.0.1:${helper.port} (on your plan, ${coordinator.atOnce} lanes at once)\n@ready ${helper.port}`);
 
   const quit = async () => { clearInterval(every); await coordinator.stopAll(); await helper.close(); process.exit(0); };

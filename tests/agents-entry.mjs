@@ -128,7 +128,9 @@ const b0 = await board(page);
 const button = page.locator("[data-agents-button]");
 check("the top bar has an Agents button", (await button.count()) === 1);
 if (await button.count()) { await button.click(); await page.waitForTimeout(1200); }
-const frame = await page.evaluate(() => { const f = document.querySelector("[data-agents-dock] iframe[data-agents-frame]"); const d = document.querySelector("[data-agents-dock]")?.getBoundingClientRect(); return f ? { src: f.getAttribute("src"), w: Math.round(d.width), right: Math.round(d.right) } : null; });
+/* The first tab is the lanes board (tests/lanes-board.mjs); the helper's frame is under it, the second tab. */
+await page.locator('[data-agents-tab="helper"]').click().catch(() => {}); await page.waitForTimeout(200);
+const frame =await page.evaluate(() => { const f = document.querySelector("[data-agents-dock] iframe[data-agents-frame]"); const d = document.querySelector("[data-agents-dock]")?.getBoundingClientRect(); return f ? { src: f.getAttribute("src"), w: Math.round(d.width), right: Math.round(d.right) } : null; });
 check("the button opens the dock: a frame at the helper's /dock, 380px on the right", frame?.src === `${HELPER}/dock` && frame.w === 380 && frame.right === 1440, JSON.stringify(frame));
 const first = (await frameMsgs(page)) ?? [];
 check("the open dock is handed context only, with no action yet", first.length >= 1 && first.every((m) => m.data?.kind === "context") && first[0].data.action === null, JSON.stringify(first.map((m) => m.data?.action)));

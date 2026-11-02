@@ -7,8 +7,10 @@
  *   still send that site's name as Host.
  * - Two origins, and what each may do:
  *     https://polio-two.vercel.app   the Builder page: only GET /health, to
- *                                    see that a helper is there (CORS allows
- *                                    exactly this origin, nothing else)
+ *                                    see that a helper is there, and GET
+ *                                    /lanes, the lanes board's read-only feed
+ *                                    (CORS allows exactly this origin, nothing
+ *                                    else)
  *     http://127.0.0.1:<port>        the dock: the frame this server draws
  *                                    inside the Builder (GET /dock). Pairing,
  *                                    requests, the stream and every control
@@ -44,6 +46,7 @@ import { fileURLToPath } from "node:url";
 import { problems, type Message, type Plan } from "../contract.ts";
 import type { ControlResult } from "../agents/runner.ts";
 import { describeCall, type BridgeLog } from "./bridgeLog.ts";
+import { readLanes, type LanesFiles } from "./lanes.ts";
 import type { Pairing } from "./pairing.ts";
 import type { SiteTickets } from "./tickets.ts";
 
@@ -78,6 +81,8 @@ export async function startHelperServer(opts: {
   tickets?: SiteTickets; siteWaitMs?: number;
   /** Where every site call is kept; without one, refusals still reach an open dock. */
   siteLog?: BridgeLog;
+  /** The lanes board's files; without them GET /lanes answers with no feed. */
+  lanes?: LanesFiles;
 }): Promise<HelperServer> {
   const builder = opts.builderOrigin ?? BUILDER_ORIGIN;
   let port = opts.port ?? HELPER_PORT;
@@ -133,11 +138,12 @@ export async function startHelperServer(opts: {
     // The Builder page may only ask whether a helper is here.
     if (who === "builder") {
       const cors = { "access-control-allow-origin": builder, vary: "Origin" };
-      if (path === "/health" && method === "OPTIONS") {
+      if ((path === "/health" || path === "/lanes") && method === "OPTIONS") {
         res.writeHead(204, { ...cors, "access-control-allow-methods": "GET", "access-control-max-age": "600" });
         return res.end();
       }
       if (path === "/health" && method === "GET") return send(res, 200, { helper: true, paired: opts.pairing.paired }, cors);
+      if (path === "/lanes" && method === "GET") return send(res, 200, opts.lanes ? readLanes(opts.lanes) : { feed: null, beats: [], now: Date.now() }, cors);
       return refuse(res, 403, "the Builder page can't drive the helper: the dock does");
     }
 
