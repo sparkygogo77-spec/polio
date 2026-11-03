@@ -21,17 +21,9 @@ import { ROLES, ROLE_LABEL, tallyColours, type Palette, type RoleId } from "../l
 import { LOOK_SLOTS } from "../LookFields";
 import { PICKED, keyOf } from "../RingConsole";
 import { readShadow, writeShadow, type ShadowKind } from "../RingEditors";
-import { placeBeside, placePopup, type Box, type Placed } from "./popupPlace";
+import { frameStyle, placeBeside, placePopup, TITLE, type Box, type Placed } from "./popupPlace";
 import { applyToSelection } from "./selectionEdit";
 
-/* The look in one place. */
-const RIM = "oklch(0.72 0.19 148)";
-const RIM_SMALL = "oklch(0.72 0.17 205)";
-const FACE = `repeating-linear-gradient(0deg, oklch(0 0 0 / 0.2) 0 1px, transparent 1px 3px), linear-gradient(160deg, oklch(0.25 0.09 300), oklch(0.16 0.05 288))`;
-const popStyle = (rim: string, w: number): React.CSSProperties => ({
-  width: w, padding: 12, borderRadius: 16, border: `1.5px solid ${rim}`, background: FACE, color: VOID.text,
-  boxShadow: `0 0 14px color-mix(in oklch, ${rim} 35%, transparent), 0 14px 34px oklch(0 0 0 / 0.55)`,
-});
 const FIELD: React.CSSProperties = { background: VOID.well, color: SCREEN.ink, boxShadow: `inset 0 0 0 1px ${VOID.rim}`, borderRadius: 9, fontFamily: "ui-monospace, Consolas, monospace", fontSize: 11, fontWeight: 600 };
 
 /**
@@ -148,8 +140,12 @@ const fourCorners = (n: StudioNode & { radii?: readonly number[] | null }): numb
   Array.isArray(n.radii) && n.radii.length === 4 ? [...n.radii] : [n.radius ?? 0, n.radius ?? 0, n.radius ?? 0, n.radius ?? 0];
 
 /** The layer: the wheel's middle and the slab's angle are all it knows of the wheel. */
-export function WheelPopup({ node, palette, cx, cy, angle, reach, onClose }: {
-  node: StudioNode; palette: Palette; cx: number; cy: number; angle: number; reach: number; onClose: () => void;
+export function WheelPopup({ node, palette, cx, cy, angle, reach, top, onClose }: {
+  node: StudioNode; palette: Palette; cx: number; cy: number; angle: number;
+  /** How far the wheel runs out from its middle, on its flats. */
+  reach: number;
+  /** The top of the green menu it came from, which it stays level with. */
+  top: number; onClose: () => void;
 }) {
   const [section, setSection] = React.useState<Section>("corners");
   const [small, setSmall] = React.useState<"corners" | "sides" | null>(null);
@@ -164,15 +160,16 @@ export function WheelPopup({ node, palette, cx, cy, angle, reach, onClose }: {
     const el = big.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    const p = placePopup(cx, cy, angle, reach, r.width, r.height, window.innerWidth, window.innerHeight);
+    const wheel = { cx, cy, reach, top };
+    const p = placePopup(wheel, angle, r.width, r.height, window.innerWidth, window.innerHeight);
     setAt(p);
     const sm = little.current;
     if (sm) {
       const s = sm.getBoundingClientRect();
       const parent: Box = { x: p.x, y: p.y, w: r.width, h: r.height };
-      setAtSmall(placeBeside(parent, cx, cy, s.width, s.height, window.innerWidth, window.innerHeight));
+      setAtSmall(placeBeside(parent, wheel, s.width, s.height, window.innerWidth, window.innerHeight));
     } else setAtSmall(null);
-  }, [cx, cy, angle, reach, section, small]);
+  }, [cx, cy, angle, reach, top, section, small]);
 
   /* Esc takes the smaller one first; the wheel's own Esc then closes this one. A press outside closes it. */
   const smallOpen = React.useRef(small);
@@ -227,10 +224,10 @@ export function WheelPopup({ node, palette, cx, cy, angle, reach, onClose }: {
     <>
       <div
         ref={big} data-wheel-popup="edge" data-flip-x={at?.flipX ? "" : undefined} data-flip-y={at?.flipY ? "" : undefined}
-        className="pointer-events-auto fixed z-[2] text-[12px]" style={{ ...popStyle(RIM, 238), ...stand(at) }}
+        className="pointer-events-auto fixed z-[2] text-[12px]" style={{ ...frameStyle("main", 238), ...stand(at) }}
         onKeyDown={keepKeys}
       >
-        <div className="mb-2 font-mono text-[13px] font-bold" style={{ color: "oklch(0.88 0.2 148)" }}>Edge</div>
+        <div className="mb-2 font-mono text-[13px] font-bold" style={{ color: TITLE.main }}>Edge</div>
         <div className="flex gap-1.5">
           <Key i={0} label="Corners" on={section === "corners"} onPress={() => { setSection("corners"); setSmall(null); }}><SquareRoundCorner className="size-4" /></Key>
           <Key i={1} label="Border" on={section === "border"} onPress={() => { setSection("border"); setSmall(null); }}><Scan className="size-4" /></Key>
@@ -276,10 +273,10 @@ export function WheelPopup({ node, palette, cx, cy, angle, reach, onClose }: {
       {small ? (
         <div
           ref={little} data-wheel-popup={small} data-flip-x={atSmall?.flipX ? "" : undefined} data-flip-y={atSmall?.flipY ? "" : undefined}
-          className="pointer-events-auto fixed z-[3] text-[12px]" style={{ ...popStyle(RIM_SMALL, 164), padding: 10, ...stand(atSmall) }}
+          className="pointer-events-auto fixed z-[3] text-[12px]" style={{ ...frameStyle("small", 164), ...stand(atSmall) }}
           onKeyDown={keepKeys}
         >
-          <div className="mb-1.5 font-mono text-[12px] font-bold" style={{ color: "oklch(0.85 0.14 205)" }}>{small === "corners" ? "Each corner" : "Each side"}</div>
+          <div className="mb-1.5 font-mono text-[12px] font-bold" style={{ color: TITLE.small }}>{small === "corners" ? "Each corner" : "Each side"}</div>
           <div className="grid grid-cols-2 gap-1.5">
             {small === "corners"
               ? [0, 1, 3, 2].map((i) => (

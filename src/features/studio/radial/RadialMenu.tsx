@@ -56,6 +56,7 @@ import { createSpaceAt } from "../createSpace";
 import { PREVIEW } from "../colourMenu";
 import { BackgroundEditor } from "../BackgroundEditors";
 import { WheelPopup } from "./WheelPopup";
+import { levelTop } from "./popupPlace";
 import { openImport } from "../ImportFlow";
 import {
 BLUE_RINGS, GREEN_RINGS, middleOf, piece, Q_BOTTOM, Q_DELETE, Q_EMPTY, Q_TOP, QUADS, ROUND, type Pt
@@ -728,13 +729,12 @@ export function RadialMenu() {
 
   /*
    * Edge is a pop-up beside the hand (`WheelPopup.tsx`), not the three slabs:
-   * it leaves along its slab's angle, turned with the wheel, and starts past
-   * the wheel's edge at that angle.
+   * it goes to the side its slab leans to, turned with the wheel, level with
+   * the wheel's top (`popupPlace.ts`). The wheel runs out `reach` on its flats.
    */
   const popupOn = editing === "edge" && !bg && !!node;
   const popupSlab = popupOn ? greenPieces.find((p) => p.choice.id === editing) : null;
   const popupWay = popupSlab ? Math.atan2(popupSlab.at[1], popupSlab.at[0]) : 0;
-  const popupReach = GREEN_RINGS.reach / (shape === "square" ? Math.max(Math.abs(Math.cos(popupWay)), Math.abs(Math.sin(popupWay))) : 1);
 
   return (
     // Above the top bar and the status bar, or a menu opened near an edge has
@@ -959,7 +959,7 @@ export function RadialMenu() {
 
         {pull ? <PullEnds pull={pull} /> : null}
       </div>
-      {popupOn ? <WheelPopup node={node!} palette={palette} cx={px} cy={py} angle={popupWay + spin * Math.PI * 2} reach={popupReach} onClose={closePopup} /> : null}
+      {popupOn ? <WheelPopup node={node!} palette={palette} cx={px} cy={py} angle={popupWay + spin * Math.PI * 2} reach={GREEN_RINGS.reach} top={levelTop(py, greenFrom, greenTo, GREEN_RINGS.hole, GREEN_RINGS.reach, shape === "square", spin)} onClose={closePopup} /> : null}
     </div>
   );
 }

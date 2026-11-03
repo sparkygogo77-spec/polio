@@ -4,7 +4,8 @@
  * Right-click a part, Looks, Edge: a small pop-up beside the wheel, not three
  * slabs. Its corner slider changes the part's drawn radius and one undo takes
  * it back. Corners per corner and padding per side open a smaller pop-up. Near
- * every window edge it stays inside, flipping to the wheel's other side. Esc
+ * every window edge it stays inside: beside the wheel, level with its top,
+ * flipping to the wheel's other side when its own side has no room (J, 2026-11-03). Esc
  * closes the smaller one, then it; a press away closes it. No page errors.
  *
  *   node tests/wheel-popups.mjs http://localhost:3431 <folder holding sites/>
@@ -81,6 +82,8 @@ async function runSite(site) {
   };
   const closeAll = async () => { for (let i = 0; i < 5 && (await page.locator("[data-radial]").count()); i++) { await page.keyboard.press("Escape"); await page.waitForTimeout(150); } };
   const box = (sel) => page.locator(sel).first().boundingBox();
+  /* The pop-up keeps clear of the wheel across: wholly left or wholly right of its pieces. */
+  const wheelBox = (spans, b) => { const lo = Math.min(...spans.map((s) => s[0])), hi = Math.max(...spans.map((s) => s[1])); return b.x + b.width <= lo + 2 || b.x >= hi - 2; };
   const inWindow = (b) => !!b && b.x >= 0 && b.y >= 0 && b.x + b.width <= 1440 && b.y + b.height <= 900;
 
   await openEdge();
@@ -170,20 +173,25 @@ async function runSite(site) {
 
   /* Near each edge of the window, with the wheel turned so the slab points at that edge. */
   const edges = [
-    { name: "right", x: 1430, y: 450, spin: 0.5 },
-    { name: "bottom", x: 720, y: 890, spin: 0.75 },
-    { name: "left", x: 10, y: 450, spin: 0 },
-    { name: "top", x: 720, y: 10, spin: 0.25 },
+    /* Turned so Edge leans right, toward the right edge: it must flip to the left. */
+    { name: "right", x: 1430, y: 450, spin: 0.5, flip: true },
+    { name: "bottom", x: 720, y: 890, spin: 0 },
+    /* Edge leans left at rest: at the left edge it must flip to the right. */
+    { name: "left", x: 10, y: 450, spin: 0, flip: true },
+    { name: "top", x: 720, y: 10, spin: 0 },
   ];
   for (const e of edges) {
     await page.evaluate((v) => window.__studioHistory.act("setMenuSpin", v), e.spin);
     await openWheelAt(e);
     const b = await box(POP);
-    const flipped = await page.locator(POP).evaluate((el) => el.hasAttribute("data-flip-x") || el.hasAttribute("data-flip-y"));
+    const flipped = await page.locator(POP).evaluate((el) => el.hasAttribute("data-flip-x"));
+    const wheelTop = await page.evaluate(() => Math.min(...[...document.querySelectorAll("[data-radial-panel] [data-shard]")].map((el) => el.getBoundingClientRect().y)));
+    const level = !!b && (Math.abs(b.y - wheelTop) < 24 || b.y + b.height >= 900 - 12 || b.y <= 12);
+    const clear = !!b && !!wheelBox(await page.evaluate(() => [...document.querySelectorAll("[data-radial] [data-shard]")].map((el) => { const r = el.getBoundingClientRect(); return [r.x, r.x + r.width]; })), b);
     await page.locator('[data-popup-key="Each corner"]').click();
     await page.waitForTimeout(150);
     const c = await box('[data-wheel-popup="corners"]');
-    check(`${site}: near the ${e.name} edge it stays inside the window, flipped inward`, inWindow(b) && inWindow(c) && flipped, b ? `${Math.round(b.x)},${Math.round(b.y)} flip ${flipped}` : "none");
+    check(`${site}: near the ${e.name} edge it stays inside the window, beside the wheel and level with it${e.flip ? ", flipped inward" : ""}`, inWindow(b) && inWindow(c) && level && clear && (!e.flip || flipped), b ? `${Math.round(b.x)},${Math.round(b.y)} wheel top ${Math.round(wheelTop)} flip ${flipped}` : "none");
     await closeAll();
   }
   async function openWheelAt(e) {
