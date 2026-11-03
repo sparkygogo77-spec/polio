@@ -212,6 +212,21 @@ same boxes as everywhere else, in the screen's colours.
   trades places in its holder and column, as Alt+↑/↓ does) and a part's Hover
   (what it does under the pointer, opening its editor) hang there too, so the
   wheel reaches what the panel does (J, 2026-10-24; `tests/wheel-move-hover.mjs`).
+- **Edge is a pop-up beside the wheel, not three slabs** (J, 2026-11-03,
+  design A, "the icons and simplicity of the buttons but in MY existing menu
+  design"). Looks → Edge opens a tag: rounded, a lit border in the green of
+  the level that opened it, scanlines over the void, a mono title, a row of
+  icon keys (Corners, Border, Shadow, Spacing) and the one control the lit
+  key is about. Per corner and per side open a smaller tag in blue beside
+  it. It goes to the side of the wheel its slab leans to, clear of the
+  wheel, its top level with the green menu's top ("the panes to the left
+  ... stay at least on the same y axis as the original green menu"), and
+  flips to the other side only when that side has no room. Esc closes the
+  small one, then the tag; a press away closes it; a drag is one undo. The
+  border is one width and one colour round the whole part (J: no border per
+  side). Where and what frame live in `radial/popupPlace.ts` alone, so J's
+  placement drawing or a ring-shaped frame for the round wheel is one file.
+  `tests/wheel-popups.mjs`.
 - **Never an empty slab.** An editor that would leave a slab bare is folded
   into its neighbour: the page's colour, fill and veil are one Color editor;
   its width comes with Fit in view and the wires beside it. A slab with only
