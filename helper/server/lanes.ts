@@ -12,6 +12,11 @@
  * files under `handovers/` served read-only (`lanesFileAt`), and J's answer
  * to a question, the one thing ever written back (`answerLanes`): `answer`
  * and `answeredAt` of that question, nothing else in the file.
+ *
+ * Names and states only (J, 2026-11-03): an imported site's scripts share the
+ * Builder's page and could read what it fetched, so the coordinators' and
+ * chats' notes and last lines never leave this PC. They stay in the
+ * coordinator's messages (`namesOnly`).
  */
 import { existsSync, readdirSync, readFileSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { extname, join, resolve, sep } from "node:path";
@@ -24,7 +29,7 @@ const KEEP_MS = 10 * 60_000;
 
 export function readLanes(at: LanesFiles, now = Date.now()): LanesRead {
   let feed: unknown = null;
-  try { feed = JSON.parse(readFileSync(at.file, "utf8")); } catch { /* not there, or caught mid-write: the board keeps what it has */ }
+  try { feed = namesOnly(JSON.parse(readFileSync(at.file, "utf8"))); } catch { /* not there, or caught mid-write: the board keeps what it has */ }
   const beats: LanesRead["beats"] = [];
   let names: string[] = [];
   try { names = readdirSync(at.beats); } catch { /* no hook has run yet */ }
@@ -36,6 +41,25 @@ export function readLanes(at: LanesFiles, now = Date.now()): LanesRead {
     } catch { /* a beat caught mid-write: the next one will do */ }
   }
   return { feed, beats, now };
+}
+
+/** What a chat may show the Builder; anything else the coordinator writes on it (a note, its last line) stays here. */
+const CHAT_KEYS = ["id", "name", "lane", "state", "sentAt", "lastSeen", "helper"] as const;
+
+/** The feed with every coordinator and chat cut down to its name and state; the questions as they are. */
+export function namesOnly(raw: unknown): unknown {
+  const r = raw as { updated?: unknown; decisions?: unknown; coordinators?: unknown } | null;
+  if (!r || typeof r !== "object" || !Array.isArray(r.coordinators)) return null;
+  const pick = (x: Record<string, unknown>, keys: readonly string[]) => Object.fromEntries(keys.filter((k) => k in x).map((k) => [k, x[k]]));
+  return {
+    updated: r.updated,
+    decisions: r.decisions,
+    coordinators: (r.coordinators as unknown[]).map((c) => {
+      if (!c || typeof c !== "object") return c;
+      const k = c as Record<string, unknown>;
+      return { ...pick(k, ["id", "name"]), chats: Array.isArray(k.chats) ? k.chats.map((x) => (x && typeof x === "object" ? pick(x as Record<string, unknown>, CHAT_KEYS) : x)) : k.chats };
+    }),
+  };
 }
 
 /**

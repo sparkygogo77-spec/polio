@@ -328,10 +328,10 @@ export function LanesBoard({ round = ROUNDS.B1 }: { round?: Round }) {
   const chatOf = (id: string | null) => { for (const c of coords) for (const x of c.chats) if (x.id === id) return x; return null; };
   const pick = chatOf(pointer), coord = coords.find((c) => c.id === pointer) ?? (pick ? null : coords[0] ?? null);
   const menu = pick
-    ? { name: pick.name, colour: rgbText(sim.cols.get(pick.id) ?? STATE_RGB[pick.state]), state: STATE_WORD[pick.state] + (pick.state === "done" ? " · in the middle" : ""), note: pick.note, target: pick.id, helper: pick.helper }
+    ? { name: pick.name, colour: rgbText(sim.cols.get(pick.id) ?? STATE_RGB[pick.state]), state: STATE_WORD[pick.state] + (pick.state === "done" ? " · in the middle" : ""), target: pick.id, helper: pick.helper }
     : coord
-      ? { name: coord.name, colour: rgbText(sim.cols.get(coord.id) ?? STATE_RGB[ringState(coord)]), state: `coordinator · ${doneOf(coord)} of ${coord.chats.length} chats done · ${(speeds.get(coord.id) ?? 0) > 0.01 ? `tumbling, ${(speeds.get(coord.id) ?? 0).toFixed(1)}°/s` : "flat"}`, note: coord.note, target: coord.id, helper: false }
-      : { name: "Chats", colour: STATE_COLOUR.park, state: "", note: "", target: null as string | null, helper: false };
+      ? { name: coord.name, colour: rgbText(sim.cols.get(coord.id) ?? STATE_RGB[ringState(coord)]), state: `coordinator · ${doneOf(coord)} of ${coord.chats.length} chats done · ${(speeds.get(coord.id) ?? 0) > 0.01 ? `tumbling, ${(speeds.get(coord.id) ?? 0).toFixed(1)}°/s` : "flat"}`, target: coord.id, helper: false }
+      : { name: "Chats", colour: STATE_COLOUR.park, state: "", target: null as string | null, helper: false };
 
   /* The box stays where it opened: an orb on its way mustn't drag the field being typed in. */
   const hc = hoverChat as { chat: LaneChat; x: number; y: number } | null;
@@ -388,8 +388,8 @@ export function LanesBoard({ round = ROUNDS.B1 }: { round?: Round }) {
 }
 
 /**
- * Under the board: each coordinator's note, and under it each chat's note,
- * its last line and when it was last heard from. Hovering one lights its orb
+ * Under the board: each coordinator, and under it each chat's name, state and
+ * when it was last heard from; the notes stay in the coordinator's messages. Hovering one lights its orb
  * (the menu stays put, so nothing moves under the pointer); a press picks it.
  */
 function ChatNotes({ coords, now, onFocus, onPick }: { coords: LanesFeed["coordinators"]; now: number; onFocus: (ids: string[]) => void; onPick: (id: string) => void }) {
@@ -399,7 +399,6 @@ function ChatNotes({ coords, now, onFocus, onPick }: { coords: LanesFeed["coordi
       {coords.map((c) => (
         <div key={c.id}>
           <h3 className="m-0 text-[13px] font-bold" style={{ color: STATE_COLOUR[ringState(c)] }}>{c.name}</h3>
-          {c.note ? <p className="m-0 mt-0.5 text-[12px] leading-snug" style={{ color: "#d8d0ee" }}>{c.note}</p> : null}
           <ul className="m-0 mt-1.5 flex list-none flex-col gap-1 p-0">
             {c.chats.map((x) => {
               const when = agoOf(x.lastSeen || x.sentAt, now);
@@ -412,8 +411,6 @@ function ChatNotes({ coords, now, onFocus, onPick }: { coords: LanesFeed["coordi
                     <span style={{ color: STATE_COLOUR[x.state] }}>{STATE_WORD[x.state]}</span>
                     {when ? <span data-lanes-seen="" className="ml-auto shrink-0" style={{ color: "#9fb8c8" }}>{when}</span> : null}
                   </div>
-                  {x.note ? <div style={{ color: "#d8d0ee" }}>{x.note}</div> : null}
-                  {x.last ? <div style={{ color: "#9fb8c8" }}>{x.last}</div> : null}
                 </li>
               );
             })}
@@ -425,7 +422,7 @@ function ChatNotes({ coords, now, onFocus, onPick }: { coords: LanesFeed["coordi
 }
 
 /** Rounded card, a lit border in the picked thing's colour, scanlines, pills (H3). */
-function LanesMenu({ name, colour, state, note, target, helper, decisions }: { name: string; colour: string; state: string; note: string; target: string | null; helper: boolean; decisions: number }) {
+function LanesMenu({ name, colour, state, target, helper, decisions }: { name: string; colour: string; state: string; target: string | null; helper: boolean; decisions: number }) {
   const link = target ? chatLink(target) : null;
   const pill = "inline-flex min-h-[38px] items-center rounded-full border-0 px-3.5 font-bold no-underline";
   const go = (word: string, cls: string, style: React.CSSProperties) => {
@@ -446,8 +443,7 @@ function LanesMenu({ name, colour, state, note, target, helper, decisions }: { n
     >
       <h2 data-lanes-menu-name="" style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "#fff" }}>{name}</h2>
       <p style={{ margin: "4px 0 0", color: colour, fontSize: 13, fontWeight: 700 }}>{state}</p>
-      <p style={{ margin: "14px 0 16px", fontSize: 13, lineHeight: 1.5, color: "#f2ecff" }}>{note}</p>
-      <div className="flex flex-wrap gap-1.5 text-[13px]">
+      <div className="mt-4 flex flex-wrap gap-1.5 text-[13px]">
         {go("Steer", "", { color: "#021018", background: "oklch(0.85 0.17 205)" })}
         {go("Pause", "", { color: "#1a1204", background: "oklch(0.87 0.17 85)" })}
         {go("Stop", "", { color: "#fff", background: "oklch(0.55 0.23 27)" })}
@@ -468,6 +464,7 @@ const ChatBox = React.forwardRef<HTMLDivElement, { chat: LaneChat; left: number;
   const [text, setText] = React.useState("");
   const colour = STATE_COLOUR[chat.state];
   const link = chatLink(chat.id);
+  const seen = agoOf(chat.lastSeen || chat.sentAt, Date.now());
   const send = async () => {
     const words = text.trim();
     if (!words) return;
@@ -486,8 +483,7 @@ const ChatBox = React.forwardRef<HTMLDivElement, { chat: LaneChat; left: number;
       style={{ left: `clamp(125px, ${left}%, calc(100% - 125px))`, top: `${top}%`, transform: up ? "translate(-50%, calc(-100% - 12px))" : "translate(-50%, 12px)", boxSizing: "border-box", borderRadius: 18, padding: "12px 14px", border: `2px solid ${colour}`, background: "oklch(0.16 0.05 300 / 0.96)", color: "#f2ecff", font: "13px/1.45 ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace", boxShadow: "0 10px 30px rgba(0,0,0,.6)" }}
     >
       <div style={{ fontWeight: 700, color: colour }}>{chat.name} · {STATE_WORD[chat.state]}</div>
-      <div style={{ marginTop: 4, color: "#d8d0ee" }}>{chat.note}</div>
-      {chat.last ? <div data-lanes-last="" style={{ marginTop: 6, fontSize: 12, color: "#9fb8c8" }}>{chat.last}</div> : null}
+      {seen ? <div data-lanes-box-seen="" style={{ marginTop: 4, fontSize: 12, color: "#9fb8c8" }}>last heard from {seen}</div> : null}
       {CHAT_BOX_SEND ? (
         <form onSubmit={(e) => { e.preventDefault(); void send(); }}>
           <input data-lanes-say="" aria-label={`Say something to ${chat.name}`} placeholder={`Say something to ${chat.name}`} value={text} onChange={(e) => setText(e.target.value)} style={{ width: "100%", boxSizing: "border-box", marginTop: 8, padding: "8px 10px", borderRadius: 10, border: "1px solid rgba(255,255,255,.25)", background: "rgba(0,0,0,.35)", color: "#fff", font: "inherit" }} />

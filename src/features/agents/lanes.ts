@@ -19,8 +19,6 @@ export interface LaneChat {
   /** Its folder without `work-`, what a heartbeat calls it; `name` is free to be the words J reads. */
   lane: string;
   state: ChatState;
-  note: string;
-  last: string;
   /** When its last message was sent; a new value starts a new lap. */
   sentAt: number | null;
   /** When the coordinator last heard from it (an ISO time), for the notes under the board. */
@@ -28,7 +26,8 @@ export interface LaneChat {
   /** The helper's own agent: its controls are in the helper's tab, not in a chat. */
   helper: boolean;
 }
-export interface LaneCoordinator { id: string; name: string; note: string; chats: LaneChat[] }
+/** Names and states only: the helper keeps notes off the Builder's page (`helper/server/lanes.ts`). */
+export interface LaneCoordinator { id: string; name: string; chats: LaneChat[] }
 /** One of the coordinator's questions for J, with its options (decisions panel, 2026-11-03). */
 export interface DecisionOption { key: string; label: string; desc: string; picture: string; pick: boolean }
 export interface Decision { id: string; order: number; about: string; question: string; why: string; options: DecisionOption[]; answer: string; answeredAt: string }
@@ -55,9 +54,9 @@ export function readFeed(raw: unknown): LanesFeed | null {
     const chats: LaneChat[] = [];
     for (const x of c.chats as Record<string, unknown>[]) {
       if (!x || typeof x.id !== "string" || !STATES.has(x.state as string)) continue;
-      chats.push({ id: x.id, name: words(x.name) || x.id, lane: words(x.lane), state: x.state as ChatState, note: words(x.note), last: words(x.last), sentAt: typeof x.sentAt === "number" ? x.sentAt : null, lastSeen: words(x.lastSeen), helper: x.helper === true });
+      chats.push({ id: x.id, name: words(x.name) || x.id, lane: words(x.lane), state: x.state as ChatState, sentAt: typeof x.sentAt === "number" ? x.sentAt : null, lastSeen: words(x.lastSeen), helper: x.helper === true });
     }
-    coordinators.push({ id: c.id, name: words(c.name) || c.id, note: words(c.note), chats });
+    coordinators.push({ id: c.id, name: words(c.name) || c.id, chats });
   }
   const need = coordinators.reduce((n, c) => n + c.chats.filter((x) => x.state === "need").length, 0);
   /* The questions themselves, or (as the feed began) only their count, or else the red chats. */
