@@ -115,7 +115,7 @@ const leaks = (msgs) => { const out = []; const walk = (v, at) => { if (Array.is
 
 /* 2 and 4. The small site, helper up. */
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-await ctx.addInitScript((d) => { if (!sessionStorage.getItem("seeded")) { localStorage.setItem("builder.studio", d); sessionStorage.setItem("seeded", "1"); } }, doc);
+await ctx.addInitScript((d) => { try { if (!sessionStorage.getItem("seeded")) { localStorage.setItem("builder.studio", d); sessionStorage.setItem("seeded", "1"); } } catch { /* a sandboxed frame (a decision's live picture) has no storage: nothing to seed there */ } }, doc);
 await helperUp(ctx);
 const page = await ctx.newPage();
 const errors = [];
@@ -154,7 +154,7 @@ await ctx.close();
 
 /* 3. The helper can't be reached. */
 const c3 = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-await c3.addInitScript((d) => { if (!sessionStorage.getItem("seeded")) { localStorage.setItem("builder.studio", d); sessionStorage.setItem("seeded", "1"); } }, doc);
+await c3.addInitScript((d) => { try { if (!sessionStorage.getItem("seeded")) { localStorage.setItem("builder.studio", d); sessionStorage.setItem("seeded", "1"); } } catch { /* a sandboxed frame (a decision's live picture) has no storage: nothing to seed there */ } }, doc);
 await helperDown(c3);
 const p3 = await c3.newPage();
 p3.on("pageerror", (e) => errors.push(e.message));

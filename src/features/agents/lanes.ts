@@ -23,11 +23,17 @@ export interface LaneChat {
   last: string;
   /** When its last message was sent; a new value starts a new lap. */
   sentAt: number | null;
+  /** When the coordinator last heard from it (an ISO time), for the notes under the board. */
+  lastSeen: string;
   /** The helper's own agent: its controls are in the helper's tab, not in a chat. */
   helper: boolean;
 }
 export interface LaneCoordinator { id: string; name: string; note: string; chats: LaneChat[] }
-export interface LanesFeed { coordinators: LaneCoordinator[]; decisions: number }
+/** One of the coordinator's questions for J, with its options (decisions panel, 2026-11-03). */
+export interface DecisionOption { key: string; label: string; desc: string; picture: string; pick: boolean }
+export interface Decision { id: string; order: number; about: string; question: string; why: string; options: DecisionOption[]; answer: string; answeredAt: string }
+/** `decisions` is how many questions wait on J; `questions` are those questions, answered ones included. */
+export interface LanesFeed { coordinators: LaneCoordinator[]; decisions: number; questions: Decision[] }
 export interface LaneBeat { session: string; name: string; at: number }
 
 export const STATE_COLOUR: Record<ChatState, string> = { need: "#ff4d4d", work: "#35c8ff", done: "#3dffae", park: "#6f7f99" };
@@ -49,12 +55,66 @@ export function readFeed(raw: unknown): LanesFeed | null {
     const chats: LaneChat[] = [];
     for (const x of c.chats as Record<string, unknown>[]) {
       if (!x || typeof x.id !== "string" || !STATES.has(x.state as string)) continue;
-      chats.push({ id: x.id, name: words(x.name) || x.id, lane: words(x.lane), state: x.state as ChatState, note: words(x.note), last: words(x.last), sentAt: typeof x.sentAt === "number" ? x.sentAt : null, helper: x.helper === true });
+      chats.push({ id: x.id, name: words(x.name) || x.id, lane: words(x.lane), state: x.state as ChatState, note: words(x.note), last: words(x.last), sentAt: typeof x.sentAt === "number" ? x.sentAt : null, lastSeen: words(x.lastSeen), helper: x.helper === true });
     }
     coordinators.push({ id: c.id, name: words(c.name) || c.id, note: words(c.note), chats });
   }
   const need = coordinators.reduce((n, c) => n + c.chats.filter((x) => x.state === "need").length, 0);
-  return { coordinators, decisions: typeof r.decisions === "number" ? r.decisions : need };
+  /* The questions themselves, or (as the feed began) only their count, or else the red chats. */
+  const questions = readDecisions(r.decisions);
+  const decisions = Array.isArray(r.decisions) ? questions.filter(isOpen).length : typeof r.decisions === "number" ? r.decisions : need;
+  return { coordinators, decisions, questions };
+}
+
+/** The questions as the coordinator wrote them, by `order`. One without an id, a question or options to press is left out. */
+export function readDecisions(raw: unknown): Decision[] {
+  if (!Array.isArray(raw)) return [];
+  const out: Decision[] = [];
+  for (const d of raw as Record<string, unknown>[]) {
+    if (!d || typeof d.id !== "string" || !d.id || typeof d.question !== "string") continue;
+    const options: DecisionOption[] = [];
+    for (const o of Array.isArray(d.options) ? (d.options as Record<string, unknown>[]) : []) {
+      if (!o || typeof o.key !== "string" || !o.key) continue;
+      options.push({ key: o.key, label: words(o.label) || o.key, desc: words(o.desc), picture: pictureKind(words(o.picture)) ? words(o.picture) : "", pick: o.pick === true });
+    }
+    out.push({ id: d.id, order: typeof d.order === "number" ? d.order : 1e9, about: words(d.about), question: d.question, why: words(d.why), options, answer: words(d.answer), answeredAt: words(d.answeredAt) });
+  }
+  return out.map((d, i) => ({ d, i })).sort((a, b) => a.d.order - b.d.order || a.i - b.i).map((x) => x.d);
+}
+
+export const isOpen = (d: Decision) => !d.answer.trim();
+
+/**
+ * A picture is a path under `handovers/`, served read-only: an image, or an
+ * html page the panel shows live in a sandboxed frame. Anything else (a
+ * folder climb, a full address, another kind of file) isn't one.
+ */
+export function pictureKind(p: string): "image" | "page" | null {
+  if (!p || p.startsWith("/") || p.includes("\\") || p.includes(":") || p.split("/").some((s) => !s || s === "." || s === ".." || s.startsWith("."))) return null;
+  if (/\.(png|jpe?g|gif|webp|svg)$/i.test(p)) return "image";
+  if (/\.html?$/i.test(p)) return "page";
+  return null;
+}
+
+/** Where a picture is read: the same door the feed came through. */
+export const pictureUrl = (base: string, p: string) => `${base}/${p.split("/").map(encodeURIComponent).join("/")}`;
+
+/** The chats a question is about: its `about` is a lane, written however (or a chat's name or id). */
+export function chatsAbout(feed: LanesFeed, about: string): LaneChat[] {
+  const a = plain(about);
+  if (!a) return [];
+  return feed.coordinators.flatMap((c) => c.chats).filter((x) => x.id === about || plain(x.lane) === a || plain(x.name) === a);
+}
+
+/** "4 min ago", from an ISO time or a time in ms; nothing when there is none. */
+export function agoOf(at: string | number | null, now: number): string {
+  const t = typeof at === "number" ? at : at ? Date.parse(at) : NaN;
+  if (!Number.isFinite(t)) return "";
+  const s = Math.max(0, (now - t) / 1000);
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  return `${Math.floor(s / 86400)} d ago`;
 }
 
 const plain = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");

@@ -6,6 +6,11 @@
  * the feed means and where things sit; this keeps the moving state and draws
  * one frame at a time.
  *
+ * The tab is a column down the right of the Builder (decisions panel,
+ * 2026-11-03): the coordinator's questions above the rings (`Decisions.tsx`),
+ * the picked chat and every chat's note below. A question lights the orbs of
+ * the chats it is about, and an answer pulses them once.
+ *
  * Everything on the board is one flat, keyed list sorted by depth: every short
  * piece of every ring and every orb. So rings pass in front of and behind each
  * other and the orbs, and an orb crossing behind a ring is a move in the list,
@@ -16,10 +21,11 @@
 import * as React from "react";
 import { HELPER_ORIGIN } from "./context";
 import { setDockTab } from "./store";
+import { Decisions } from "./Decisions";
 import {
   ANSWER_S, POLL_MS, ROUNDS, STATE_COLOUR, STATE_RGB, STATE_WORD, TUMBLE_S, VIEW, axisOf, centreAt, chatLink, doneOf, doneShare, driftShare, fanAngle, hashOf, lapAngle, lapPos, markOf, mixRgb, orbTarget,
-  radiusOf, readFeed, restWobble, rgbText, ringLine, ringPoint, ringSegments, ringState, ringTarget, startTilt, thinkingShare, tumbleAt, tumbleSpeed, withBeats,
-  type LaneBeat, type LaneChat, type LanesFeed, type Rgb, type Round, type Seen,
+  radiusOf, readFeed, restWobble, agoOf, chatsAbout, isOpen, rgbText, ringLine, ringPoint, ringSegments, ringState, ringTarget, startTilt, thinkingShare, tumbleAt, tumbleSpeed, withBeats,
+  type Decision, type LaneBeat, type LaneChat, type LanesFeed, type Rgb, type Round, type Seen,
 } from "./lanes";
 
 /** J may drop the chat box's field and Send; the rest of the box stays. */
@@ -28,7 +34,20 @@ const ORB_R = 24;
 const FEED_WAIT_MS = 2500;
 const HOW_CONTROLS = "Steer, Pause and Stop go through the chat: the desktop app takes them there. Only the helper's own agents have them here, in the Helper tab.";
 
-type Feed = { feed: LanesFeed | null; reached: boolean };
+/** The feed, whether anything answered, which door it came through (pictures come the same way) and when it was read. */
+type Feed = { feed: LanesFeed | null; reached: boolean; base: string; readAt: number };
+const PULSE_S = 1.2;
+const KEEP_KEY = "polio.lanes.last";
+type Kept = { raw: { feed: unknown; beats?: LaneBeat[]; now?: number }; base: string; readAt: number };
+/* The last good read, so the questions still show with the dock closed and opened again, or the page reloaded, while the helper is down. */
+let kept: Kept | null = null;
+function keep(k: Kept) { kept = k; try { localStorage.setItem(KEEP_KEY, JSON.stringify(k)); } catch { /* private window, or full: this page still has it */ } }
+function keptRead(): Kept | null {
+  if (kept) return kept;
+  try { const k = JSON.parse(localStorage.getItem(KEEP_KEY) ?? "null") as Kept | null; if (k && readFeed(k.raw?.feed)) kept = k; } catch { /* nothing kept */ }
+  return kept;
+}
+const feedOf = (k: Kept): Feed => ({ feed: withBeats(readFeed(k.raw.feed)!, k.raw.beats ?? [], k.raw.now ?? k.readAt), reached: true, base: k.base, readAt: k.readAt });
 
 async function ask(url: string): Promise<{ feed: unknown; beats?: LaneBeat[]; now?: number } | null> {
   const stop = new AbortController();
@@ -41,16 +60,20 @@ async function ask(url: string): Promise<{ feed: unknown; beats?: LaneBeat[]; no
 
 /** Every 5s while the board shows: the Builder's own route on this PC, else the helper. A failed read keeps the last good feed. */
 function useLanesFeed(): Feed {
-  const [state, setState] = React.useState<Feed>({ feed: null, reached: false });
+  const [state, setState] = React.useState<Feed>({ feed: null, reached: false, base: "/api/lanes/file", readAt: 0 });
   React.useEffect(() => {
     let live = true, viaHelper = false;
+    const was = keptRead();
+    if (was) setState(feedOf(was));
     const read = async () => {
       let got = viaHelper ? null : await ask("/api/lanes");
       if (!got?.feed) { const h = await ask(`${HELPER_ORIGIN}/lanes`); if (h) { got = h; viaHelper = true; } }
       if (!live) return;
-      const feed = readFeed(got?.feed);
-      if (feed) setState({ feed: withBeats(feed, got?.beats ?? [], got?.now ?? Date.now()), reached: true });
-      else setState((s) => (s.feed ? s : { feed: null, reached: !!got }));
+      if (got && readFeed(got.feed)) {
+        const k: Kept = { raw: got, base: viaHelper ? `${HELPER_ORIGIN}/lanes/file` : "/api/lanes/file", readAt: Date.now() };
+        keep(k);
+        setState(feedOf(k));
+      } else setState((s) => (s.feed ? s : { ...s, feed: null, reached: !!got }));
     };
     void read();
     const timer = setInterval(() => void read(), POLL_MS);
@@ -106,11 +129,14 @@ const HALO = Object.keys(STATE_RGB) as (keyof typeof STATE_RGB)[];
 const fmt = (n: number) => n.toFixed(1);
 
 export function LanesBoard({ round = ROUNDS.B1 }: { round?: Round }) {
-  const { feed, reached } = useLanesFeed();
+  const { feed, reached, base, readAt } = useLanesFeed();
   const simRef = React.useRef<Sim>({ t: 0, last: 0, drawn: 0, rings: new Map(), laps: new Map(), cols: new Map(), still: false });
   const spinStart = React.useRef(new Map<string, number>());
   const [, draw] = React.useReducer((n: number) => n + 1, 0);
   const [hover, setHover] = React.useState<string | null>(null);
+  /* The chats a question or note under the pointer is about: lit, without moving the menu. */
+  const [focus, setFocus] = React.useState<string[]>([]);
+  const pulses = React.useRef(new Map<string, number>());
   const [picked, setPicked] = React.useState<string | null>(null);
   const [said, setSaid] = React.useState("");
   const boxAt = React.useRef<{ id: string; x: number; y: number } | null>(null);
@@ -146,8 +172,16 @@ export function LanesBoard({ round = ROUNDS.B1 }: { round?: Round }) {
   const speeds = new Map<string, number>();
   let hoverChat: { chat: LaneChat; x: number; y: number } | null = null;
 
+  /* How many open questions each chat has, for the mark on its orb. */
+  const asks = new Map<string, number>();
+  if (feed) for (const d of feed.questions) if (isOpen(d)) for (const x of chatsAbout(feed, d.about)) asks.set(x.id, (asks.get(x.id) ?? 0) + 1);
+
   const orb = (x: LaneChat, p: Seen, share: number) => {
-    const eon = pointer === x.id;
+    const eon = pointer === x.id || focus.includes(x.id);
+    const asked = asks.get(x.id) ?? 0;
+    const pulsedAt = pulses.current.get(x.id);
+    const pu = pulsedAt === undefined ? -1 : (t - pulsedAt) / PULSE_S;
+    if (pu >= 1) pulses.current.delete(x.id);
     /* -1 far, +1 near: the far side is smaller and dimmer, easing through so nothing pops. */
     const depth = Math.max(-1, Math.min(1, p.z / 40));
     const scale = eon ? 1.3 : 0.91 + 0.09 * depth;
@@ -168,6 +202,8 @@ export function LanesBoard({ round = ROUNDS.B1 }: { round?: Round }) {
           data-share={share.toFixed(3)}
           data-x={p.x.toFixed(1)}
           data-y={p.y.toFixed(1)}
+          data-lanes-asks={asked || undefined}
+          data-lanes-pulse={pu >= 0 && pu < 1 ? pu.toFixed(2) : undefined}
           role="button"
           tabIndex={0}
           aria-label={`${x.name}, ${STATE_WORD[x.state]}`}
@@ -183,6 +219,15 @@ export function LanesBoard({ round = ROUNDS.B1 }: { round?: Round }) {
           <circle r={ORB_R} fill="url(#lanes-sphere)" />
           <circle r={ORB_R} fill="none" stroke="#ffffff" strokeOpacity={eon ? 0.9 : 0.45} strokeWidth={2} />
           <text y={6} textAnchor="middle" fill="#061018" style={{ font: "800 15px ui-monospace, Menlo, Consolas, monospace", pointerEvents: "none" }}>{markOf(x.name)}</text>
+          {/* Answered just now: one ring going out from it. */}
+          {pu >= 0 && pu < 1 ? <circle r={ORB_R + 46 * pu} fill="none" stroke="#ffffff" strokeOpacity={(1 - pu) * 0.9} strokeWidth={4 * (1 - pu) + 1} style={{ pointerEvents: "none" }} /> : null}
+          {/* A question waits on J about it. */}
+          {asked ? (
+            <g transform="translate(19 -19)" style={{ pointerEvents: "none" }}>
+              <circle r={11} fill="#ffffff" stroke={STATE_COLOUR.need} strokeWidth={3} />
+              <text y={5} textAnchor="middle" fill="#7a0010" style={{ font: "800 14px ui-monospace, Menlo, Consolas, monospace" }}>{asked > 1 ? asked : "?"}</text>
+            </g>
+          ) : null}
         </g>
       ),
     });
@@ -266,6 +311,12 @@ export function LanesBoard({ round = ROUNDS.B1 }: { round?: Round }) {
 
   scene.sort((a, b) => a.z - b.z);
 
+  /* An answer sent: the orbs of the chats it is about pulse once. */
+  function answered(d: Decision) {
+    if (!feed) return;
+    for (const x of chatsAbout(feed, d.about)) pulses.current.set(x.id, sim.t);
+  }
+
   function tumble(key: string) {
     setPicked(key);
     if (sim.still) return;
@@ -287,20 +338,26 @@ export function LanesBoard({ round = ROUNDS.B1 }: { round?: Round }) {
   if (!hc) boxAt.current = null;
   else if (boxAt.current?.id !== hc.chat.id) boxAt.current = { id: hc.chat.id, x: hc.x, y: hc.y };
   const bx = boxAt.current ? ((boxAt.current.x - VIEW.x) / VIEW.w) * 100 : 0;
-  const by = boxAt.current ? ((boxAt.current.y - VIEW.y + 28) / VIEW.h) * 100 : 0;
+  /* Below an orb in the top half, above one in the bottom half: the board sits at the foot of the column, so a box below would be cut off. */
+  const oy = boxAt.current ? ((boxAt.current.y - VIEW.y) / VIEW.h) * 100 : 0;
+  const up = oy > 50;
+  const by = oy + ((up ? -28 : 28) / VIEW.h) * 100;
 
   return (
-    <div data-lanes-board="" className="absolute inset-0 z-10 flex flex-wrap items-center justify-center gap-4 overflow-auto p-4" style={{ background: "#020104", color: "#fff" }}>
-      <LanesMenu {...menu} decisions={decisions} />
+    <div data-lanes-board="" className="absolute inset-0 z-10 flex flex-col overflow-y-auto overflow-x-hidden" style={{ background: "#020104", color: "#fff" }}>
+      {feed ? <Decisions questions={feed.questions} chatsOf={(about) => chatsAbout(feed, about)} base={base} readAt={readAt} now={Date.now()} onFocus={setFocus} onAnswered={answered} /> : null}
       <div
-        className="relative min-w-0 flex-[1_1_480px]"
+        data-lanes-atom=""
+        /* It stays in view at the foot of the column while the questions scroll above it, so a press's pulse is seen. */
+        className="sticky bottom-0 z-10 shrink-0"
+        style={{ background: "#020104" }}
         onMouseLeave={() => { if (!box.current?.contains(document.activeElement)) setHover(null); }}
       >
         {/* The rings by keyboard: one button each, named, the same hover and click. */}
         <div className="sr-only">
           {coords.map((c) => <button key={c.id} type="button" onFocus={() => setHover(c.id)} onClick={() => tumble(c.id)}>{c.name}</button>)}
         </div>
-        <svg viewBox={`${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}`} role="group" aria-label="Chats as orbs on their coordinator's ring; finished chats gather in the middle" style={{ display: "block", width: "100%", height: "auto", maxHeight: "calc(100vh - var(--topbar-h) - 72px)" }}>
+        <svg viewBox={`${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}`} role="group" aria-label="Chats as orbs on their coordinator's ring; finished chats gather in the middle" style={{ display: "block", width: "100%", height: "auto" }}>
           <defs>
             <radialGradient id="lanes-sphere" cx="0.33" cy="0.28" r="0.8">
               <stop offset="0" stopColor="#ffffff" /><stop offset="0.18" stopColor="#ffffff" stopOpacity="0.85" /><stop offset="0.5" stopColor="#ffffff" stopOpacity="0.12" /><stop offset="0.86" stopColor="#000000" stopOpacity="0.25" /><stop offset="1" stopColor="#000000" stopOpacity="0.6" />
@@ -320,9 +377,50 @@ export function LanesBoard({ round = ROUNDS.B1 }: { round?: Round }) {
             {reached ? "No chats yet: the helper has no lanes.json on this PC." : "The chats are listed on your PC, and the helper isn't answering. Start it from the Helper tab."}
           </p>
         ) : null}
-        {hc && boxAt.current ? <ChatBox ref={box} key={hc.chat.id} chat={hc.chat} left={bx} top={by} said={said} onSaid={setSaid} /> : null}
+        {hc && boxAt.current ? <ChatBox ref={box} key={hc.chat.id} chat={hc.chat} left={bx} top={by} up={up} said={said} onSaid={setSaid} /> : null}
+      </div>
+      <div className="flex flex-col gap-3 px-3 pb-4">
+        <LanesMenu {...menu} decisions={decisions} />
+        <ChatNotes coords={coords} now={Date.now()} onFocus={setFocus} onPick={setPicked} />
       </div>
     </div>
+  );
+}
+
+/**
+ * Under the board: each coordinator's note, and under it each chat's note,
+ * its last line and when it was last heard from. Hovering one lights its orb
+ * (the menu stays put, so nothing moves under the pointer); a press picks it.
+ */
+function ChatNotes({ coords, now, onFocus, onPick }: { coords: LanesFeed["coordinators"]; now: number; onFocus: (ids: string[]) => void; onPick: (id: string) => void }) {
+  if (!coords.length) return null;
+  return (
+    <section data-lanes-notes="" aria-label="What each chat is doing" className="flex flex-col gap-3" style={{ fontFamily: "ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace" }}>
+      {coords.map((c) => (
+        <div key={c.id}>
+          <h3 className="m-0 text-[13px] font-bold" style={{ color: STATE_COLOUR[ringState(c)] }}>{c.name}</h3>
+          {c.note ? <p className="m-0 mt-0.5 text-[12px] leading-snug" style={{ color: "#d8d0ee" }}>{c.note}</p> : null}
+          <ul className="m-0 mt-1.5 flex list-none flex-col gap-1 p-0">
+            {c.chats.map((x) => {
+              const when = agoOf(x.lastSeen || x.sentAt, now);
+              return (
+                <li key={x.id} data-lanes-note={x.id} className="cursor-pointer rounded-lg px-2 py-1.5 text-[12px] leading-snug hover:bg-white/5"
+                  onMouseEnter={() => onFocus([x.id])} onMouseLeave={() => onFocus([])} onClick={() => onPick(x.id)}>
+                  <div className="flex items-baseline gap-1.5">
+                    <span aria-hidden className="inline-block size-2 shrink-0 rounded-full" style={{ background: STATE_COLOUR[x.state] }} />
+                    <b className="text-white">{x.name}</b>
+                    <span style={{ color: STATE_COLOUR[x.state] }}>{STATE_WORD[x.state]}</span>
+                    {when ? <span data-lanes-seen="" className="ml-auto shrink-0" style={{ color: "#9fb8c8" }}>{when}</span> : null}
+                  </div>
+                  {x.note ? <div style={{ color: "#d8d0ee" }}>{x.note}</div> : null}
+                  {x.last ? <div style={{ color: "#9fb8c8" }}>{x.last}</div> : null}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+    </section>
   );
 }
 
@@ -340,9 +438,9 @@ function LanesMenu({ name, colour, state, note, target, helper, decisions }: { n
   return (
     <section
       data-lanes-menu={name}
-      className="w-[280px] shrink-0 self-center"
+      className="w-full"
       style={{
-        boxSizing: "border-box", borderRadius: 28, padding: 22, border: `3px solid ${colour}`, fontFamily: "ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace",
+        boxSizing: "border-box", borderRadius: 24, padding: 18, border: `3px solid ${colour}`, fontFamily: "ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace",
         backgroundColor: "oklch(0.13 0.05 300)", backgroundImage: "repeating-linear-gradient(0deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 3px), radial-gradient(circle at 85% 0%, oklch(0.42 0.2 320 / 0.6), transparent 60%)",
       }}
     >
@@ -366,7 +464,7 @@ function LanesMenu({ name, colour, state, note, target, helper, decisions }: { n
  * honest about what it does: it copies the words and opens the chat to paste
  * them. The orb's lap starts when the chat really gets them (its heartbeat).
  */
-const ChatBox = React.forwardRef<HTMLDivElement, { chat: LaneChat; left: number; top: number; said: string; onSaid: (s: string) => void }>(function ChatBox({ chat, left, top, said, onSaid }, ref) {
+const ChatBox = React.forwardRef<HTMLDivElement, { chat: LaneChat; left: number; top: number; up: boolean; said: string; onSaid: (s: string) => void }>(function ChatBox({ chat, left, top, up, said, onSaid }, ref) {
   const [text, setText] = React.useState("");
   const colour = STATE_COLOUR[chat.state];
   const link = chatLink(chat.id);
@@ -385,7 +483,7 @@ const ChatBox = React.forwardRef<HTMLDivElement, { chat: LaneChat; left: number;
       ref={ref}
       data-lanes-box={chat.id}
       className="absolute w-[250px]"
-      style={{ left: `${Math.max(16, Math.min(84, left))}%`, top: `${Math.min(78, top)}%`, transform: "translate(-50%, 12px)", boxSizing: "border-box", borderRadius: 18, padding: "12px 14px", border: `2px solid ${colour}`, background: "oklch(0.16 0.05 300 / 0.96)", color: "#f2ecff", font: "13px/1.45 ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace", boxShadow: "0 10px 30px rgba(0,0,0,.6)" }}
+      style={{ left: `clamp(125px, ${left}%, calc(100% - 125px))`, top: `${top}%`, transform: up ? "translate(-50%, calc(-100% - 12px))" : "translate(-50%, 12px)", boxSizing: "border-box", borderRadius: 18, padding: "12px 14px", border: `2px solid ${colour}`, background: "oklch(0.16 0.05 300 / 0.96)", color: "#f2ecff", font: "13px/1.45 ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace", boxShadow: "0 10px 30px rgba(0,0,0,.6)" }}
     >
       <div style={{ fontWeight: 700, color: colour }}>{chat.name} · {STATE_WORD[chat.state]}</div>
       <div style={{ marginTop: 4, color: "#d8d0ee" }}>{chat.note}</div>
