@@ -43,8 +43,14 @@ export function readLanes(at: LanesFiles, now = Date.now()): LanesRead {
   return { feed, beats, now };
 }
 
+/**
+ * A chat's `history`, the details strip's timeline (round 2), stays on this PC
+ * for now, like its notes: J decides (2026-11-03) whether it may reach the
+ * Builder's page. The panel draws the timeline as soon as this lets it through.
+ */
+const HISTORY_TO_BUILDER = false;
 /** What a chat may show the Builder; anything else the coordinator writes on it (a note, its last line) stays here. */
-const CHAT_KEYS = ["id", "name", "lane", "state", "sentAt", "lastSeen", "helper"] as const;
+const CHAT_KEYS = ["id", "name", "lane", "state", "sentAt", "lastSeen", "helper", ...(HISTORY_TO_BUILDER ? ["history"] : [])];
 
 /** The feed with every coordinator and chat cut down to its name and state; the questions as they are. */
 export function namesOnly(raw: unknown): unknown {
@@ -107,28 +113,49 @@ export function lanesFileHeaders(type: string, ancestors: string): Record<string
 
 export const MAX_ANSWER = 2000;
 export type AnswerResult = { ok: true; id: string; answer: string; answeredAt: string } | { ok: false; status: number; error: string };
+export type AskResult = { ok: true; id: string; ask: string; askedAt: string } | { ok: false; status: number; error: string };
+type Wrote = { ok: true; id: string; words: string; at: string } | { ok: false; status: number; error: string };
 
 /**
  * J's answer to one question: `{id, answer}` sets that question's `answer`
- * and `answeredAt` and nothing else. The file keeps its indent and line ends,
- * and is swapped in whole, so the coordinator never reads half of it.
+ * and `answeredAt` and nothing else.
  */
 export function answerLanes(file: string, body: unknown, now = new Date()): AnswerResult {
   const b = (body ?? {}) as { id?: unknown; answer?: unknown };
-  if (typeof b.id !== "string" || !b.id || typeof b.answer !== "string") return { ok: false, status: 400, error: "an answer is {id, answer}, both words" };
-  const answer = b.answer.trim();
-  if (!answer) return { ok: false, status: 400, error: "the answer is empty" };
-  if (answer.length > MAX_ANSWER) return { ok: false, status: 400, error: `an answer is at most ${MAX_ANSWER} characters` };
+  const r = writeQuestion(file, b.id, b.answer, "answer", "answeredAt", now);
+  return r.ok ? { ok: true, id: r.id, answer: r.words, answeredAt: r.at } : r;
+}
+
+/**
+ * J asking for new options on one question (round 2): `{id, ask}` sets its
+ * `ask` and `askedAt` and nothing else; the coordinator clears them when it
+ * reposts the question with new options.
+ */
+export function askLanes(file: string, body: unknown, now = new Date()): AskResult {
+  const b = (body ?? {}) as { id?: unknown; ask?: unknown };
+  const r = writeQuestion(file, b.id, b.ask, "ask", "askedAt", now);
+  return r.ok ? { ok: true, id: r.id, ask: r.words, askedAt: r.at } : r;
+}
+
+/**
+ * Two fields of one question, words and when. The file keeps its indent and
+ * line ends, and is swapped in whole, so the coordinator never reads half of it.
+ */
+function writeQuestion(file: string, id: unknown, said: unknown, field: string, atField: string, now: Date): Wrote {
+  if (typeof id !== "string" || !id || typeof said !== "string") return { ok: false, status: 400, error: `it is {id, ${field}}, both words` };
+  const words = said.trim();
+  if (!words) return { ok: false, status: 400, error: `the ${field} is empty` };
+  if (words.length > MAX_ANSWER) return { ok: false, status: 400, error: `an ${field} is at most ${MAX_ANSWER} characters` };
   let text: string;
   try { text = readFileSync(file, "utf8"); } catch { return { ok: false, status: 404, error: "there is no lanes.json on this PC" }; }
   let feed: { decisions?: unknown };
   try { feed = JSON.parse(text); } catch { return { ok: false, status: 409, error: "lanes.json is being written just now: press again" }; }
   const list = Array.isArray(feed?.decisions) ? (feed.decisions as Record<string, unknown>[]) : [];
-  const q = list.find((d) => d && typeof d === "object" && d.id === b.id);
+  const q = list.find((d) => d && typeof d === "object" && d.id === id);
   if (!q) return { ok: false, status: 404, error: "no question with that id: the coordinator may have taken it away" };
-  const answeredAt = now.toISOString();
-  q.answer = answer;
-  q.answeredAt = answeredAt;
+  const at = now.toISOString();
+  q[field] = words;
+  q[atField] = at;
   const indent = /^[{[]\r?\n([ \t]+)/.exec(text)?.[1] ?? 2;
   const eol = text.includes("\r\n") ? "\r\n" : "\n";
   let out = JSON.stringify(feed, null, indent);
@@ -140,5 +167,5 @@ export function answerLanes(file: string, body: unknown, now = new Date()): Answ
     try { renameSync(tmp, file); }
     catch { writeFileSync(file, out); try { unlinkSync(tmp); } catch { /* left for the next tidy */ } }
   } catch (e) { return { ok: false, status: 500, error: `couldn't write lanes.json: ${(e as Error).message}` }; }
-  return { ok: true, id: b.id, answer, answeredAt };
+  return { ok: true, id, words, at };
 }

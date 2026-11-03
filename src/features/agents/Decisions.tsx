@@ -12,13 +12,24 @@
  * here is modal: Esc and a click away do nothing. With the helper down the
  * questions still show (the last feed read) and a press says why it wasn't
  * sent.
+ *
+ * Round 2 (J, 2026-11-03): a Details button on each question opens a strip
+ * under it: the chat it belongs to and what it is doing, its latest change
+ * with "Earlier" going back step by step to the chat's start, a picture of
+ * the area being worked on, and "New options, because:", which goes to the
+ * helper's `POST /lanes/ask {id, ask}` for the coordinator to answer with
+ * new options.
  */
 import * as React from "react";
+import { Info } from "lucide-react";
 import { HELPER_ORIGIN } from "./context";
 import { setDockTab, useAgents } from "./store";
-import { STATE_COLOUR, agoOf, isOpen, pictureKind, pictureUrl, type Decision, type DecisionOption, type LaneChat } from "./lanes";
+import { STATE_COLOUR, STATE_WORD, agoOf, isOpen, pictureKind, pictureUrl, whenOf, type Decision, type DecisionOption, type LaneChat } from "./lanes";
 
 export const ANSWER_URL = `${HELPER_ORIGIN}/lanes/answer`;
+export const ASK_URL = `${HELPER_ORIGIN}/lanes/ask`;
+/** The first-level blue (the Steer pill's). */
+const BLUE = "oklch(0.85 0.17 205)";
 /** The one Builder the helper takes answers from (its BUILDER_ORIGIN). */
 const LIVE_BUILDER = "https://polio-two.vercel.app";
 const SEND_WAIT_MS = 4000;
@@ -30,15 +41,16 @@ const SAY = {
   offline: "The helper isn't running, so a press can't be sent until it runs. These are the questions as last read.",
 };
 
-type Reply = { ok: true; answeredAt: string } | { ok: false; says: string };
+type Reply = { ok: true; at: string } | { ok: false; says: string };
 
-async function sendAnswer(id: string, answer: string): Promise<Reply> {
+/** An answer (`{id, answer}` to ANSWER_URL) or an ask for new options (`{id, ask}` to ASK_URL); the helper says when it wrote it. */
+async function send(url: string, body: Record<string, string>, atKey: "answeredAt" | "askedAt"): Promise<Reply> {
   const stop = new AbortController();
   const timer = setTimeout(() => stop.abort(), SEND_WAIT_MS);
   try {
-    const r = await fetch(ANSWER_URL, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, answer }), cache: "no-store", signal: stop.signal });
-    const j = (await r.json().catch(() => null)) as { ok?: boolean; answeredAt?: string; error?: string } | null;
-    if (r.ok && j?.ok) return { ok: true, answeredAt: j.answeredAt ?? new Date().toISOString() };
+    const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), cache: "no-store", signal: stop.signal });
+    const j = (await r.json().catch(() => null)) as ({ ok?: boolean; error?: string } & Record<string, unknown>) | null;
+    if (r.ok && j?.ok) return { ok: true, at: typeof j[atKey] === "string" ? (j[atKey] as string) : new Date().toISOString() };
     return { ok: false, says: `Not sent: ${j?.error ?? `the helper answered ${r.status}`}.` };
   } catch {
     /* Refused, not running, or (off the live Builder) not let in: the browser can't tell these apart. */
@@ -66,6 +78,18 @@ export function Decisions({ questions, chatsOf, base, readAt, now, onFocus, onAn
   const [said, setSaid] = React.useState<Record<string, string>>({});
   const [busy, setBusy] = React.useState<string | null>(null);
   const [changing, setChanging] = React.useState<Set<string>>(new Set());
+  /* Round 2: which strips are open and how far back each timeline goes, kept while the panel is open. */
+  const [details, setDetails] = React.useState<Set<string>>(new Set());
+  const [steps, setSteps] = React.useState<Record<string, number>>({});
+  /* An ask J sent, shown until the feed carries it (and gone once the coordinator clears it). */
+  const [asked, setAsked] = React.useState<Record<string, string>>({});
+  const [askSaid, setAskSaid] = React.useState<Record<string, string>>({});
+  React.useEffect(() => {
+    setAsked((x) => {
+      const keep = Object.fromEntries(Object.entries(x).filter(([id]) => !questions.find((d) => d.id === id)?.ask));
+      return Object.keys(keep).length === Object.keys(x).length ? x : keep;
+    });
+  }, [questions]);
   if (!questions.length) return null;
 
   const answerOf = (d: Decision) => {
@@ -76,13 +100,24 @@ export function Decisions({ questions, chatsOf, base, readAt, now, onFocus, onAn
     if (busy) return;
     setBusy(d.id);
     setSaid((x) => ({ ...x, [d.id]: "" }));
-    const r = await sendAnswer(d.id, answer);
+    const r = await send(ANSWER_URL, { id: d.id, answer }, "answeredAt");
     setBusy(null);
     if (!r.ok) { setSaid((x) => ({ ...x, [d.id]: r.says })); return; }
-    setSent((x) => ({ ...x, [d.id]: { answer: answer.trim(), at: r.answeredAt } }));
+    setSent((x) => ({ ...x, [d.id]: { answer: answer.trim(), at: r.at } }));
     setChanging((x) => { const n = new Set(x); n.delete(d.id); return n; });
     onAnswered(d);
   };
+  const ask = async (d: Decision, words: string) => {
+    if (busy) return false;
+    setBusy(d.id);
+    setAskSaid((x) => ({ ...x, [d.id]: "" }));
+    const r = await send(ASK_URL, { id: d.id, ask: words }, "askedAt");
+    setBusy(null);
+    if (!r.ok) { setAskSaid((x) => ({ ...x, [d.id]: r.says })); return false; }
+    setAsked((x) => ({ ...x, [d.id]: words.trim() }));
+    return true;
+  };
+  const toggle = (id: string) => setDetails((x) => { const n = new Set(x); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const rows = questions.map((d) => ({ d, a: answerOf(d) }));
   const open = rows.filter((x) => !x.a.answer.trim() || changing.has(x.d.id));
   const done = rows.filter((x) => x.a.answer.trim() && !changing.has(x.d.id));
@@ -100,7 +135,9 @@ export function Decisions({ questions, chatsOf, base, readAt, now, onFocus, onAn
         </p>
       ) : null}
       {open.map(({ d, a }) => (
-        <Question key={d.id} d={d} answer={a.answer} chats={chatsOf(d.about)} base={base} busy={busy === d.id} said={said[d.id] ?? ""} onPress={(x) => void press(d, x)} onFocus={onFocus} />
+        <Question key={d.id} d={d} answer={a.answer} chats={chatsOf(d.about)} base={base} busy={busy === d.id} said={said[d.id] ?? ""} onPress={(x) => void press(d, x)} onFocus={onFocus}
+          open={details.has(d.id)} onToggle={() => toggle(d.id)} shown={steps[d.id] ?? 1} onShown={(n) => setSteps((x) => ({ ...x, [d.id]: n }))}
+          asked={d.ask || asked[d.id] || ""} askSaid={askSaid[d.id] ?? ""} onAsk={(w) => ask(d, w)} now={now} />
       ))}
       {done.map(({ d, a }) => {
         const o = d.options.find((x) => x.key === a.answer);
@@ -117,9 +154,11 @@ export function Decisions({ questions, chatsOf, base, readAt, now, onFocus, onAn
   );
 }
 
-function Question({ d, answer, chats, base, busy, said, onPress, onFocus }: {
+function Question({ d, answer, chats, base, busy, said, onPress, onFocus, open, onToggle, shown, onShown, asked, askSaid, onAsk, now }: {
   d: Decision; answer: string; chats: LaneChat[]; base: string; busy: boolean; said: string;
   onPress: (answer: string) => void; onFocus: (ids: string[]) => void;
+  open: boolean; onToggle: () => void; shown: number; onShown: (n: number) => void;
+  asked: string; askSaid: string; onAsk: (words: string) => Promise<boolean>; now: number;
 }) {
   const [text, setText] = React.useState("");
   const pictured = d.options.some((o) => o.picture);
@@ -135,8 +174,16 @@ function Question({ d, answer, chats, base, busy, said, onPress, onFocus }: {
       onMouseLeave={() => onFocus([])}
     >
       {who || d.about ? <div className="text-[11px] font-bold" style={{ color: colour }}>{who?.name ?? d.about}</div> : null}
-      <h3 className="m-0 mt-0.5 text-[14px] font-bold leading-snug text-white">{d.question}</h3>
+      <div className="mt-0.5 flex items-start gap-2">
+        <h3 className="m-0 min-w-0 flex-1 text-[14px] font-bold leading-snug text-white">{d.question}</h3>
+        <button type="button" data-decision-details={d.id} aria-expanded={open} aria-label={`${open ? "Hide" : "Show"} details: ${d.question}`} title={open ? "Hide details" : "Details: the chat, its timeline, the area, new options"} onClick={onToggle}
+          className="grid size-6 shrink-0 place-items-center rounded-full" style={{ color: "#021018", background: BLUE, boxShadow: open ? "0 0 0 2px #fff" : "none" }}>
+          <Info className="size-3.5" />
+        </button>
+      </div>
+      {asked ? <p data-decision-asked={d.id} className="m-0 mt-1 text-[12px] font-bold" style={{ color: BLUE }}>Asked for new options: <span className="font-normal" style={{ color: "#d8d0ee" }}>{asked}</span></p> : null}
       {d.why ? <p className="m-0 mt-1 text-[12px] leading-snug" style={{ color: "#d8d0ee" }}>{d.why}</p> : null}
+      {open ? <Details d={d} chat={who ?? null} base={base} busy={busy} shown={shown} onShown={onShown} askSaid={askSaid} onAsk={onAsk} now={now} /> : null}
       <div className={pictured ? "mt-2.5 grid grid-cols-2 gap-2" : "mt-2.5 flex flex-wrap gap-1.5"}>
         {d.options.map((o) => <Option key={o.key} o={o} base={base} picked={answer === o.key} busy={busy} pictured={pictured} onPress={() => onPress(o.key)} />)}
       </div>
@@ -154,6 +201,69 @@ function Question({ d, answer, chats, base, busy, said, onPress, onFocus }: {
       </form>
       {said ? <p data-decision-said={d.id} role="status" className="m-0 mt-2 text-[12px] leading-snug" style={{ color: "#ffb4b4" }}>{said}</p> : null}
     </article>
+  );
+}
+
+/**
+ * Under a question: the chat it belongs to, its latest change ("Earlier"
+ * going back one step a press, "Collapse" folding to the latest), the area
+ * picture when there is one, and "New options, because:".
+ */
+function Details({ d, chat, base, busy, shown, onShown, askSaid, onAsk, now }: {
+  d: Decision; chat: LaneChat | null; base: string; busy: boolean; shown: number; onShown: (n: number) => void;
+  askSaid: string; onAsk: (words: string) => Promise<boolean>; now: number;
+}) {
+  const [text, setText] = React.useState("");
+  const newest = chat ? [...chat.history].reverse() : [];
+  const n = Math.max(1, Math.min(shown, newest.length));
+  const kind = pictureKind(d.area);
+  const src = kind ? pictureUrl(base, d.area) : "";
+  const seen = chat ? agoOf(chat.lastSeen || chat.sentAt, now) : "";
+  return (
+    <div data-decision-strip={d.id} className="mt-2 flex flex-col gap-2 rounded-xl p-2.5 text-[12px] leading-snug" style={{ background: "rgba(0,0,0,.3)", border: "1px solid rgba(255,255,255,.12)" }}>
+      <div data-decision-chat={chat?.id ?? ""} className="flex items-baseline gap-1.5">
+        {chat ? <>
+          <span aria-hidden className="inline-block size-2 shrink-0 rounded-full" style={{ background: STATE_COLOUR[chat.state] }} />
+          <b className="text-white">{chat.name}</b>
+          <span style={{ color: STATE_COLOUR[chat.state] }}>{STATE_WORD[chat.state]}</span>
+          {seen ? <span className="ml-auto shrink-0" style={{ color: "#9fb8c8" }}>{seen}</span> : null}
+        </> : <span style={{ color: "#9fb8c8" }}>No chat on the board goes by “{d.about}”.</span>}
+      </div>
+      {newest.length ? (
+        <div>
+          <ol data-decision-timeline={d.id} className="m-0 flex list-none flex-col gap-1.5 p-0">
+            {newest.slice(0, n).map((h, i) => (
+              <li key={i} data-decision-step={newest.length - 1 - i} className="flex gap-2">
+                <span className="shrink-0 tabular-nums" style={{ color: "#9fb8c8" }}>{whenOf(h.at)}</span>
+                <span style={{ color: i ? "#c8c0de" : "#f2ecff" }}>{h.text}</span>
+              </li>
+            ))}
+          </ol>
+          <div className="mt-1 flex gap-3">
+            {n < newest.length ? <button type="button" data-decision-earlier={d.id} className="underline" style={{ color: BLUE }} onClick={() => onShown(n + 1)}>Earlier</button> : null}
+            {n > 1 ? <button type="button" data-decision-collapse={d.id} className="underline" style={{ color: BLUE }} onClick={() => onShown(1)}>Collapse</button> : null}
+            {n === newest.length && newest.length > 1 ? <span style={{ color: "#9fb8c8" }}>the chat&apos;s start</span> : null}
+          </div>
+        </div>
+      ) : null}
+      {kind ? (
+        <figure data-decision-area={d.id} className="m-0 flex flex-col gap-1">
+          {kind === "image" ? (
+            <img data-decision-area-picture="" src={src} alt={`The area ${chat?.name ?? d.about} works on`} loading="lazy" draggable={false} className="block w-full rounded-lg" style={{ aspectRatio: `${PAGE_W} / ${PAGE_H}`, objectFit: "contain", background: "#000" }} />
+          ) : <PageFrame src={src} title={`The area ${chat?.name ?? d.about} works on, live`} k="area" />}
+          <figcaption style={{ color: "#9fb8c8" }}>Where {chat?.name ?? d.about} is working</figcaption>
+        </figure>
+      ) : null}
+      <form className="flex flex-col gap-1" onSubmit={(e) => { e.preventDefault(); const w = text.trim(); if (w) void onAsk(w).then((ok) => { if (ok) setText(""); }); }}>
+        <label htmlFor={`ask-${d.id}`} className="font-bold" style={{ color: "#f2ecff" }}>New options, because:</label>
+        <div className="flex gap-1.5">
+          <input id={`ask-${d.id}`} data-decision-ask={d.id} value={text} onChange={(e) => setText(e.target.value)} placeholder="what should change"
+            className="min-w-0 flex-1 rounded-lg px-2.5 py-1.5" style={{ border: "1px solid rgba(255,255,255,.25)", background: "rgba(0,0,0,.35)", color: "#fff", font: `12px ${mono}` }} />
+          <button type="submit" data-decision-ask-send={d.id} disabled={busy || !text.trim()} className="rounded-full px-3 font-bold" style={{ color: "#021018", background: BLUE, opacity: busy || !text.trim() ? 0.5 : 1 }}>Send</button>
+        </div>
+        {askSaid ? <p data-decision-ask-said={d.id} role="status" className="m-0" style={{ color: "#ffb4b4" }}>{askSaid}</p> : null}
+      </form>
+    </div>
   );
 }
 

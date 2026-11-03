@@ -12,7 +12,10 @@
  *                                    POST /lanes/answer, J's press on one of
  *                                    the coordinator's questions, which sets
  *                                    that question's answer and answeredAt
- *                                    and nothing else (CORS allows exactly
+ *                                    and nothing else, and POST /lanes/ask,
+ *                                    J asking for new options on one, which
+ *                                    sets its ask and askedAt and nothing
+ *                                    else (CORS allows exactly
  *                                    this origin, nothing else)
  *     http://127.0.0.1:<port>        the dock: the frame this server draws
  *                                    inside the Builder (GET /dock). Pairing,
@@ -52,7 +55,7 @@ import { fileURLToPath } from "node:url";
 import { problems, type Message, type Plan } from "../contract.ts";
 import type { ControlResult } from "../agents/runner.ts";
 import { describeCall, type BridgeLog } from "./bridgeLog.ts";
-import { answerLanes, lanesFileAt, lanesFileHeaders, readLanes, type LanesFiles } from "./lanes.ts";
+import { answerLanes, askLanes, lanesFileAt, lanesFileHeaders, readLanes, type LanesFiles } from "./lanes.ts";
 import type { Pairing } from "./pairing.ts";
 import type { SiteTickets } from "./tickets.ts";
 
@@ -151,22 +154,22 @@ export async function startHelperServer(opts: {
       return res.end(readFileSync(at.path));
     }
 
-    // The Builder page may only ask whether a helper is here, read the lanes and answer a question.
+    // The Builder page may only ask whether a helper is here, read the lanes, and answer a question or ask for new options on it.
     if (who === "builder") {
       const cors = { "access-control-allow-origin": builder, vary: "Origin" };
       if ((path === "/health" || path === "/lanes") && method === "OPTIONS") {
         res.writeHead(204, { ...cors, "access-control-allow-methods": "GET", "access-control-max-age": "600" });
         return res.end();
       }
-      if (path === "/lanes/answer" && method === "OPTIONS") {
+      if ((path === "/lanes/answer" || path === "/lanes/ask") && method === "OPTIONS") {
         res.writeHead(204, { ...cors, "access-control-allow-methods": "POST", "access-control-allow-headers": "content-type", "access-control-max-age": "600" });
         return res.end();
       }
-      if (path === "/lanes/answer" && method === "POST") {
+      if ((path === "/lanes/answer" || path === "/lanes/ask") && method === "POST") {
         if (!opts.lanes) return send(res, 404, { ok: false, error: "this helper has no lanes.json" }, cors);
         let b: unknown;
         try { b = await body(req); } catch (e) { return send(res, 400, { ok: false, error: String((e as Error).message) }, cors); }
-        const r = answerLanes(opts.lanes.file, b);
+        const r = path === "/lanes/ask" ? askLanes(opts.lanes.file, b) : answerLanes(opts.lanes.file, b);
         return send(res, r.ok ? 200 : r.status, r, cors);
       }
       if (path === "/health" && method === "GET") return send(res, 200, { helper: true, paired: opts.pairing.paired }, cors);

@@ -17,6 +17,14 @@
  *      helper and the file holds it, the orb pulses; "Or type" sends words;
  *      Esc does nothing; with the helper down a press is refused with the
  *      message, and a reload still shows the last questions read.
+ *   4. round 2: a Details button opens a strip with the chat, its state and
+ *      when it was last heard from. The chat's history stays on this PC for
+ *      now (J's call pending): no timeline and no history words reach the
+ *      page. Once the helper lets history through, the same checks see the
+ *      newest change, "Earlier" going back step by step to the chat's start
+ *      and "Collapse" folding it. The area picture is drawn where a question has one, and none where it
+ *      hasn't; "New options, because:" goes to POST /lanes/ask, which writes
+ *      ask and askedAt only, from the Builder's origin only.
  *
  *   LANES_FILE=tests/fixtures/lanes.json LANES_BEATS=tests/fixtures/no-beats npx next start -p 3421
  *   node tests/decisions-panel.mjs http://127.0.0.1:3421
@@ -53,6 +61,10 @@ const lanesNow = () => JSON.parse(readFileSync(LANES, "utf8"));
 const question = (f, id) => f.decisions.find((d) => d.id === id);
 /** Everything but the answers: what a press must never touch. */
 const rest = (f) => JSON.stringify({ ...f, decisions: f.decisions.map(({ answer, answeredAt, ...d }) => d) });
+/** Everything but the asks: what an ask for new options must never touch. */
+const restAsk = (f) => JSON.stringify({ ...f, decisions: f.decisions.map(({ ask, askedAt, ...d }) => d) });
+/** Export motion's steps as the panel shows them: newest first, the blank one left out. */
+const emSteps = em.history.filter((h) => h.text.trim()).map((h) => h.text).reverse();
 
 /* 1. Pure. */
 let L = null;
@@ -71,6 +83,11 @@ if (L) {
   check("a question finds its chats by lane, name or id, however written", L.chatsAbout(feed, "export-motion")[0]?.id === em.id && L.chatsAbout(feed, "Import checkup")[0]?.id === imp.id && L.chatsAbout(feed, em.id)[0]?.id === em.id && L.chatsAbout(feed, "").length === 0);
   check("a question with no id, no words or a nameless option is left out, not guessed", L.readDecisions([{ question: "x" }, { id: "y" }, { id: "z", question: "q", options: [{ label: "no key" }] }]).map((d) => `${d.id}:${d.options.length}`).join() === "z:0");
   check("last heard from, in words", L.agoOf("2026-11-03T09:00:00Z", Date.parse("2026-11-03T09:04:30Z")) === "4 min ago" && L.agoOf("", 0) === "" && L.agoOf(null, 0) === "");
+  const emRead = feed?.coordinators?.[2]?.chats?.[0];
+  check("a chat's history is read oldest first, a step without words left out", emRead?.history?.length === 4 && emRead.history.map((h) => h.text).reverse().join("|") === emSteps.join("|") && L.readHistory("x").length === 0 && L.readHistory([{ at: 0, text: "a" }])[0]?.at === "1970-01-01T00:00:00.000Z", String(emRead?.history?.length));
+  check("a question's area is a picture under handovers/, one that climbs out is dropped", feed?.questions?.[2]?.area === "decisions/a.png" && feed.questions[1].area === "" && L.readDecisions([{ id: "x", question: "q", area: "../a.png" }])[0]?.area === "");
+  check("…and J's ask is read with it", L.readDecisions([{ id: "x", question: "q", ask: "cheaper", askedAt: "2026-11-03T10:00:00Z" }])[0]?.ask === "cheaper" && feed.questions[1].ask === "");
+  check("a step's time is short, in J's own time", L.whenOf("2026-11-03T09:00:00.000Z").length > 0 && L.whenOf("2026-11-03T09:00:00.000Z").length < 24 && L.whenOf("") === "");
 }
 
 /* 2. The helper. */
@@ -123,10 +140,25 @@ try {
   ]);
   check("another origin, no origin, even the dock without its token: refused", strangers.map((r) => r.status).join() === "403,403,401", strangers.map((r) => r.status).join());
   check("…and the file holds only the one answer", question(lanesNow(), "merge-order").answer === "" && rest(lanesNow()) === rest(before));
+  /* Round 2: an ask for new options. */
+  const preAsk = await call(P, "/lanes/ask", { origin: B, method: "OPTIONS" });
+  check("the Builder may ask to send an ask for new options (CORS for it alone)", preAsk.status === 204 && preAsk.headers["access-control-allow-origin"] === B && /POST/.test(preAsk.headers["access-control-allow-methods"] ?? ""));
+  const beforeAsk = lanesNow();
+  const asked = await call(P, "/lanes/ask", { origin: B, method: "POST", body: { id: "merge-order", ask: " cheaper ones ", answer: "a", answeredAt: "x", note: "changed" } });
+  const afterAsk = lanesNow();
+  check("an ask from the Builder writes the words and when", asked.status === 200 && asked.json?.ok === true && question(afterAsk, "merge-order").ask === "cheaper ones" && Math.abs(Date.parse(question(afterAsk, "merge-order").askedAt) - Date.now()) < 10_000, JSON.stringify(asked.json));
+  check("…and nothing else: the answer is left as it was", restAsk(afterAsk) === restAsk(beforeAsk) && question(afterAsk, "merge-order").answer === "" && question(afterAsk, "popup-design").answer === "a");
+  const badAsk = await Promise.all([
+    call(P, "/lanes/ask", { origin: "https://evil.test", method: "POST", body: { id: "merge-order", ask: "x" } }),
+    call(P, "/lanes/ask", { method: "POST", body: { id: "merge-order", ask: "x" } }),
+    call(P, "/lanes/ask", { origin: B, method: "POST", body: { id: "nope", ask: "x" } }),
+    call(P, "/lanes/ask", { origin: B, method: "POST", body: { id: "merge-order", ask: "  " } }),
+  ]);
+  check("an ask from another origin or none is refused, as is one to no question or with no words", badAsk.map((r) => r.status).join() === "403,403,404,400" && question(lanesNow(), "merge-order").ask === "cheaper ones", badAsk.map((r) => r.status).join());
   check("the Builder still can't write the feed itself or reach a control", (await call(P, "/lanes", { origin: B, method: "POST", body: {} })).status === 403 && (await call(P, "/control", { origin: B, method: "POST", body: { by: "j" } })).status === 403);
   await helper.close();
   const bare = await Sv.startHelperServer({ runner, pairing: new Pairing({ show() {} }), port: 0 });
-  check("a helper with no lanes file says so to an answer, and has no pictures", (await call(bare.port, "/lanes/answer", { origin: B, method: "POST", body: { id: "x", answer: "a" } })).status === 404 && (await call(bare.port, "/lanes/file/decisions/a.png")).status === 404);
+  check("a helper with no lanes file says so to an answer or an ask, and has no pictures", (await call(bare.port, "/lanes/answer", { origin: B, method: "POST", body: { id: "x", answer: "a" } })).status === 404 && (await call(bare.port, "/lanes/ask", { origin: B, method: "POST", body: { id: "x", ask: "a" } })).status === 404 && (await call(bare.port, "/lanes/file/decisions/a.png")).status === 404);
   await bare.close();
 } catch (e) { check("the helper", false, String(e?.stack ?? e).slice(0, 300)); }
 
@@ -140,12 +172,16 @@ check("/api/lanes/file serves a picture beside the lanes file, an html one sandb
 writeLanes();
 let live = null;
 try { live = await Sv.startHelperServer({ runner, pairing: new Pairing({ show() {} }), port: 0, builderOrigin: new URL(BASE).origin, lanes: { file: LANES, beats: join(root, "beats") } }); } catch (e) { check("a stand-in helper starts", false, String(e?.message ?? e)); }
-const posts = [];
+const posts = [], asks = [];
+/* The feed as the helper serves it: names, states, history and the questions, never a note. */
+const { namesOnly } = await import("../helper/server/lanes.ts");
+const served = () => namesOnly(lanesNow());
+const historyServed = served().coordinators.some((c) => c.chats.some((x) => Array.isArray(x.history)));
 /** Forward the page's call to the stand-in, as the page sent it, and hand its answer back. */
 async function forward(route) {
   const r = route.request(), u = new URL(r.url());
-  if (u.pathname === "/lanes/answer" || u.pathname.startsWith("/lanes/file/")) {
-    if (r.method() === "POST") posts.push(r.postData());
+  if (u.pathname === "/lanes/answer" || u.pathname === "/lanes/ask" || u.pathname.startsWith("/lanes/file/")) {
+    if (r.method() === "POST") (u.pathname === "/lanes/ask" ? asks : posts).push(r.postData());
     const res = await call(live.port, u.pathname + u.search, { origin: r.headers()["origin"] ?? null, method: r.method(), body: r.method() === "POST" ? r.postData() ?? "" : null });
     const headers = Object.fromEntries(Object.entries(res.headers).filter(([k]) => !["connection", "transfer-encoding", "keep-alive", "date"].includes(k)));
     return route.fulfill({ status: res.status, headers, body: res.buf });
@@ -158,7 +194,7 @@ const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(A
 const errors = [];
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 /* The feed is our handovers folder's, so an answer written there comes back on the next read. */
-await ctx.route("**/api/lanes", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ feed: lanesNow(), beats: [], now: Date.now() }) }));
+await ctx.route("**/api/lanes", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ feed: served(), beats: [], now: Date.now() }) }));
 await ctx.route(`${HELPER}/**`, forward);
 const page = await ctx.newPage();
 page.on("pageerror", (e) => errors.push(e.message));
@@ -199,6 +235,42 @@ await page.locator('[data-decision="popup-design"] h3').hover();
 await page.waitForTimeout(150);
 const lit = await page.evaluate((id) => Number(document.querySelector(`[data-lanes-orb="${id}"]`)?.dataset.scale), em.id);
 check("a question under the pointer lights its chat's orb", lit === 1.3, String(lit));
+
+/* Round 2: Details. */
+const strip = (id) => page.evaluate((id) => {
+  const el = document.querySelector(`[data-decision-strip="${id}"]`);
+  return el ? { chat: el.querySelector("[data-decision-chat]")?.getAttribute("data-decision-chat"), steps: [...el.querySelectorAll("[data-decision-step]")].map((li) => li.lastElementChild?.textContent), earlier: !!el.querySelector("[data-decision-earlier]"), collapse: !!el.querySelector("[data-decision-collapse]"), area: !!el.querySelector("[data-decision-area]"), text: el.textContent } : null;
+}, id);
+check("each open question has a Details button, and no strip shows until it is pressed", (await page.locator("[data-decision-details]").count()) === 2 && (await page.locator("[data-decision-strip]").count()) === 0);
+await page.locator('[data-decision-details="popup-design"]').click().catch(() => {});
+let st = await strip("popup-design");
+check("Details opens a strip with the chat the question belongs to, its state and when it was last heard from", st?.chat === em.id && /Export motion/.test(st.text) && /needs you/.test(st.text) && /ago|just now/.test(st.text) && (await page.locator('[data-decision-details="popup-design"]').getAttribute("aria-expanded")) === "true", JSON.stringify(st));
+if (historyServed) {
+  check("…and its newest change", st?.steps.length === 1 && st.steps[0] === emSteps[0], JSON.stringify(st?.steps));
+  const seen = [];
+  for (let i = 0; i < 6 && st?.earlier; i++) { await page.locator('[data-decision-earlier="popup-design"]').click().catch(() => {}); st = await strip("popup-design"); seen.push(st.steps.length); }
+  check("Earlier reveals one more step a press, in order, back to the chat's start", seen.join() === "2,3,4" && st.steps.join("|") === emSteps.join("|") && !st.earlier && /the chat's start/.test(st.text), `${seen.join()} ${st?.steps.join("|")}`);
+  await page.locator('[data-decision-collapse="popup-design"]').click().catch(() => {});
+  st = await strip("popup-design");
+  check("Collapse folds it back to the newest", st?.steps.length === 1 && st.steps[0] === emSteps[0] && !st.collapse);
+} else {
+  check("…and no timeline: the chat's history stays on this PC, none of its words reach the page", st?.steps.length === 0 && !st.earlier && (await page.locator("[data-decision-timeline]").count()) === 0 && !emSteps.some((t) => st.text.includes(t)), JSON.stringify(st?.steps));
+}
+check("a question with no area picture shows no picture box", st?.area === false);
+await page.locator('[data-decision-details="merge-order"]').click().catch(() => {});
+const area = page.locator('[data-decision-area="merge-order"] img[data-decision-area-picture]');
+await area.scrollIntoViewIfNeeded().catch(() => {});
+await page.waitForFunction(() => { const i = document.querySelector('[data-decision-area="merge-order"] img'); return i?.complete && i.naturalWidth > 0; }, null, { timeout: 8000 }).catch(() => {});
+check("a question with an area picture draws it, captioned with its chat", await area.evaluate((i) => i.complete && i.naturalWidth > 0).catch(() => false) && /Import checkup/.test((await page.locator('[data-decision-area="merge-order"] figcaption').textContent().catch(() => "")) ?? ""));
+check(historyServed ? "…and that chat's only step is shown with no Earlier" : "…and no timeline for it either", (await strip("merge-order"))?.steps.length === (historyServed ? 1 : 0) && !(await strip("merge-order")).earlier);
+await page.locator('[data-decision-ask="merge-order"]').fill("Cheaper ones, please").catch(() => {});
+await page.locator('[data-decision-ask-send="merge-order"]').click().catch(() => {});
+await page.waitForSelector('[data-decision-asked="merge-order"]', { timeout: 5000 }).catch(() => {});
+check("New options, because: sends {id, ask} to the helper", asks.length === 1 && asks[0] === JSON.stringify({ id: "merge-order", ask: "Cheaper ones, please" }), asks.join(" | "));
+check("…the file holds the ask and its time, the answer untouched", question(lanesNow(), "merge-order").ask === "Cheaper ones, please" && !!question(lanesNow(), "merge-order").askedAt && question(lanesNow(), "merge-order").answer === "");
+check("…and the question says it asked for new options", /Asked for new options/.test((await page.locator('[data-decision-asked="merge-order"]').textContent().catch(() => "")) ?? ""));
+await page.locator('[data-decision-details="popup-design"]').click().catch(() => {});
+check("the same button closes the strip; the other stays open", (await strip("popup-design")) === null && (await strip("merge-order")) !== null);
 
 /* A press. */
 await page.locator('[data-decision="popup-design"] [data-decision-press="a"]').click();
@@ -251,6 +323,12 @@ await p2.locator('[data-decision="merge-order"] [data-decision-press="a"]').clic
 await p2.waitForSelector('[data-decision-said="merge-order"]', { timeout: 8000 }).catch(() => {});
 const said = (await p2.locator('[data-decision-said="merge-order"]').textContent().catch(() => "")) ?? "";
 check("…a press is refused with the message", /^Not sent: .*helper/.test(said), said);
+await p2.locator('[data-decision-details="merge-order"]').click().catch(() => {});
+await p2.locator('[data-decision-ask="merge-order"]').fill("Other ones").catch(() => {});
+await p2.locator('[data-decision-ask-send="merge-order"]').click().catch(() => {});
+await p2.waitForSelector('[data-decision-ask-said="merge-order"]', { timeout: 8000 }).catch(() => {});
+const askDown = (await p2.locator('[data-decision-ask-said="merge-order"]').textContent().catch(() => "")) ?? "";
+check("…so is an ask for new options", /^Not sent: .*helper/.test(askDown) && (await p2.locator('[data-decision-asked="merge-order"]').count()) === 0, askDown);
 check("…stays open, and the file is untouched", (await p2.locator('article[data-decision="merge-order"]').count()) === 1 && readFileSync(LANES, "utf8") === before);
 feedUp = false;
 await p2.reload({ waitUntil: "domcontentloaded" });
