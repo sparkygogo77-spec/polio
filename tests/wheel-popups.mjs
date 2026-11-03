@@ -37,7 +37,8 @@ async function runSite(site) {
   const page = await ctx.newPage();
   page.setDefaultTimeout(60_000);
   const errors = [];
-  page.on("pageerror", (e) => errors.push(e.message));
+  /* The Builder's errors. `openBoard` passes through /api/version to reach storage, and a dev server's first compile of that route can answer 500; that is not the Builder. */
+  page.on("pageerror", (e) => { if (!page.url().includes("/api/version")) errors.push(`${e.message} @ ${String(e.stack).split("\n").slice(1, 3).join(" ").trim()}`); });
   await ctx.route("https://api.github.com/**", (r) => r.abort());
   await openBoard(page, BASE, "solface");
   const doc = JSON.parse(readFileSync(file, "utf8"));
@@ -66,11 +67,16 @@ async function runSite(site) {
     const el = document.querySelector(`[data-node-id="${id}"]`);
     window.__radii = new Map([el, ...el.querySelectorAll("*")].map((e) => [e, getComputedStyle(e).borderTopLeftRadius]));
   }, target.id);
-  const painter = (wanted) => page.evaluate((px) => {
+  /* A part with no corners, border or padding gets the box that paints them only once it has one: then it was 0px. */
+  const painter = (wanted) => page.evaluate(({ px, id }) => {
     for (const [e] of window.__radii) if (e.isConnected && getComputedStyle(e).borderTopLeftRadius === px) { window.__painter = e; return window.__radii.get(e); }
+    const el = document.querySelector(`[data-node-id="${id}"]`);
+    const born = [...el.querySelectorAll("*")].find((e) => !window.__radii.has(e) && getComputedStyle(e).borderTopLeftRadius === px);
+    if (born) { window.__painter = born; return "0px"; }
     return null;
-  }, wanted);
-  const drawn = () => page.evaluate(() => (window.__painter?.isConnected ? getComputedStyle(window.__painter).borderTopLeftRadius : null));
+  }, { px: wanted, id: target.id });
+  /* Gone again is no corners again. */
+  const drawn = () => page.evaluate(() => (window.__painter ? (window.__painter.isConnected ? getComputedStyle(window.__painter).borderTopLeftRadius : "0px") : null));
   const past = () => page.evaluate(() => JSON.parse(JSON.stringify(window.__studioHistory.rows?.() ?? [])).length);
   const openEdge = async (x = target.x, y = target.y) => {
     await page.mouse.click(x, y, { button: "right" });
@@ -81,7 +87,7 @@ async function runSite(site) {
     await page.waitForTimeout(350);
   };
   const closeAll = async () => { for (let i = 0; i < 5 && (await page.locator("[data-radial]").count()); i++) { await page.keyboard.press("Escape"); await page.waitForTimeout(150); } };
-  const box = (sel) => page.locator(sel).first().boundingBox();
+  const box = async (sel) => ((await page.locator(sel).count()) ? page.locator(sel).first().boundingBox() : null);
   /* The pop-up keeps clear of the wheel across: wholly left or wholly right of its pieces. */
   const wheelBox = (spans, b) => { const lo = Math.min(...spans.map((s) => s[0])), hi = Math.max(...spans.map((s) => s[1])); return b.x + b.width <= lo + 2 || b.x >= hi - 2; };
   const inWindow = (b) => !!b && b.x >= 0 && b.y >= 0 && b.x + b.width <= 1440 && b.y + b.height <= 900;
