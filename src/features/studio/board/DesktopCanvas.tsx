@@ -37,7 +37,7 @@ import { useDrawKit } from "../DrawKits";
 import { insideOutline,lineFromStroke,nearlyClosed,PATH_WORDS,PATH_WORDS_SAMPLE,shapeFromLine,toBox,wornFor,type Worn } from "../wornModel";
 import { SmallBoard } from "../SmallBoard";
 import { partName } from "../partNames";
-import { inAppAreaIds,isWrapper,liftToAppArea,parentOf,ridersOf,wordsIn,wordsOf } from "../owner";
+import { inAppAreaIds,isWrapper,liftToAppArea,ridersOf,wordsIn,wordsOf } from "../owner";
 import { rereadComponents,resizedWith } from "../components";
 import { editingWords,openWords,WordsInPlace } from "../WordsInPlace";
 import {
@@ -58,6 +58,9 @@ import { ON_BOARD } from "../shelf";
 import { codesWorn, motionCss, pathCodes } from "../shelf/parts/capturedMotion";
 import { svgUnder } from "../live/svgUnder";
 import { HOT, useHoverHot } from "./hoverHot";
+import { useHoverOutlines } from "./hoverOutlines";
+import { PickBar } from "./PickBar";
+import { climbSpot, clickSpot, oneLevelIn, setClickSpot, stepOutOf } from "./selectTools";
 import { useRestFar } from "./restFar";
 import { useSkipFar } from "./skipFar";
 import { useDrawNear } from "./drawNear";
@@ -65,7 +68,7 @@ import { BOARD_MOTION_CSS, groundLayersOf, PageGroundLayers, stacksOf, useBoardM
 import { runWorks } from "../live/runWorks";
 import { followsOf, placeFollowers } from "../live/follow";
 
-import { shownOnBoard,placedOnBoard,boxOf,WEARS_AN_ICON,FRAME_GUTTER,TOP_GUTTER,LABEL_LINE,LABEL_GAP,SITE_TOP_MAX,SCREEN_H,snapGrid,ERASE_REACH,MIN_W,MIN_H,type Handle,type Drag,type Guides } from "./helpers";
+import { DOUBLE_SLOP,shownOnBoard,placedOnBoard,boxOf,WEARS_AN_ICON,FRAME_GUTTER,TOP_GUTTER,LABEL_LINE,LABEL_GAP,SITE_TOP_MAX,SCREEN_H,snapGrid,ERASE_REACH,MIN_W,MIN_H,type Handle,type Drag,type Guides } from "./helpers";
 import { midOf,edgePoint,hitNode,hitShape,hitAlong } from "./geometry";
 import { isChain,reasonOn,ShapeView,GROUP_HANDLES,HANDLE_CURSOR } from "./ShapeView";
 import { NodeView } from "./NodeView";
@@ -993,13 +996,14 @@ export function DesktopCanvas() {
    *    with a part picked, and Draw a space stayed in the hand.
    *  · Enter goes into the words: a part's own, or the words a button holds.
    *  · The arrows nudge what is picked a pixel, ten with Shift. A run of
-   *    nudges is one step of undo.
+   *    nudges, each within a second of the last, is one step of undo.
    *
    * Only when nothing else has the key: a field being typed in, the wheel,
    * a dialog, the lamp being placed and the shelf all answer Escape first.
    * `tests/board-keys.mjs`.
    */
-  const lastNudge = React.useRef(0);
+  /* The last nudge, and how deep the undo history stood after it: an undo, a redo or any other edit since ends the run, whatever the clock says. */
+  const lastNudge = React.useRef<{ at: number; depth: string }>({ at: -Infinity, depth: "" });
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       /* Alt only with ↑ or ↓: the picked part trades places up or down the page (below). */
@@ -1022,10 +1026,11 @@ export function DesktopCanvas() {
         if (s.handling) { s.hold(null); return; }
         if (!s.selection.length) return;
         const one = picked.length === 1 && s.selection.length === 1 ? picked[0]! : null;
-        const up = one ? parentOf(s.nodes, one) : null;
-        /* Climbing out stops below the site's own wrapper: it is the code's, not a part to pick. */
-        if (up && !isWrapper(s.nodes, up)) s.setSelection([up.id]);
+        /* Climbing out stops below the site's own wrapper (`selectTools.ts#stepOutOf`, the toolbar's step out too). */
+        const up = one ? stepOutOf(s.nodes, one) : null;
+        if (up) s.setSelection([up.id]);
         else s.clearSelection();
+        climbSpot(up?.id ?? null);
         play("tap");
         return;
       }
@@ -1051,8 +1056,12 @@ export function DesktopCanvas() {
       const held = [...ids, ...ridersOf(s.nodes, ids, resolvePalette(s.format, s.look))];
       /* A frame takes its states; a state stops at its frame's edge (`stateFrames.ts`). */
       const all = [...held, ...frameRiders(s.nodes, held)];
-      if (e.timeStamp - lastNudge.current > 800) s.commit();
-      lastNudge.current = e.timeStamp;
+      if (e.timeStamp - lastNudge.current.at > 1000 || `${s.past.length}/${s.future.length}` !== lastNudge.current.depth) s.commit();
+      /* The second runs from when this nudge is drawn, not from its key: on parasite's 18,851 parts the drawing after a nudge takes most of a second, and the next key started a step of its own. */
+      const now = useStudio.getState();
+      const run = { at: performance.now(), depth: `${now.past.length}/${now.future.length}` };
+      lastNudge.current = run;
+      requestAnimationFrame(() => { if (lastNudge.current === run) run.at = performance.now(); });
       const was: Record<string, { x: number; y: number; w: number; h: number }> = {};
       for (const n of s.nodes) if (all.includes(n.id)) was[n.id] = boxOf(n);
       const by = clampMove(s.nodes, all, was, dx, dy);
@@ -1066,6 +1075,15 @@ export function DesktopCanvas() {
   }, []);
 
   /* ------------------------------------------------------------- pointer */
+  /*
+   * A SECOND CLICK ON THE SAME SPOT GOES ONE LEVEL IN (the design canvas's way, J 2026-11-03). The last click that
+   * picked one part, and where (`selectTools.ts#clickSpot`); a press back on that spot, with that part still the one
+   * picked, keeps it in hand (a drag moves it), and let go without a drag it picks the part it holds one level down
+   * toward the point (`oneLevelIn`). Escape and the toolbar step back out and carry the spot up. Two quick presses
+   * still do what they did (go in to the smallest part, open words, turn a solid, follow a link): this is the slow
+   * second click.
+   */
+  const goingIn = React.useRef<{ picked: string; hitId: string | null; x: number; y: number } | null>(null);
   /* What a press starts is decided by the rules table (`board/press.ts`); here it is carried out. */
   const onPointerDown = (e: React.PointerEvent) => {
     const p = toCanvas(e.clientX, e.clientY);
@@ -1120,6 +1138,16 @@ export function DesktopCanvas() {
       case "hold-solid":
       case "follow-link":
       case "move": {
+        const last = clickSpot();
+        const again = rule === "move" && !e.shiftKey && !read.facts.twice && !!last && store.selection.length === 1 && store.selection[0] === last.id
+          && Math.hypot(p.x - last.x, p.y - last.y) < DOUBLE_SLOP && (hitId === last.id || !!read.hit && !!oneLevelIn(store.nodes, store.nodes.find((n) => n.id === last.id) ?? read.hit, read.hit));
+        goingIn.current = again ? { picked: last!.id, hitId, x: p.x, y: p.y } : null;
+        if (again) {
+          pressed.current = { id: hitId!, at: e.timeStamp, x: p.x, y: p.y };
+          capture();
+          setDrag(moveDrag(store, [last!.id], p));
+          return;
+        }
         if (e.shiftKey) store.toggleSelection(id!);
         else if (!store.selection.includes(id!)) store.setSelection(ids);
         play("select");
@@ -1386,6 +1414,24 @@ export function DesktopCanvas() {
   const onPointerUp = (e?: React.PointerEvent) => {
     if (!drag) return;
     const store = useStudio.getState();
+    if (drag.kind === "node" && !drag.moved) {
+      /* A click, not a drag: the second on the same spot goes one level in (see `goingIn`). */
+      const into = goingIn.current;
+      const one = store.selection.length === 1 ? store.nodes.find((n) => n.id === store.selection[0]) ?? null : null;
+      if (into && one && one.id === into.picked) {
+        const hit = into.hitId && into.hitId !== one.id ? store.nodes.find((n) => n.id === into.hitId) ?? null : null;
+        const inner = hit ?? partUnder(store.nodes, one, into, shownOnBoard(store), ((places) => (n: StudioNode) => places.get(n.id))(placedOnBoard(store)));
+        const child = oneLevelIn(store.nodes, one, inner);
+        if (child) {
+          store.setSelection([child.id]);
+          store.want({ panel: "inspector", id: child.id });
+          play("select");
+        }
+      }
+      const now = useStudio.getState().selection;
+      setClickSpot(now.length === 1 ? { id: now[0]!, x: drag.startX, y: drag.startY } : null);
+    } else setClickSpot(null);
+    goingIn.current = null;
     // The rectangle as the last move left it, rendered or not (see `marqueeRef`).
     const marquee = marqueeRef.current;
     /*
@@ -1687,6 +1733,7 @@ export function DesktopCanvas() {
   const boardSettled = useBoardSettled();
   useSkipFar(ref, boardSettled, drawnIds);
   useHoverHot(ref);
+  useHoverOutlines(ref);
   const pageWindowRef = React.useRef<HTMLDivElement>(null);
   /* The view's top is written on the parts and layers that ride it, not on the board (`useViewTop`). */
   const viewReaders = React.useMemo(() => `${[...stacks].filter(([, s]) => s.translate).map(([id, s]) => `${id}:${s.translate}`).join(",")}|${groundLayers.length}`, [stacks, groundLayers]);
@@ -1725,6 +1772,8 @@ export function DesktopCanvas() {
        */
       className="relative w-full shrink-0 touch-none select-none"
       data-board-tool={tool}
+      /* A drag in hand: the hover outlines stand down (globals.css `[data-hover-depth]`). */
+      data-board-drag={drag && drag.kind !== "pan" ? drag.kind : undefined}
       style={{ cursor, height: boardH }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={onDrop}
@@ -1776,6 +1825,8 @@ export function DesktopCanvas() {
         the words' drawn size back (the settle) reads it at 1:1
         (`textFit.ts#atFullSize`). `tests/board-crisp.mjs`.
       */}
+      {/* The picked part's toolbar, drawn over the window (a portal), up once a press is let go (`PickBar.tsx`). */}
+      <PickBar dragging={!!drag} pane={paneOf} />
       <div className="absolute left-0 top-0" style={{ transform: `translate(${pan.x}px, ${TOP_GUTTER + above}px)` }}>
       {/* `--chip-scale`: the 1/zoom a part's hover chips are drawn at (and `--point-z` the zoom a pointed part's glow is sized against, globals.css), set here once so a zoom does not redraw every part to tell it (`NodeView.tsx`). */}
       <div ref={zoomRef} data-board-zoom="" data-board-motion={motion} className="absolute left-0 top-0" style={{ zoom, "--chip-scale": Math.max(1, 1 / zoom), "--point-z": zoom } as React.CSSProperties}>
