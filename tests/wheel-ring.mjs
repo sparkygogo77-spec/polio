@@ -12,7 +12,8 @@
  *   node tests/wheel-ring.mjs http://localhost:3451 <folder holding sites/>
  *
  * SITES=share-xyz narrows the run. A site that freezes the headless browser
- * gives up after five minutes rather than holding the machine.
+ * gives up after twelve minutes rather than holding the machine (parasiteonsol-fun,
+ * the heaviest, took about seven under the software renderer).
  */
 import { createRequire } from "node:module";
 import { existsSync, readFileSync } from "node:fs";
@@ -251,7 +252,7 @@ async function runSite(site) {
 for (const site of SITES) {
   const gave = await Promise.race([
     runSite(site).then(() => null, (e) => `error: ${String(e.message).split("\n")[0]}`),
-    new Promise((done) => setTimeout(() => done("froze for five minutes"), 300_000)),
+    new Promise((done) => setTimeout(() => done("gave up after twelve minutes"), 720_000)),
   ]);
   if (gave) check(`${site}: the run finished`, false, gave);
 }
