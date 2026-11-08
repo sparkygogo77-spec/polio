@@ -130,6 +130,41 @@ export function storedStacks<T>(nodes: T[]): T[] {
   return changed ? out : nodes;
 }
 
+/**
+ * A CAPTURED ONE-LINE PART WHOSE LEADING DOES NOT FIT ITS BOX TAKES THE LINE
+ * ITS BOX HAS (EDIT-ISSUES #58). trendtrader-pro's "Markets" tab is a 13px
+ * button the page drew 55 tall, padded 18 above its words and 22 below: 15px
+ * of room, one line at the face's normal line. The capture recorded the
+ * leading the page's stylesheet gives buttons, 1.6, so the board set the
+ * line at 20.8px (`parts/theme.ts#applyFont`), the button grew to 61 to hold
+ * it (`parts/primitives.tsx`: a box is never shorter than its words), its
+ * row grew with it, and the 272 parts under it moved down 6px; the published
+ * page kept 55, so board and page differed by the same.
+ *
+ * A box (less its padding) that cannot hold even one line at its recorded
+ * leading held one line on the page, and the page drew that line in the room
+ * it had: its leading is that room over its size. Done once, as the document
+ * is taken in, so a leading he sets afterwards is his (the part grows to it,
+ * `growToWords.ts`). A box with room for its line keeps its leading; a part
+ * placed here has no `from` and is untouched. tests/one-line-room.mjs.
+ */
+export function fitLeading<T>(nodes: T[]): T[] {
+  type Part = { from?: { selector?: string } | null; h?: unknown; font?: { leading?: unknown; px?: unknown } | null; pad?: { top?: unknown; bottom?: unknown } | null };
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+  const fix = (n: T): T | null => {
+    const m = n as Part | null;
+    if (!m?.from?.selector?.trim() || !m.font) return null;
+    const leading = num(m.font.leading), px = num(m.font.px), h = num(m.h);
+    if (leading === null || px === null || px <= 0 || h === null || h <= 0) return null;
+    const room = h - Math.max(0, num(m.pad?.top) ?? 0) - Math.max(0, num(m.pad?.bottom) ?? 0);
+    if (room <= 0 || room >= px * leading - 0.5) return null;
+    return { ...n, font: { ...m.font, leading: Math.round((room / px) * 1e4) / 1e4 } };
+  };
+  let changed = false;
+  const out = nodes.map((n) => { const f = fix(n); if (f) changed = true; return f ?? n; });
+  return changed ? out : nodes;
+}
+
 export function takeDoc<P extends DocPrev>(
   s: P,
   doc: DocIn,
@@ -144,7 +179,7 @@ export function takeDoc<P extends DocPrev>(
     // A copy button nothing was decided for copies what it sits beside (library/copyButton.ts).
     nodes: (() => {
       const nodes = doc.nodes && doc.behaviours ? attachCaptured(doc.nodes as Parameters<typeof attachCaptured>[0], doc.behaviours, doc.keyframes) : doc.nodes ?? s.nodes;
-      return storedStacks(withOptions(giveCopies(nodes as Parameters<typeof giveCopies>[0]) as typeof nodes));
+      return fitLeading(storedStacks(withOptions(giveCopies(nodes as Parameters<typeof giveCopies>[0]) as typeof nodes)));
     })(),
     groups: doc.groups ?? s.groups,
     shapes: doc.shapes ?? s.shapes,
