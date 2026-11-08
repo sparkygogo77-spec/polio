@@ -25,20 +25,20 @@ import { useBuilds, type Project } from "@/features/builds/store";
 import { useStudio } from "../board/store";
 import type { Doc } from "../board/store/model";
 import { readDoc, unpackDocText, writeDocNow } from "../docStore";
-import { formatOf } from "../starterPage";
-import { themeColours } from "../siteTheme";
 import { useSystems } from "../system/store";
 import type { System } from "../system/model";
 import type { Idea } from "../idea/plan";
-import { askVersions, styleFor, type Asked, type Style } from "../idea/versionsRun";
-import { buildSite, wholeVersion, type Versions } from "../idea/versions";
+import { askVersions, type Asked } from "../idea/versionsRun";
+import type { Versions } from "../idea/versions";
+import { draftable } from "../idea/plan";
+import { conceptVersions } from "./copy";
+import { draftOne, FRAME, type Drafted } from "./draft";
 import { rolesOf } from "../system/resolve";
-import { conceptName, mixName, mixNodes, withTake, withoutTake, type Concept, type Group, type PartLike, type Take } from "./model";
+import { conceptName, mixName, mixNodes, sectionOfPart, withTake, withoutTake, type Concept, type Group, type PartLike, type Take } from "./model";
 import { useConcepts } from "./store";
 
 const LIVE = "builder.studio";
 const slot = (id: string) => `builder.doc:${id}`;
-const FRAME = 1440;
 
 type Envelope = { state: Record<string, unknown> & { nodes?: PartLike[]; pages?: { id: string }[]; systemId?: string | null; system?: System | null; format?: unknown; frameWidth?: number }; version?: number };
 
@@ -76,23 +76,6 @@ export function siteNameOf(prompt: string, given: string): string {
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
-/** One version drawn as a whole site document, in this System. */
-function conceptDoc(v: Versions, i: number, style: Style, name: string): Record<string, unknown> {
-  const site = buildSite(v, wholeVersion(v, i), style.system, { frameWidth: FRAME, words: "fill" });
-  return {
-    pages: site.pages,
-    nodes: site.nodes,
-    groups: [],
-    look: { palette: site.palette },
-    ...(style.theme ? { format: formatOf(style.theme, themeColours(style.theme)) } : {}),
-    brief: { name, description: v.versions[i]?.pitch ?? v.description },
-    systemId: style.system.id,
-    system: style.system,
-    activePageId: site.pages[0]?.id,
-    frameWidth: FRAME,
-  };
-}
-
 /** Write a document as a new site, or over `into`. The site's id. */
 async function writeSite(doc: Record<string, unknown>, name: string, into: string | null): Promise<string> {
   const raw = JSON.stringify({ state: doc, version: 0 });
@@ -111,6 +94,32 @@ async function writeSite(doc: Record<string, unknown>, name: string, into: strin
   return useBuilds.getState().restore(p, raw);
 }
 
+const newSeed = () => (Math.floor(Math.random() * 2 ** 31) ^ Date.now()) >>> 0;
+
+type DraftedList = { ok: true; list: Drafted[]; by: "claude" | "local"; plain: string | null } | { ok: false; says: string };
+
+/**
+ * The concepts drafted: Claude's versions when asked (one call), each drawn
+ * whole and given a direction's taste; else, or when the call could not
+ * answer, the free ones written here from the prompt's subject (`copy.ts`),
+ * which say why in `plain`.
+ */
+async function draftedFor(prompt: string, o: { claude: boolean; count: number; seed: number }): Promise<DraftedList> {
+  const allowed = new Set(draftable().map((f) => f.id));
+  let v: Versions;
+  let plain: string | null = null;
+  if (o.claude) {
+    let asked: Asked | null = null;
+    try { asked = await askVersions(ideaOf(prompt), { claude: true }); } catch (e) { plain = `The call did not come back (${e instanceof Error ? e.message : "unknown"}).`; }
+    if (asked && asked.versions.by === "claude") v = { ...asked.versions, name: siteNameOf(prompt, asked.versions.name) };
+    else { plain = asked?.plain ?? plain ?? "Claude could not answer."; v = conceptVersions(prompt, { seed: o.seed, count: o.count, allowed }); plain = `${plain} These are the free concepts, written here.`; }
+  } else {
+    v = conceptVersions(prompt, { seed: o.seed, count: o.count, allowed });
+  }
+  const list = v.versions.slice(0, Math.max(1, o.count)).map((_, i) => draftOne(v, i, o.seed + i * 104729, v.name));
+  return list.length ? { ok: true, list, by: v.by, plain } : { ok: false, says: "No concept could be drafted." };
+}
+
 export type MakeResult = { ok: true; group: string; ids: string[]; plain: string | null } | { ok: false; says: string };
 
 /** One prompt → three (or `count`) concepts, each a site of its own. */
@@ -118,30 +127,19 @@ export async function makeConcepts(prompt: string, o: { claude: boolean; count?:
   const text = prompt.trim();
   if (!text) return { ok: false, says: "Say what the page is for first." };
   await useBuilds.getState().save();
-  const idea = ideaOf(text);
-  let asked: Asked;
-  try {
-    asked = await askVersions(idea, { claude: o.claude });
-  } catch (e) {
-    return { ok: false, says: `The versions did not come back (${e instanceof Error ? e.message : "unknown"}).` };
-  }
-  const v = { ...asked.versions, name: siteNameOf(text, asked.versions.name) };
-  const want = Math.max(1, Math.min(v.versions.length, o.count ?? 3));
+  const drafted = await draftedFor(text, { claude: o.claude, count: o.count ?? 3, seed: newSeed() });
+  if (!drafted.ok) return drafted;
   const group: Group = { id: uid(), prompt: text, made: Date.now(), ids: [], mix: null, takes: [] };
   const ids: string[] = [];
-  for (let i = 0; i < want; i++) {
-    /* A System of its own per concept: J's house style when there is one, else one rolled on the prompt's words, so three concepts look like three. */
-    const style = styleFor({ ...idea, text: `${text} ${v.versions[i]!.name}. ${v.versions[i]!.pitch}` }, conceptName(v.name, v.versions[i]!.name));
-    if (!useSystems.getState().byId[style.system.id]) useSystems.getState().put(style.system);
-    const name = conceptName(v.name, v.versions[i]!.name);
-    const id = await writeSite(conceptDoc(v, i, style, name), name, null);
-    const c: Concept = { group: group.id, name: v.versions[i]!.name, pitch: v.versions[i]!.pitch, index: i, made: Date.now(), by: v.by, systemId: style.system.id };
-    useConcepts.getState().put(id, c);
+  for (const d of drafted.list) {
+    if (!useSystems.getState().byId[d.system.id]) useSystems.getState().put(d.system);
+    const id = await writeSite(d.doc, d.name, null);
+    useConcepts.getState().put(id, { group: group.id, name: d.direction, pitch: d.pitch, index: ids.length, made: Date.now(), by: drafted.by, systemId: d.system.id });
     ids.push(id);
   }
   group.ids = ids;
   useConcepts.getState().putGroup(group);
-  return ids.length ? { ok: true, group: group.id, ids, plain: asked.plain } : { ok: false, says: "No concept could be written. The browser's storage may be full." };
+  return ids.length ? { ok: true, group: group.id, ids, plain: drafted.plain } : { ok: false, says: "No concept could be written. The browser's storage may be full." };
 }
 
 /** One concept rolled again on the group's prompt; the rest stay. */
@@ -149,22 +147,19 @@ export async function again(id: string, o: { claude: boolean } = { claude: false
   const c = useConcepts.getState().byId[id];
   const g = c && useConcepts.getState().groups[c.group];
   if (!c || !g) return { ok: false, says: "That is not a concept this browser made." };
-  const idea = ideaOf(g.prompt);
-  const asked = await askVersions(idea, { claude: o.claude });
-  const v = { ...asked.versions, name: siteNameOf(g.prompt, asked.versions.name) };
-  /* A direction the row does not already show, else the one at this place. */
   const shown = new Set(g.ids.filter((x) => x !== id).map((x) => useConcepts.getState().byId[x]?.name.toLowerCase()));
-  let i = v.versions.findIndex((x) => !shown.has(x.name.toLowerCase()) && x.name.toLowerCase() !== c.name.toLowerCase());
-  if (i < 0) i = v.versions.findIndex((x) => !shown.has(x.name.toLowerCase()));
-  if (i < 0) i = Math.min(c.index, v.versions.length - 1);
-  const name = conceptName(v.name, v.versions[i]!.name);
-  const style = styleFor({ ...idea, text: `${g.prompt} ${v.versions[i]!.name}. ${v.versions[i]!.pitch}` }, name);
-  if (!useSystems.getState().byId[style.system.id]) useSystems.getState().put(style.system);
-  await writeSite(conceptDoc(v, i, style, name), name, id);
-  useConcepts.getState().put(id, { ...c, name: v.versions[i]!.name, pitch: v.versions[i]!.pitch, made: Date.now(), by: v.by, systemId: style.system.id });
+  /* Every direction once, then the one not already in the row, else the one at this place. */
+  const drafted = await draftedFor(g.prompt, { claude: o.claude, count: 4, seed: newSeed() });
+  if (!drafted.ok) return drafted;
+  let d = drafted.list.find((x) => !shown.has(x.direction.toLowerCase()) && x.direction.toLowerCase() !== c.name.toLowerCase())
+    ?? drafted.list.find((x) => !shown.has(x.direction.toLowerCase()));
+  if (!d) d = drafted.list[Math.min(c.index, drafted.list.length - 1)]!;
+  if (!useSystems.getState().byId[d.system.id]) useSystems.getState().put(d.system);
+  await writeSite(d.doc, d.name, id);
+  useConcepts.getState().put(id, { ...c, name: d.direction, pitch: d.pitch, made: Date.now(), by: drafted.by, systemId: d.system.id });
   /* Its takes in the Mix pointed at sections it no longer has: the Mix is built again. */
   if (g.takes.some((t) => t.from === id)) await rebuildMix(g.id);
-  return { ok: true, group: g.id, ids: [id], plain: asked.plain };
+  return { ok: true, group: g.id, ids: [id], plain: drafted.plain };
 }
 
 /** The Mix of a group built from its takes and written as (or over) its Mix site. */
@@ -177,7 +172,7 @@ async function rebuildMix(groupId: string): Promise<string | null> {
     const env = await readEnvelope(id);
     if (env) { envs.set(id, env); docs.set(id, env.state.nodes ?? []); }
   }
-  const takes = g.takes.filter((t) => docs.has(t.from) && (docs.get(t.from) ?? []).some((n) => (n.label ?? "").split(": ")[0] === t.section));
+  const takes = g.takes.filter((t) => docs.has(t.from) && (docs.get(t.from) ?? []).some((n) => sectionOfPart(n.label) === t.section));
   if (!takes.length) {
     if (g.mix) { useConcepts.getState().drop(g.mix); await useBuilds.getState().remove(g.mix); }
     useConcepts.getState().setTakes(groupId, [], null);
