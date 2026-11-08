@@ -1,5 +1,8 @@
 import type { NextConfig } from "next";
 
+/** The routes that open the headless browser (each through `api/studio/headless.ts`); `tests/function-sizes.mjs` holds the same list. */
+const BROWSER_ROUTES = ["/api/studio/element", "/api/studio/preview-video", "/api/studio/render", "/api/studio/screenshot", "/api/studio/zip"];
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   /*
@@ -57,7 +60,7 @@ const nextConfig: NextConfig = {
    * measures it, `tests/function-sizes.mjs` holds it).
    */
   outputFileTracingIncludes: Object.fromEntries(
-    ["/api/studio/element", "/api/studio/preview-video", "/api/studio/render", "/api/studio/screenshot", "/api/studio/zip"].map((r) => [r, ["./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**", "./src/app/api/studio/fonts/files/**"]]),
+    BROWSER_ROUTES.map((r) => [r, ["./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**", "./src/app/api/studio/fonts/files/**"]]),
   ),
   /*
    * And nothing of the repository's own that no route reads: its checks,
@@ -71,6 +74,16 @@ const nextConfig: NextConfig = {
    */
   outputFileTracingExcludes: {
     "*": ["./tests/**", "./docs/**", "./scripts/**", "./.screenshots/**", "./screenshots/**", "./.git/**", "./.claude/**"],
+    /*
+     * ...and, of the browser taken whole, the two parts no launch ever loads:
+     * `playwright-core/lib/vite/` is the trace viewer, recorder, HTML report
+     * and dashboard (web pages, served only by `npx playwright show-trace`
+     * and codegen) and `playwright-core/types/` is type declarations. Six
+     * megabytes that no `require` reaches, in each of five functions; the
+     * one exception to "never node_modules" above, because these are leaf
+     * folders of a package named by hand, not a glob over the compiler.
+     */
+    ...Object.fromEntries(BROWSER_ROUTES.map((r) => [r, ["./node_modules/playwright-core/lib/vite/**", "./node_modules/playwright-core/types/**"]])),
   },
   // Every page in this template is client-rendered from the feature registry,
   // so there is nothing to statically optimise per-route beyond the shell.

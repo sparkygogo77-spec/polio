@@ -13,6 +13,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve, sep } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { parsePage } from './kit-check.mjs';
 import { diff } from './kit-diff.mjs';
 
@@ -151,7 +152,7 @@ export function markdown(log) {
   return `${lines.join('\n').trimEnd()}\n`;
 }
 
-if (import.meta.url === new URL(`file://${resolve(process.argv[1] ?? '')}`).href) {
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const args = process.argv.slice(2);
   const val = (flag) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : undefined; };
   const base = val('--base');

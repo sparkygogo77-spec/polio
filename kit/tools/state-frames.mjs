@@ -9,7 +9,7 @@
 // Reads a design record (DESIGN-RECORD.md) or a capture route file. Exits 1 when a state leaves its frame.
 // kit:diff runs it on design/record.json whenever a pull request changes that file (a new design).
 import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { drawnBox, readRecord } from './record-diff.mjs';
 
 // A template is not a state: its copies go into a list part, which grows with them (BUILDER-CONTRACT.md §4).
@@ -48,7 +48,7 @@ export function stateFrames(record, { px = 1 } = {}) {
 
 export const sayFrame = (x) => `${x.page ? `${x.page}: ` : ''}${x.hook === x.state ? `state "${x.state}"` : `"${x.hook}" in state "${x.state}"`} leaves its frame "${x.frame}" by ${x.over}px (box ${x.box.x},${x.box.y} ${x.box.w}x${x.box.h}; frame ${x.inFrame.x},${x.inFrame.y} ${x.inFrame.w}x${x.inFrame.h}). Keep it inside the frame, or make it its own part.`;
 
-if (import.meta.url === new URL(`file://${resolve(process.argv[1] ?? '')}`).href) {
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const args = process.argv.slice(2);
   const file = args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--px') ?? 'design/record.json';
   const pi = args.indexOf('--px');
