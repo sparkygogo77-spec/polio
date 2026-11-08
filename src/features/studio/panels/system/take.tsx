@@ -17,6 +17,8 @@
  * time. A site with no System of its own uses it, and the panel says so in
  * plain words; Own copy breaks away from it, Take from this site gives the
  * site its own.
+ *
+ * TIDY (`tidy.tsx`): the System's sizes folded onto a scale, shown first.
  */
 import * as React from "react";
 import { Copy, Download, FilePlus2 } from "lucide-react";
@@ -28,6 +30,7 @@ import { Switch } from "@/core/ui/switch";
 import { forkSite, newSystem, pointSiteAt, setHouse, takeFromSite, useHouse, useLibrary, type TakeAnswer } from "../../system/api";
 import type { System } from "../../system/model";
 import { useStudio } from "../../board/store";
+import { TidyButton } from "./tidy";
 
 const n = (x: number) => x.toLocaleString();
 const plural = (x: number, one: string, many = `${one}s`) => `${n(x)} ${x === 1 ? one : many}`;
@@ -104,6 +107,7 @@ export function SystemBar({ system }: { system: System | null }) {
         <Button size="xs" variant="outline" data-system-new="" title="A new, empty System for this site" onClick={() => { play("confirm"); newSystem(); }}>
           <FilePlus2 /> New
         </Button>
+        <TidyButton system={system} />
       </div>
       {options.length ? (
         <div className="flex items-center gap-1">

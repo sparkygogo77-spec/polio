@@ -123,6 +123,8 @@ export interface System {
    * say so (two browsers), the later mark is the house style (`store.ts#houseOf`).
    */
   house?: number;
+  /** When its sizes were last folded onto a scale (`tidy.ts`): the undo step that did it is named for it (`historyNames.ts`). */
+  tidied?: number;
   tokens: SystemTokens;
   components: SystemComponent[];
 }
@@ -270,6 +272,7 @@ export function readSystem(v: unknown): System | null {
     rev: num(v.rev) ? v.rev : 1,
     editedAt: num(v.editedAt) ? v.editedAt : 0,
     ...(num(v.house) && v.house > 0 ? { house: v.house } : {}),
+    ...(num(v.tidied) && v.tidied > 0 ? { tidied: v.tidied } : {}),
     tokens: {
       colour: list<ColourToken>(t.colour, (e) => str(e.value)),
       type: { faces: list<FaceToken>(type.faces, (e) => str(e.stack)), scale, steps: list<SizeToken>(type.steps, (e) => num(e.px)) },
