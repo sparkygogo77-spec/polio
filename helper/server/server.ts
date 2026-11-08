@@ -7,16 +7,25 @@
  *   still send that site's name as Host.
  * - Two origins, and what each may do:
  *     https://polio-two.vercel.app   the Builder page: only GET /health, to
- *                                    see that a helper is there, and GET
- *                                    /lanes, the lanes board's read-only feed
- *                                    (CORS allows exactly this origin, nothing
- *                                    else)
+ *                                    see that a helper is there, GET /lanes,
+ *                                    the lanes board's read-only feed, and
+ *                                    POST /lanes/answer, J's press on one of
+ *                                    the coordinator's questions, which sets
+ *                                    that question's answer and answeredAt
+ *                                    and nothing else, and POST /lanes/ask,
+ *                                    J asking for new options on one, which
+ *                                    sets its ask and askedAt and nothing
+ *                                    else (CORS allows exactly
+ *                                    this origin, nothing else)
  *     http://127.0.0.1:<port>        the dock: the frame this server draws
  *                                    inside the Builder (GET /dock). Pairing,
  *                                    requests, the stream and every control
  *   A request with any other Origin, or none, is refused (GET /dock alone
  *   is a page load, which carries no Origin; the page's frame-ancestors
- *   lets only the Builder frame it).
+ *   lets only the Builder frame it). GET /lanes/file/<path> is the other
+ *   exception: the decisions panel's pictures, files under handovers/ that
+ *   an <img> or a frame loads with no Origin. Read-only, pictures and what
+ *   an html design pulls in only, and an html page always sandboxed.
  * - Everything after pairing needs the token, which lives in the dock frame
  *   and never in a URL. A script on the Builder page (a captured site's,
  *   say) can't read the frame or send its Origin, so it can't drive this.
@@ -41,12 +50,12 @@
 import { createServer, type IncomingMessage, type ServerResponse, type Server } from "node:http";
 import { existsSync, readFileSync } from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
-import { extname } from "node:path";
+import { dirname, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { problems, type Message, type Plan } from "../contract.ts";
 import type { ControlResult } from "../agents/runner.ts";
 import { describeCall, type BridgeLog } from "./bridgeLog.ts";
-import { readLanes, type LanesFiles } from "./lanes.ts";
+import { answerLanes, askLanes, lanesFileAt, lanesFileHeaders, readLanes, type LanesFiles } from "./lanes.ts";
 import type { Pairing } from "./pairing.ts";
 import type { SiteTickets } from "./tickets.ts";
 
@@ -135,12 +144,33 @@ export async function startHelperServer(opts: {
     const path = new URL(req.url ?? "/", `http://127.0.0.1:${port}`).pathname;
     const method = req.method ?? "GET";
 
-    // The Builder page may only ask whether a helper is here.
+    // A decision's picture: read-only, for whoever may load it (an <img> or a frame sends no Origin).
+    if (method === "GET" && path.startsWith("/lanes/file/")) {
+      let rel = "";
+      try { rel = path.slice("/lanes/file/".length).split("/").map(decodeURIComponent).join("/"); } catch { /* a broken escape: no such file */ }
+      const at = opts.lanes ? lanesFileAt(dirname(opts.lanes.file), rel) : null;
+      if (!at) return refuse(res, 404, "no such picture");
+      res.writeHead(200, { ...lanesFileHeaders(at.type, builder), ...(who === "builder" ? { "access-control-allow-origin": builder, vary: "Origin" } : {}) });
+      return res.end(readFileSync(at.path));
+    }
+
+    // The Builder page may only ask whether a helper is here, read the lanes, and answer a question or ask for new options on it.
     if (who === "builder") {
       const cors = { "access-control-allow-origin": builder, vary: "Origin" };
       if ((path === "/health" || path === "/lanes") && method === "OPTIONS") {
         res.writeHead(204, { ...cors, "access-control-allow-methods": "GET", "access-control-max-age": "600" });
         return res.end();
+      }
+      if ((path === "/lanes/answer" || path === "/lanes/ask") && method === "OPTIONS") {
+        res.writeHead(204, { ...cors, "access-control-allow-methods": "POST", "access-control-allow-headers": "content-type", "access-control-max-age": "600" });
+        return res.end();
+      }
+      if ((path === "/lanes/answer" || path === "/lanes/ask") && method === "POST") {
+        if (!opts.lanes) return send(res, 404, { ok: false, error: "this helper has no lanes.json" }, cors);
+        let b: unknown;
+        try { b = await body(req); } catch (e) { return send(res, 400, { ok: false, error: String((e as Error).message) }, cors); }
+        const r = path === "/lanes/ask" ? askLanes(opts.lanes.file, b) : answerLanes(opts.lanes.file, b);
+        return send(res, r.ok ? 200 : r.status, r, cors);
       }
       if (path === "/health" && method === "GET") return send(res, 200, { helper: true, paired: opts.pairing.paired }, cors);
       if (path === "/lanes" && method === "GET") return send(res, 200, opts.lanes ? readLanes(opts.lanes) : { feed: null, beats: [], now: Date.now() }, cors);

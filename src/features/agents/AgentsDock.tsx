@@ -3,8 +3,9 @@
  * THE AGENTS BUTTON, THE DOCK AND ASK AGENTS (J, 2026-10-25, Q9).
  *
  * The button sits in the top bar. It opens a dock on the right, over the side
- * panel. Its first tab is the lanes board (`LanesBoard.tsx`), every chat
- * working for J. Its second, 380px wide, is a frame the helper serves at
+ * panel. Its first tab, a column 460px wide, is the lanes board (`LanesBoard.tsx`):
+ * every chat working for J, with the coordinator's questions above it to answer
+ * by a press (`Decisions.tsx`). Its second, 380px wide, is a frame the helper serves at
  * 127.0.0.1:47821/dock. Everything that frame does (Plan it, Start, Approve,
  * Pause, Stop) is a press inside it. This page only hands it context as data
  * (`context.ts`), each time it opens or the part changes, and only to the
@@ -119,7 +120,7 @@ function Dock() {
     <aside
       data-agents-dock=""
       aria-label="Agents"
-      className={`fixed bottom-0 right-0 top-(--topbar-h) z-[60] flex ${tab === "chats" ? "w-[1040px]" : "w-[380px]"} max-w-full flex-col border-l border-border glass shadow-panel`}
+      className={`fixed bottom-0 right-0 top-(--topbar-h) z-[60] flex ${tab === "chats" ? "w-[460px]" : "w-[380px]"} max-w-full flex-col border-l border-border glass shadow-panel`}
     >
       <header className="flex h-9 shrink-0 items-center justify-between border-b border-border px-3">
         <span className="flex items-center gap-3">

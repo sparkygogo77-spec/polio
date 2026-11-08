@@ -19,15 +19,24 @@ export interface LaneChat {
   /** Its folder without `work-`, what a heartbeat calls it; `name` is free to be the words J reads. */
   lane: string;
   state: ChatState;
-  note: string;
-  last: string;
   /** When its last message was sent; a new value starts a new lap. */
   sentAt: number | null;
+  /** When the coordinator last heard from it (an ISO time), for the notes under the board. */
+  lastSeen: string;
+  /** What changed, oldest first, as the coordinator wrote it; the details strip shows the newest first. */
+  history: HistoryStep[];
   /** The helper's own agent: its controls are in the helper's tab, not in a chat. */
   helper: boolean;
 }
-export interface LaneCoordinator { id: string; name: string; note: string; chats: LaneChat[] }
-export interface LanesFeed { coordinators: LaneCoordinator[]; decisions: number }
+export interface HistoryStep { at: string; text: string }
+/** Names and states only: the helper keeps notes off the Builder's page (`helper/server/lanes.ts`). */
+export interface LaneCoordinator { id: string; name: string; chats: LaneChat[] }
+/** One of the coordinator's questions for J, with its options (decisions panel, 2026-11-03). */
+export interface DecisionOption { key: string; label: string; desc: string; picture: string; pick: boolean }
+/** `area` is a picture of the part being worked on; `ask` is J asking for new options, until the coordinator reposts the question (round 2). */
+export interface Decision { id: string; order: number; about: string; question: string; why: string; options: DecisionOption[]; answer: string; answeredAt: string; area: string; ask: string; askedAt: string }
+/** `decisions` is how many questions wait on J; `questions` are those questions, answered ones included. */
+export interface LanesFeed { coordinators: LaneCoordinator[]; decisions: number; questions: Decision[] }
 export interface LaneBeat { session: string; name: string; at: number }
 
 export const STATE_COLOUR: Record<ChatState, string> = { need: "#ff4d4d", work: "#35c8ff", done: "#3dffae", park: "#6f7f99" };
@@ -49,12 +58,85 @@ export function readFeed(raw: unknown): LanesFeed | null {
     const chats: LaneChat[] = [];
     for (const x of c.chats as Record<string, unknown>[]) {
       if (!x || typeof x.id !== "string" || !STATES.has(x.state as string)) continue;
-      chats.push({ id: x.id, name: words(x.name) || x.id, lane: words(x.lane), state: x.state as ChatState, note: words(x.note), last: words(x.last), sentAt: typeof x.sentAt === "number" ? x.sentAt : null, helper: x.helper === true });
+      chats.push({ id: x.id, name: words(x.name) || x.id, lane: words(x.lane), state: x.state as ChatState, sentAt: typeof x.sentAt === "number" ? x.sentAt : null, lastSeen: words(x.lastSeen), history: readHistory(x.history), helper: x.helper === true });
     }
-    coordinators.push({ id: c.id, name: words(c.name) || c.id, note: words(c.note), chats });
+    coordinators.push({ id: c.id, name: words(c.name) || c.id, chats });
   }
   const need = coordinators.reduce((n, c) => n + c.chats.filter((x) => x.state === "need").length, 0);
-  return { coordinators, decisions: typeof r.decisions === "number" ? r.decisions : need };
+  /* The questions themselves, or (as the feed began) only their count, or else the red chats. */
+  const questions = readDecisions(r.decisions);
+  const decisions = Array.isArray(r.decisions) ? questions.filter(isOpen).length : typeof r.decisions === "number" ? r.decisions : need;
+  return { coordinators, decisions, questions };
+}
+
+/** The questions as the coordinator wrote them, by `order`. One without an id, a question or options to press is left out. */
+export function readDecisions(raw: unknown): Decision[] {
+  if (!Array.isArray(raw)) return [];
+  const out: Decision[] = [];
+  for (const d of raw as Record<string, unknown>[]) {
+    if (!d || typeof d.id !== "string" || !d.id || typeof d.question !== "string") continue;
+    const options: DecisionOption[] = [];
+    for (const o of Array.isArray(d.options) ? (d.options as Record<string, unknown>[]) : []) {
+      if (!o || typeof o.key !== "string" || !o.key) continue;
+      options.push({ key: o.key, label: words(o.label) || o.key, desc: words(o.desc), picture: pictureKind(words(o.picture)) ? words(o.picture) : "", pick: o.pick === true });
+    }
+    out.push({ id: d.id, order: typeof d.order === "number" ? d.order : 1e9, about: words(d.about), question: d.question, why: words(d.why), options, answer: words(d.answer), answeredAt: words(d.answeredAt), area: pictureKind(words(d.area)) ? words(d.area) : "", ask: words(d.ask), askedAt: words(d.askedAt) });
+  }
+  return out.map((d, i) => ({ d, i })).sort((a, b) => a.d.order - b.d.order || a.i - b.i).map((x) => x.d);
+}
+
+export const isOpen = (d: Decision) => !d.answer.trim();
+
+/** A chat's history as written, oldest first; a step without words is left out. */
+export function readHistory(raw: unknown): HistoryStep[] {
+  if (!Array.isArray(raw)) return [];
+  const out: HistoryStep[] = [];
+  for (const h of raw as Record<string, unknown>[]) {
+    const text = h && typeof h === "object" ? words(h.text).trim() : "";
+    if (!text) continue;
+    out.push({ at: typeof h.at === "number" ? new Date(h.at).toISOString() : words(h.at), text });
+  }
+  return out;
+}
+
+/** A step's time, short, in J's own time zone: "3 Nov, 14:05". */
+export function whenOf(at: string): string {
+  const t = Date.parse(at);
+  if (!Number.isFinite(t)) return "";
+  return new Date(t).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+/**
+ * A picture is a path under `handovers/`, served read-only: an image, or an
+ * html page the panel shows live in a sandboxed frame. Anything else (a
+ * folder climb, a full address, another kind of file) isn't one.
+ */
+export function pictureKind(p: string): "image" | "page" | null {
+  if (!p || p.startsWith("/") || p.includes("\\") || p.includes(":") || p.split("/").some((s) => !s || s === "." || s === ".." || s.startsWith("."))) return null;
+  if (/\.(png|jpe?g|gif|webp|svg)$/i.test(p)) return "image";
+  if (/\.html?$/i.test(p)) return "page";
+  return null;
+}
+
+/** Where a picture is read: the same door the feed came through. */
+export const pictureUrl = (base: string, p: string) => `${base}/${p.split("/").map(encodeURIComponent).join("/")}`;
+
+/** The chats a question is about: its `about` is a lane, written however (or a chat's name or id). */
+export function chatsAbout(feed: LanesFeed, about: string): LaneChat[] {
+  const a = plain(about);
+  if (!a) return [];
+  return feed.coordinators.flatMap((c) => c.chats).filter((x) => x.id === about || plain(x.lane) === a || plain(x.name) === a);
+}
+
+/** "4 min ago", from an ISO time or a time in ms; nothing when there is none. */
+export function agoOf(at: string | number | null, now: number): string {
+  const t = typeof at === "number" ? at : at ? Date.parse(at) : NaN;
+  if (!Number.isFinite(t)) return "";
+  const s = Math.max(0, (now - t) / 1000);
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  return `${Math.floor(s / 86400)} d ago`;
 }
 
 const plain = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");

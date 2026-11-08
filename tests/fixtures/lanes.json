@@ -1,5 +1,19 @@
 {
-  "decisions": 2,
+  "decisions": [
+    { "id": "popup-design", "order": 1, "about": "export-motion", "question": "Which pop-up design?", "why": "The wheel needs one look for its pop-ups.",
+      "options": [
+        { "key": "a", "label": "Tag", "desc": "A small tag by the part.", "picture": "decisions/a.png", "pick": true },
+        { "key": "b", "label": "Card", "desc": "A card that slides in, shown live.", "picture": "decisions/b.html" },
+        { "key": "c", "label": "Neither", "desc": "Keep what is there.", "picture": "../outside.png" }
+      ],
+      "answer": "", "answeredAt": "" },
+    { "id": "merge-order", "order": 2, "about": "Import checkup", "question": "Which merges first?", "why": "Both touch the importer.", "area": "decisions/a.png",
+      "options": [ { "key": "a", "label": "Import fixes first" }, { "key": "b", "label": "Export motion first" } ],
+      "answer": "", "answeredAt": "" },
+    { "id": "tidy-scale", "order": 0, "about": "tidy-style", "question": "Five type sizes or six?",
+      "options": [ { "key": "a", "label": "Five" }, { "key": "b", "label": "Six" } ],
+      "answer": "b", "answeredAt": "2026-11-03T10:00:00.000Z" }
+  ],
   "coordinators": [
     {
       "id": "local_cccccccc-0000-4000-8000-000000000001",
@@ -27,8 +41,16 @@
       "name": "Coordinator C",
       "note": "Just started; two chats wait on J.",
       "chats": [
-        { "id": "local_dddddddd-0000-4000-8000-000000000001", "name": "Export motion", "state": "need", "note": "Waits on your sign-in for the merge.", "last": "Branch pushed, PR body written.", "lastSeen": "" },
-        { "id": "local_dddddddd-0000-4000-8000-000000000002", "name": "Import checkup", "state": "need", "note": "Waits on your sign-in for the merge.", "last": "Both branches on the remote.", "lastSeen": "" },
+        { "id": "local_dddddddd-0000-4000-8000-000000000001", "name": "Export motion", "state": "need", "note": "Waits on your sign-in for the merge.", "last": "Branch pushed, PR body written.", "lastSeen": "2026-11-03T09:00:00.000Z",
+          "history": [
+            { "at": "2026-11-01T09:00:00.000Z", "text": "Started: export the motion with the site." },
+            { "at": "2026-11-02T11:30:00.000Z", "text": "Motion exports for the first fixture." },
+            { "at": "", "text": "   " },
+            { "at": "2026-11-02T16:10:00.000Z", "text": "All six fixtures export their motion." },
+            { "at": "2026-11-03T09:00:00.000Z", "text": "Branch pushed, waits on the pop-up design." }
+          ] },
+        { "id": "local_dddddddd-0000-4000-8000-000000000002", "name": "Import checkup", "state": "need", "note": "Waits on your sign-in for the merge.", "last": "Both branches on the remote.", "lastSeen": "",
+          "history": [ { "at": "2026-11-03T08:00:00.000Z", "text": "Started: check every import for gaps." } ] },
         { "id": "local_dddddddd-0000-4000-8000-000000000003", "name": "Tidy style", "state": "work", "note": "Folds type sizes into a scale.", "last": "Green on all nine captures.", "lastSeen": "" }
       ]
     }

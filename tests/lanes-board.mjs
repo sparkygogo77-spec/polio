@@ -104,6 +104,14 @@ try {
   });
   const ok = await call("/lanes", Sv.BUILDER_ORIGIN);
   check("the Builder's origin reads the feed from the helper, with CORS for it alone", ok.status === 200 && ok.cors === Sv.BUILDER_ORIGIN && ok.json?.feed?.coordinators?.length === 3, JSON.stringify({ s: ok.status, c: ok.cors }));
+  /* J, 2026-11-03: names and states only. The fixture's coordinators and chats all carry notes and last lines. */
+  const said = FIXTURE.coordinators.flatMap((c) => [c.note, ...c.chats.flatMap((x) => [x.note, x.last])]).filter(Boolean);
+  const served = ok.json?.feed?.coordinators ?? [];
+  /* A chat's history stays here too until J says otherwise (round 2 of the decisions panel). */
+  const steps = FIXTURE.coordinators.flatMap((c) => c.chats.flatMap((x) => (x.history ?? []).map((h) => h.text.trim()))).filter(Boolean);
+  check("the feed carries no chat's history, not a word of it", steps.length >= 5 && served.every((c) => c.chats.every((x) => !("history" in x))) && !steps.some((t) => JSON.stringify(ok.json).includes(t)), String(steps.length));
+  check("the feed comes without a single note or last line, from coordinators or chats", said.length >= 20 && served.every((c) => !("note" in c) && c.chats.every((x) => !("note" in x) && !("last" in x))) && !said.some((n) => JSON.stringify(ok.json).includes(n)), String(said.length));
+  check("…keeping each chat's name, state and when it was last heard from, and the questions whole", served.flatMap((c) => c.chats).every((x, i) => { const y = FIXTURE.coordinators.flatMap((c) => c.chats)[i]; return x.id === y.id && x.name === y.name && x.state === y.state && x.lastSeen === y.lastSeen; }) && JSON.stringify(ok.json.feed.decisions) === JSON.stringify(FIXTURE.decisions));
   check("…and the fresh beats, not the old or torn ones", ok.json?.beats?.length === 1 && ok.json.beats[0].session === "abc" && ok.json.beats[0].name === "form-backend", JSON.stringify(ok.json?.beats));
   check("another origin is refused", (await call("/lanes", "https://evil.test")).status === 403);
   check("no origin is refused", (await call("/lanes", null)).status === 403);
@@ -220,8 +228,10 @@ await page.mouse.move(o.x, o.y); await page.waitForTimeout(200);
 s = await read();
 check("hovering a chat names it in the menu and opens its box", s.menu === em.name && s.box === em.id, `${s.menu} / ${s.box}`);
 const boxText = await page.locator("[data-lanes-box]").textContent().catch(() => "");
-check("…with its state and last line, a field and Send", /needs you/.test(boxText) && boxText.includes(em.last) && (await page.locator("[data-lanes-say]").count()) === 1 && (await page.locator("[data-lanes-send]").count()) === 1, boxText.slice(0, 80));
+check("…with its state and when it was last heard from, no note or last line, a field and Send", /needs you/.test(boxText) && /last heard from ([0-9]+ (min|h|d) ago|just now)/.test(boxText) && !boxText.includes(em.note) && !boxText.includes(em.last) && (await page.locator("[data-lanes-say]").count()) === 1 && (await page.locator("[data-lanes-send]").count()) === 1, boxText.slice(0, 80));
 await page.mouse.move(3, 400); await page.waitForTimeout(250);
+const notesText = await page.locator("[data-lanes-notes]").textContent().catch(() => "");
+check("the list under the board names every chat and its state, and shows no note", FIXTURE.coordinators.every((c) => notesText.includes(c.name) && c.chats.every((x) => notesText.includes(x.name) && !notesText.includes(x.note) && !notesText.includes(x.last))) && FIXTURE.coordinators.every((c) => !notesText.includes(c.note)), notesText.slice(0, 80));
 
 /* One lap per message: sent, round the back, answered, to the middle. */
 const form = B.chats[3];
