@@ -59,11 +59,12 @@ async function runSite(site) {
   const node = () => page.evaluate((id) => window.__studioHistory.doc().nodes.find((n) => n.id === id), target.id);
   const past = () => page.evaluate(() => (window.__studioHistory.rows?.() ?? []).length);
   /* What the part looks like, drawn: its own and its insides' paint. */
-  const drawn = () => page.evaluate((id) => {
+  /* The pointer is parked in a corner first: a site may paint a part differently under it. */
+  const drawn = async () => { await page.mouse.move(4, 896); return page.evaluate((id) => {
     const el = document.querySelector(`[data-node-id="${id}"]`);
     if (!el) return "gone";
     return [el, ...el.querySelectorAll("*")].slice(0, 300).map((e) => { const s = getComputedStyle(e); return [s.backgroundColor, s.backgroundImage, s.boxShadow, s.color, s.filter, s.borderTopLeftRadius].join("|"); }).join("\n");
-  }, target.id);
+  }, target.id); };
   /* Which of the part's values differ from a JSON copy taken before. */
   const differs = async (was) => { const a = JSON.parse(was), b = await node(); return [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k])).map((k) => `${k} ${JSON.stringify(a[k])} to ${JSON.stringify(b[k])}`).join("; "); };
   /* The first line of paint that differs, to say what moved. */
@@ -156,6 +157,19 @@ async function runSite(site) {
   const edits = {
     texture: {
       what: "a picture of its own",
+      /*
+       * A captured part wears a texture of its own only once it has a box to
+       * wear it in (corners, border or padding: `boxWorn` in `blocks.tsx`), as
+       * it did on the slabs. It is given 4px corners first, through Edge, and
+       * that is undone after.
+       */
+      prep: async () => {
+        await open("edge");
+        await page.locator('[data-popup-slider="Corners"] input').focus();
+        for (let i = 0; i < 4; i++) await page.keyboard.press("ArrowRight");
+        await page.waitForTimeout(250);
+        await closeAll();
+      },
       run: async () => {
         await page.locator('[data-wheel-popup="texture"] input[type="file"]').setInputFiles({ name: "stripes.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") });
         for (let i = 0; i < 20 && !(await node()).texture; i++) await page.waitForTimeout(150);
@@ -190,24 +204,28 @@ async function runSite(site) {
     await page.evaluate((s) => window.__studioHistory.act("setMenuShape", s), shape);
     const want = shape === "round" ? "ring" : "tag";
     for (const [which, e] of Object.entries(edits)) {
+      const fill0 = await past();
+      if (e.prep) await e.prep();
+      const prepped = (await past()) - fill0;
       await open(which);
       const got = await shapeOf(which);
       check(`${site}: on the ${shape} wheel ${which} opens the ${want}`, got === want && (await frames()) === (want === "ring" ? 1 : 0) && (await page.locator(`[data-radial-editor="${which}"]`).count()) === 0 && inWindow(await box(`[data-wheel-popup="${which}"]`)), String(got));
-      if (got !== want) { await closeAll(); continue; }
+      if (got !== want) { await closeAll(); for (let i = 0; i < prepped; i++) await page.keyboard.press("Control+z"); continue; }
       const before = JSON.stringify(await node());
       const look = await drawn();
       const steps0 = await past();
       const r = await e.run();
-      await page.waitForTimeout(300);
-      const after = await drawn();
+      /* A picture is baked into a tile after it lands: give the part a moment to wear it. */
+      let after = await drawn();
+      for (let i = 0; i < 25 && after === look; i++) { await page.waitForTimeout(200); after = await drawn(); }
       check(`${site}: ${shape}, ${which}: ${e.what} is stored and the part changes`, r.stored && after !== look, r.detail);
       /* A picture is two steps, as on the slabs: the layer joins the site's stack, then the part wears it. */
       const steps = (await past()) - steps0;
       await page.keyboard.press("Control+z");
       await settle(look);
       check(`${site}: ${shape}, ${which}: one undo puts the part back`, JSON.stringify(await node()) === before && (await drawn()) === look, `${steps} step(s) ${await differs(before)}${(await drawn()) === look ? "" : ` (drawn differs ${lineDiff(look, await drawn())})`}`);
-      if (steps > 1) { for (let i = 1; i < steps; i++) await page.keyboard.press("Control+z"); await page.waitForTimeout(200); }
       await closeAll();
+      for (let i = 1; i < steps + prepped; i++) { await page.keyboard.press("Control+z"); await page.waitForTimeout(150); }
     }
   }
   await page.evaluate(() => window.__studioHistory.act("setMenuShape", "square"));

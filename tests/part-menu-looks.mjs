@@ -92,7 +92,8 @@ const into = async (...words) => {
     if (await el.count()) { await el.click({ force: true }); await page.waitForTimeout(600); }
   }
 };
-const chip = (label) => page.locator(`[data-arc-chip][aria-label="${label}"]`).first();
+/* Hue is a pop-up now (`WheelPopup.tsx`): its role and colour boxes are swatches. */
+const chip = (label) => page.locator(`[data-wheel-popup="hue"] [data-popup-swatch="${label}"]`).first();
 const openOn = async (id, ...words) => {
   const b = await page.locator(`[data-node-id="${id}"]`).first().boundingBox();
   await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2, { button: "right" });
