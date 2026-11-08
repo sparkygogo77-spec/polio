@@ -281,8 +281,21 @@ same boxes as everywhere else, in the screen's colours.
   changes nothing on it (`siteFormat.ts`). Picture settings live under a
   closed "Make a picture"; a status line is short, with the ids in its
   details. The panel starts at 300px and its edge drags from 228px to half
-  the window; every tab says its name, three to a row when narrow.
+  the window; every tab says its name, three to a row at every width.
   `tests/side-panel.mjs` and `tests/side-panel-reads.mjs` hold this.
+- **The side panel has six titles, in J's words, and wears the wheel's
+  colours.** Parts (the page's parts and the picked one), Look, Motion,
+  Pages, Site (the whole-site features and the brief, and the System, as
+  two pills) and Draw. The strip is six rounded pieces in the first level's
+  blue inside a void ring, the one you are on in the second level's green,
+  each with its icon and word at every width; the panel behind is the void,
+  and every section in it is a rounded slab with a lit rim, a green bead
+  when open. The panel ids (`inspector`, `format`, `system`, …) never
+  changed, so anything that asks for a panel by id lands where it did; a
+  tab that holds two panels lights for both (`page/side.tsx`,
+  `panels/SitePanel.tsx`; J picked design C of three, 2026-11-08).
+  `tests/side-panel-reach.mjs` holds every panel reachable, on the six
+  fixtures.
 - **Format is a short page, in three parts.** "This site" (heading and
   body fonts, base size, corners, page colour, accent), each read once off
   the parts with a Change that changes it where the site has it; "Whole-site

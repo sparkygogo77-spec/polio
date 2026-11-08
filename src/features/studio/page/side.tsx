@@ -1,8 +1,10 @@
 "use client";
 import * as React from "react";
-import { Blocks, Clapperboard, Image as ImageIcon, Layers, Palette as PaletteIcon, Settings2, Sparkles } from "lucide-react";
+import { ToggleGroup } from "radix-ui";
+import { Blocks, Clapperboard, Image as ImageIcon, Layers, Palette as PaletteIcon, Sparkles } from "lucide-react";
 import { cn } from "@/core/lib/cn";
 import { Button } from "@/core/ui/button";
+import { play } from "@/core/audio/engine";
 
 /**
  * The side panel's tabs: one set, in one order, always all six.
@@ -27,20 +29,81 @@ import { Button } from "@/core/ui/button";
  * the twelve categories were re-cut to obey, because below about 20 the
  * difference is not one a person can see.
  */
+/*
+ * SIX TITLES, IN J'S WORDS (side-panel lane, 2026-11-08; handovers/open/side-panel/sections.md).
+ *
+ * Seven tabs of equal weight read as a grey strip; three of them were about
+ * the whole site. Now: Parts (was Element), Look, Motion, Pages, Site and
+ * Draw (was Pictures). Site holds the two whole-site panels, Format and
+ * System, as a pair of pills inside it, so System is still one press away
+ * and `setLeftPanel("system")` still lands on it. The panel ids never
+ * changed: everything that asks for a panel by id (the board's `wanted`,
+ * `studio:panel`, the tour) works as before.
+ */
 export const SIDE_TABS = [
-  { value: "inspector", label: "Element", icon: <Sparkles />, hue: 265 },
-  { value: "format", label: "Format", icon: <Settings2 />, hue: 200 },
-  { value: "pages", label: "Pages", icon: <Layers />, hue: 230 },
+  { value: "inspector", label: "Parts", icon: <Sparkles />, hue: 265 },
   { value: "look", label: "Look", icon: <PaletteIcon />, hue: 320 },
-  /* The site's tokens and components (panels/SystemPanel.tsx), next to Look as the create-system proposal has it. */
-  { value: "system", label: "System", icon: <Blocks />, hue: 95 },
   { value: "motion", label: "Motion", icon: <Clapperboard />, hue: 170 },
+  { value: "pages", label: "Pages", icon: <Layers />, hue: 230 },
+  /* Format (whole-site features and the brief) and System (tokens and components) together: both are about the whole site. */
+  { value: "format", label: "Site", icon: <Blocks />, hue: 95, also: ["system"] },
   /* The drawing tool on a tab of its own (PicturesPanel.tsx). It spent a while
      folded at the foot of each part's Element panel, where with nothing picked
      it could not be found at all; his words: "give the ai image generator its
-     own section/display panel option". 50 is the one gap left on the wheel. */
-  { value: "pictures", label: "Pictures", icon: <ImageIcon />, hue: 50 },
+     own section/display panel option". */
+  { value: "pictures", label: "Draw", icon: <ImageIcon />, hue: 50 },
 ] as const;
+
+/** The two whole-site panels inside Site, as pills. Their ids are the panel ids they always had. */
+export const SITE_TABS = [
+  { value: "format", label: "Whole site" },
+  { value: "system", label: "System" },
+] as const;
+
+/** The tab a panel id lights: System lights Site. */
+export const tabOf = (panel: string) => SIDE_TABS.find((t) => t.value === panel || ("also" in t && (t.also as readonly string[]).includes(panel)))?.value ?? panel;
+
+/*
+ * THE STRIP IS THE WHEEL'S PIECES (design C, picked 2026-11-08).
+ *
+ * Six rounded pieces in the wheel's own neon blue, three to a row, inside a
+ * void ring with a lit rim; the one you are on is the second level's green.
+ * Every piece says its word and wears its icon at every width, so there is
+ * nothing to learn. Still a radio group (one tab on at a time), so a test
+ * or a screen reader finds a tab by its name.
+ */
+export function SideTabs({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const lit = tabOf(value);
+  return (
+    <ToggleGroup.Root
+      type="single"
+      value={lit}
+      onValueChange={(v) => { if (!v) return; play("select"); onChange(v); }}
+      aria-label="Side panel"
+      data-side-tabs=""
+      className="grid grid-cols-3 gap-1 rounded-[18px] border border-border-strong bg-elevated p-1 shadow-[inset_0_1px_0_oklch(0.5_0.08_var(--void-h)/0.45),0_2px_8px_oklch(0_0_0/0.4)]"
+    >
+      {SIDE_TABS.map((t) => (
+        <ToggleGroup.Item
+          key={t.value}
+          value={t.value}
+          title={t.label}
+          aria-label={t.label}
+          data-side-tab={t.value}
+          className={cn(
+            "tactile flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-xl px-1 text-small font-semibold",
+            "bg-[oklch(0.74_0.17_205)] text-[oklch(0.17_0.05_205)] shadow-[inset_0_1px_0_oklch(1_0_0/0.35)] hover:bg-[oklch(0.8_0.17_205)]",
+            "data-[state=on]:bg-[oklch(0.76_0.18_148)] data-[state=on]:text-[oklch(0.17_0.05_148)] data-[state=on]:shadow-[inset_0_1px_0_oklch(1_0_0/0.4),0_0_12px_oklch(0.76_0.18_148/0.55)]",
+            "[&_svg]:size-3.5 [&_svg]:shrink-0",
+          )}
+        >
+          {t.icon}
+          <span data-tab-word="" className="truncate whitespace-nowrap">{t.label}</span>
+        </ToggleGroup.Item>
+      ))}
+    </ToggleGroup.Root>
+  );
+}
 
 /*
  * One side, two shapes.
@@ -50,7 +113,8 @@ export const SIDE_TABS = [
  * and used to get nothing at all: no Element, no Look, no Pages. Same
  * element, same tabs, same hooks; only where it stands changes.
  */
-export const SHEET = "relative flex flex-col border-border bg-panel/95 fixed inset-x-0 bottom-0 z-40 max-h-[62dvh] border-t shadow-pop md:relative md:inset-auto md:z-auto md:max-h-none md:w-[300px] md:shrink-0 md:border-t-0 md:border-r md:bg-panel/50 md:shadow-none";
+/* The panel is the void too (docs/DESIGN.md "The chrome is the void too"): a dark purple-blue ground with the lit line on its edge, never a half-clear grey. */
+export const SHEET = "relative flex flex-col border-border-strong bg-[linear-gradient(180deg,oklch(0.15_0.045_var(--void-h)),oklch(0.12_0.035_var(--void-h)))] fixed inset-x-0 bottom-0 z-40 max-h-[62dvh] border-t shadow-pop md:relative md:inset-auto md:z-auto md:max-h-none md:w-[300px] md:shrink-0 md:border-t-0 md:border-r md:shadow-none";
 
 /*
  * THE PANEL'S WIDTH IS THE PERSON'S.

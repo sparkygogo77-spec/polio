@@ -265,7 +265,9 @@ const pxStill = diffPx(px0, await shot()) === 0;
 say(`untouched board read (${Object.keys(board0).length} parts drawn; pixels ${pxStill ? "decide" : "cannot decide, the board moves of itself"})`);
 
 /* The take, pressed in the System tab. */
-await tab("System");
+await tab("Site");
+await pause(300);
+await page.locator("[data-site-tab=\"system\"]").click();
 await pause(800);
 await page.locator("[data-system-panel] [data-take-open]").click();
 await page.locator("[data-take-report] [data-take-linked]").waitFor({ timeout: 15000 });
@@ -306,7 +308,7 @@ const fillOf = (it) => it.fields.fill.find((f) => f.main);
 const keyOf = (it) => fillOf(it).field.split(".")[1];
 
 /* The Element panel names the picked instance and offers the three choices. */
-await tab("Element");
+await tab("Parts");
 await select((byHand ?? first).host);
 const row = page.locator("[data-instance-row]");
 const rowText = (await row.count()) ? await row.first().innerText() : "";
@@ -391,7 +393,7 @@ const libU = await S((S, a) => JSON.stringify(S.system().components.find((c) => 
 check("…and in the System", !libU.includes("255, 0, 255"), libU);
 
 /* Reset brings each back to its variant. */
-await tab("Element");
+await tab("Parts");
 if (byHand) {
   await select(byHand.host);
   await row.locator("[data-instance-reset]").click();
@@ -420,7 +422,7 @@ const copyId = await page.evaluate(() => [...document.querySelectorAll("[data-bu
 check("the site was copied", !!copyId);
 await page.goto(`${BASE}/builder`, { waitUntil: "networkidle" });
 await pause(2500);
-await tab("Element");
+await tab("Parts");
 await select(first.host);
 await row.locator("[data-instance-edit]").click();
 await pause(900);

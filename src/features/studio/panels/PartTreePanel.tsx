@@ -588,11 +588,23 @@ export function PanelSection({ id, title, icon, note, defaultOpen = true, holds,
     try { localStorage.setItem(SECTIONS_KEY, JSON.stringify({ ...readFolds(), [id]: now })); } catch { /* kept for this visit */ }
   };
   return (
-    <section ref={box} data-part-section={id} data-open={open ? "" : undefined} data-inside={inside ? "" : undefined} className={inside ? "-mx-3 border-t border-border first:border-t-0" : "border-b border-border"}>
+    /* A SECTION IS A SLAB (design C, 2026-11-08): a rounded void card with a lit rim, a green
+       bead when it is open and a dim one when it is shut, the title in plain words. A section
+       inside another (More's rows) stays a quiet line. */
+    <section ref={box} data-part-section={id} data-open={open ? "" : undefined} data-inside={inside ? "" : undefined}
+      className={cn(
+        inside
+          ? "-mx-3 border-t border-border first:border-t-0"
+          : "mx-2 my-1.5 rounded-2xl border bg-elevated shadow-[inset_0_1px_0_oklch(0.5_0.08_var(--void-h)/0.4),0_2px_8px_oklch(0_0_0/0.35)]",
+        !inside && (open ? "border-[oklch(0.76_0.18_148/0.55)] shadow-[inset_0_1px_0_oklch(0.5_0.08_var(--void-h)/0.4),0_0_12px_oklch(0.76_0.18_148/0.18)]" : "border-border-strong"),
+      )}>
       <button type="button" aria-expanded={open} data-section-head="" onClick={toggle}
-        className={cn("tactile flex w-full items-center gap-2 px-3 text-left hover:bg-hover/50", inside ? "h-7" : "h-8")}>
+        className={cn("tactile flex w-full items-center gap-2 px-3 text-left hover:bg-hover/40", inside ? "h-7" : "h-9 rounded-2xl")}>
+        {inside ? null : (
+          <span aria-hidden className={cn("size-2 shrink-0 rounded-full", open ? "bg-[oklch(0.76_0.18_148)] shadow-[0_0_7px_oklch(0.76_0.18_148)]" : "bg-border-strong")} />
+        )}
         {icon ? <span className="flex size-4 shrink-0 items-center justify-center text-fg-muted [&_svg]:size-3.5">{icon}</span> : null}
-        <span className={cn("min-w-0 flex-1 truncate text-small text-fg", inside ? "font-medium" : "font-semibold uppercase tracking-[0.08em]")}>{title}</span>
+        <span className={cn("min-w-0 flex-1 truncate text-fg", inside ? "text-small font-medium" : "text-plain font-semibold", !inside && !open && "text-fg-muted")}>{title}</span>
         {note ? <span className="shrink-0 truncate text-fine text-fg-faint">{note}</span> : null}
         <ChevronRight className={cn("size-3.5 shrink-0 text-fg-faint transition-transform", open && "rotate-90")} />
       </button>

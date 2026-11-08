@@ -170,9 +170,11 @@ const pause = (ms = 600) => page.waitForTimeout(ms);
 /* 1. The tab                                                           */
 /* ------------------------------------------------------------------ */
 const side = page.locator("[data-side-panel]");
-const tab = side.locator('[aria-label="Side panel"] [role=radio][aria-label="System"]');
+/* System is a pill inside the Site tab (side-panel lane, 2026-11-08): press Site, then System. */
+const siteTab = side.locator('[aria-label="Side panel"] [role=radio][aria-label="Site"]');
+const tab = { count: () => siteTab.count(), click: async (o) => { await siteTab.click(o); await page.waitForTimeout(300); await side.locator('[data-site-tab="system"]').click(o); } };
 const order = await side.locator('[aria-label="Side panel"] [role=radio]').evaluateAll((ts) => ts.map((t) => t.getAttribute("aria-label")));
-check("the side panel has a System tab, next to Look", order.indexOf("System") === order.indexOf("Look") + 1, order.join(", "));
+check("the side panel has a Site tab, which holds System", order.includes("Site"), order.join(", "));
 if (!(await tab.count())) { check("the System tab can be pressed", false); await finish(browser); }
 
 /*

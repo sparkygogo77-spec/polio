@@ -87,8 +87,8 @@ await page.waitForTimeout(500);
    toggle, the tour and a pick open it"); the toggle is pressed only if it
    did not, since pressing it on an open sheet puts the sheet away. */
 if (!(await onScreen(panel))) { await toggle.click(); await page.waitForTimeout(500); }
-const elementTab = panel.locator("[role=radio]").filter({ hasText: "Element" }).first();
-check("a picked part has its Element tab in the panel", (await elementTab.count()) === 1 && await onScreen(elementTab));
+const elementTab = panel.locator("[role=radio]").filter({ hasText: "Parts" }).first();
+check("a picked part has its Parts tab in the panel", (await elementTab.count()) === 1 && await onScreen(elementTab));
 await elementTab.click().catch(() => {});
 await page.waitForTimeout(300);
 check("and the panel scrolls to the part's own fields", await onScreen(panel.locator('[data-part-section="content"]')) || (await panel.locator('[data-part-panel]').count()) === 1);

@@ -82,7 +82,7 @@ await page.waitForTimeout(1500);
 await page.locator('[data-node-id="hero"]').first().click({ force: true });
 await page.waitForTimeout(600);
 /* The panel's Element tab is where a part's own fields are. */
-const tab = page.locator("[data-side-panel] [role=radio]").filter({ hasText: "Element" }).first();
+const tab = page.locator("[data-side-panel] [role=radio]").filter({ hasText: "Parts" }).first();
 if (await tab.count()) { await tab.click({ force: true }); await page.waitForTimeout(600); }
 const field = page.locator('input[type="file"][accept="image/*"]').first();
 check("the part offers somewhere to put a picture", (await field.count()) > 0, (await field.count()) ? "" : "no picture field on the panel");
