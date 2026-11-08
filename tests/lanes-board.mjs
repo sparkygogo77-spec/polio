@@ -107,9 +107,11 @@ try {
   /* J, 2026-11-03: names and states only. The fixture's coordinators and chats all carry notes and last lines. */
   const said = FIXTURE.coordinators.flatMap((c) => [c.note, ...c.chats.flatMap((x) => [x.note, x.last])]).filter(Boolean);
   const served = ok.json?.feed?.coordinators ?? [];
-  /* A chat's history stays here too until J says otherwise (round 2 of the decisions panel). */
-  const steps = FIXTURE.coordinators.flatMap((c) => c.chats.flatMap((x) => (x.history ?? []).map((h) => h.text.trim()))).filter(Boolean);
-  check("the feed carries no chat's history, not a word of it", steps.length >= 5 && served.every((c) => c.chats.every((x) => !("history" in x))) && !steps.some((t) => JSON.stringify(ok.json).includes(t)), String(steps.length));
+  /* Of a chat's history only the lines marked public go (J, 2026-11-08); an unmarked line stays here like a note. */
+  const hidden = FIXTURE.coordinators.flatMap((c) => c.chats.flatMap((x) => (x.history ?? []).filter((h) => h.public !== true).map((h) => h.text.trim()))).filter(Boolean);
+  const shown = FIXTURE.coordinators.flatMap((c) => c.chats.flatMap((x) => (x.history ?? []).filter((h) => h.public === true).map((h) => h.text.trim())));
+  const servedSteps = served.flatMap((c) => c.chats.flatMap((x) => x.history ?? []));
+  check("the feed carries only the history lines marked public, as time and words, and not a word of an unmarked one", hidden.length >= 3 && shown.length === 2 && servedSteps.length === 2 && servedSteps.every((h) => Object.keys(h).sort().join() === "at,text") && servedSteps.map((h) => h.text).join("|") === shown.join("|") && !hidden.some((t) => JSON.stringify(ok.json).includes(t)), `${hidden.length} ${JSON.stringify(servedSteps)}`);
   check("the feed comes without a single note or last line, from coordinators or chats", said.length >= 20 && served.every((c) => !("note" in c) && c.chats.every((x) => !("note" in x) && !("last" in x))) && !said.some((n) => JSON.stringify(ok.json).includes(n)), String(said.length));
   check("…keeping each chat's name, state and when it was last heard from, and the questions whole", served.flatMap((c) => c.chats).every((x, i) => { const y = FIXTURE.coordinators.flatMap((c) => c.chats)[i]; return x.id === y.id && x.name === y.name && x.state === y.state && x.lastSeen === y.lastSeen; }) && JSON.stringify(ok.json.feed.decisions) === JSON.stringify(FIXTURE.decisions));
   check("…and the fresh beats, not the old or torn ones", ok.json?.beats?.length === 1 && ok.json.beats[0].session === "abc" && ok.json.beats[0].name === "form-backend", JSON.stringify(ok.json?.beats));
