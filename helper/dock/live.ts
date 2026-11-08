@@ -14,7 +14,7 @@
  * A 401 anywhere means the token is gone (the helper restarted, or J
  * pressed Unpair): it is dropped and the dock asks to pair again.
  */
-import { problems, type Control, type Message, type Plan, type Request } from "../contract.ts";
+import { problems, type Control, type Message, type PcNow, type PcStop, type PcStopIdle, type PcStopped, type Plan, type Request } from "../contract.ts";
 
 const KEY = "polio-helper-token";
 
@@ -55,6 +55,12 @@ export function liveHelper(on: LiveEvents, { base = "", retryMs = 2000 } = {}) {
     const out = await res.json().catch(() => ({})) as { ok?: boolean; error?: string } & Record<string, unknown>;
     if (res.status === 401) forget(out.error ?? "pair again");
     return { status: res.status, ...out };
+  };
+  const get = async (path: string): Promise<Reply> => {
+    const res = await fetch(base + path, { headers: token ? { authorization: `Bearer ${token}` } : {} });
+    const out = await res.json().catch(() => ({})) as { ok?: boolean; error?: string } & Record<string, unknown>;
+    if (res.status === 401) forget(out.error ?? "pair again");
+    return { ...out, status: res.status };
   };
 
   /** One line off the stream: a site call, or a contract message (checked before it is used). */
@@ -116,5 +122,24 @@ export function liveHelper(on: LiveEvents, { base = "", retryMs = 2000 } = {}) {
       return { ok: !!out.ok, error: out.error };
     },
     siteReply: (reply: unknown) => call("/site/reply", reply),
+    /** The token caps: what they are, and today's count. */
+    caps: () => get("/caps") as Promise<CapsReply>,
+    setDailyCap: (tokensPerDay: number) => call("/caps", { by: "j", tokensPerDay }) as Promise<CapsReply>,
+    /** "Everything Claude is doing" on this PC, through the helper and the token. */
+    pc: {
+      now: async () => {
+        const r: Record<string, unknown> = await get("/api/pc/now");
+        if (r.status !== 200) throw new Error(String(r.error ?? `the helper said ${r.status}`));
+        delete r.status;
+        return r as unknown as PcNow;
+      },
+      send: async (m: PcStop | PcStopIdle) => {
+        const r: Record<string, unknown> = await call(m.kind === "pc-stop" ? "/api/pc/stop" : "/api/pc/stop-idle", m);
+        delete r.status;
+        return r as unknown as PcStopped;
+      },
+    },
   };
 }
+
+export type CapsReply = { status: number; ok?: boolean; error?: string; tokensPerDay?: number | null; tokensPerRequest?: number | null; today?: number };

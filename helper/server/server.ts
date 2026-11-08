@@ -70,6 +70,14 @@ const TYPES: Record<string, string> = { ".html": "text/html", ".css": "text/css"
 
 export type HelperServer = { server: Server; port: number; close(): Promise<void> };
 
+/** What the dock shows of the caps: null is "no cap of that kind". */
+export type CapsView = { tokensPerDay: number | null; tokensPerRequest: number | null; today: number };
+export type PcReader = {
+  read(): Promise<unknown>;
+  stop(pid: number, created: number, confirmSession: boolean): Promise<unknown>;
+  stopIdle(minutes: number): Promise<unknown>;
+};
+
 type Who = "builder" | "dock" | "none";
 
 export async function startHelperServer(opts: {
@@ -78,6 +86,10 @@ export async function startHelperServer(opts: {
   tickets?: SiteTickets; siteWaitMs?: number;
   /** Where every site call is kept; without one, refusals still reach an open dock. */
   siteLog?: BridgeLog;
+  /** The token caps: GET /caps shows them, POST /caps {by: "j", tokensPerDay} changes the daily one. */
+  caps?: { get(): CapsView; set(c: { tokensPerDay: number }): void };
+  /** The PC reader behind "Everything Claude is doing" (helper/pc/watch.ts); without it /api/pc/* says so. */
+  pc?: PcReader;
 }): Promise<HelperServer> {
   const builder = opts.builderOrigin ?? BUILDER_ORIGIN;
   let port = opts.port ?? HELPER_PORT;
@@ -228,6 +240,33 @@ export async function startHelperServer(opts: {
       if (b.source !== "polio-builder" || b.kind !== "site" || typeof b.ok !== "boolean") return refuse(res, 400, "not a site reply");
       wait.answer(b.ok ? { ok: true, result: b.result } : { ok: false, says: String(b.says ?? "the Builder refused the call") });
       return send(res, 200, { ok: true });
+    }
+    // The daily token cap (audit risk 3): see it, and J changes it.
+    if (path === "/caps" && method === "GET") {
+      if (!opts.caps) return refuse(res, 404, "this helper has no caps to show");
+      return send(res, 200, { ok: true, ...opts.caps.get() });
+    }
+    if (path === "/caps" && method === "POST") {
+      if (!opts.caps) return refuse(res, 404, "this helper has no caps to change");
+      const b = (await body(req)) as Record<string, unknown>;
+      if (b?.by !== "j") return refuse(res, 403, "caps are J's to change");
+      const n = b.tokensPerDay;
+      if (typeof n !== "number" || !Number.isInteger(n) || n < 10_000 || n > 1_000_000_000) return refuse(res, 400, "the daily cap is a whole number of tokens from 10,000 to 1,000,000,000");
+      opts.caps.set({ tokensPerDay: n });
+      return send(res, 200, { ok: true, ...opts.caps.get() });
+    }
+    // "Everything Claude is doing" on the real PC (audit risk 8): the dock's
+    // second tab, behind the same token as every control.
+    if (path.startsWith("/api/pc/")) {
+      if (!opts.pc) return refuse(res, 404, "this helper doesn't read the PC");
+      if (method === "GET" && path === "/api/pc/now") return send(res, 200, await opts.pc.read());
+      if (method !== "POST") return refuse(res, 405, "POST only");
+      const m = (await body(req)) as Record<string, unknown>;
+      const p = problems(m);
+      if (p.length) return refuse(res, 400, p.join("; "));
+      if (path === "/api/pc/stop" && m.kind === "pc-stop") return send(res, 200, await opts.pc.stop(m.pid as number, m.created as number, m.confirmSession === true));
+      if (path === "/api/pc/stop-idle" && m.kind === "pc-stop-idle") return send(res, 200, await opts.pc.stopIdle(m.minutes as number));
+      return refuse(res, 400, "wrong message for this path");
     }
     if (method === "POST" && path === "/control") {
       const b = (await body(req)) as Record<string, unknown>;

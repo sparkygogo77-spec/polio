@@ -128,7 +128,14 @@ export function mountPcView(root: HTMLElement, source: PcSource, opts: { everyMs
       <section class="pc-cloud" data-pc-cloud><h2>Cloud sessions</h2><ul>${cloud}</ul></section>`;
   }
 
-  async function refresh() { pc = await source.now(); draw(); }
+  /** A reading that fails (not paired yet, helper gone) says so plainly, and the last good reading stays. */
+  async function refresh() {
+    try { pc = await source.now(); draw(); }
+    catch (e) {
+      if (pc) return;
+      root.innerHTML = `<p class="quiet" data-pc-note>This PC can't be read yet (${esc(String((e as Error)?.message ?? e))}). Pair with this PC on the Agents tab, then come back.</p>`;
+    }
+  }
 
   async function send(m: PcStop | PcStopIdle) {
     const p = problems(m);

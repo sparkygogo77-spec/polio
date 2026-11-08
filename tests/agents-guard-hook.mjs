@@ -59,7 +59,8 @@ try {
   // ---- what must go on ------------------------------------------------------
   check("an ordinary shell call goes on (exit 0)", hook(bash("node tests/agents-contract.mjs")).code === 0);
   check("the lane's own push goes on", hook(bash("git push -u origin claude/hero-calm")).code === 0);
-  check("a dev server on the lane's port goes on", hook(bash("PORT=3100 npm run dev")).code === 0);
+  check("a dev server on the lane's port, on this PC only, goes on", hook(bash("PORT=3100 npm run dev -- -H 127.0.0.1")).code === 0);
+  check("…without -H 127.0.0.1 it is refused (helper-install-fixes: Next binds every interface by default)", hook(bash("PORT=3100 npm run dev")).code === 2);
   check("a build goes on (and takes the build lock)", hook(bash("npm run build")).code === 0);
   check("a file write into the worktree goes on", hook({ tool_name: "Edit", tool_input: { file_path: "src/features/agents/store.ts", old_string: "a", new_string: "b" } }).code === 0);
   check("editing the helper's own source (the word PolioHelper, no path) goes on", hook({ tool_name: "Edit", tool_input: { file_path: "helper/server/main.ts", old_string: "x", new_string: 'join(process.env.LOCALAPPDATA, "PolioHelper")' } }).code === 0);

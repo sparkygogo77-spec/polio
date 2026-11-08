@@ -3,7 +3,10 @@
 #   - the "at log on" task, or the Startup-folder shortcut;
 #   - the polio-helper:// link (HKCU\Software\Classes\polio-helper);
 #   - %USERPROFILE%\PolioHelper (the helper's clone, config, launcher, logs);
-#   - %LOCALAPPDATA%\PolioHelper (the helper's own state).
+#   - %LOCALAPPDATA%\PolioHelper (the helper's own state: pairing, caps, gates).
+# At the end it lists, as LEFT lines, what it does not remove and how you can:
+# the Playwright browser, lane transcripts, the browser's storage, lane
+# folders and branches.
 # It reads installed.json for what was added, and also removes the default
 # places, so it works even if that file is gone.
 #
@@ -18,6 +21,9 @@ param(
   [string]$TaskName = 'Polio Helper',
   [string]$StartupDir = '',
   [string]$StateDir = (Join-Path $env:LOCALAPPDATA 'PolioHelper'),
+  [string]$Pleo = (Join-Path $env:USERPROFILE 'Downloads\Pleo'),
+  [string]$UserHome = $env:USERPROFILE,
+  [string]$LocalAppData = $env:LOCALAPPDATA,
   [switch]$Everything,
   [switch]$NoQuit,
   [switch]$DryRun
@@ -87,6 +93,22 @@ foreach ($t in $targets.Values) {
     }
   }
 }
+
+# ---- what stays, said plainly (audit helper-install.md, risk 9) ------------------
+# Each LEFT line names a thing this script does not remove, where it is, and
+# how to remove it yourself if you want it gone.
+Write-Host 'STEP left : what uninstall leaves on this PC, and how to remove it'
+function Left([string]$what, [string]$how) { Write-Host "LEFT $what"; Write-Host "  $how" }
+$pw = Join-Path $LocalAppData 'ms-playwright'
+Left "the live-check browser (Playwright's Chromium) in $pw" $(if (Test-Path $pw) { 'Other tools on this PC may use it too. Delete that folder if nothing else needs it.' } else { 'Not there now.' })
+$projects = Join-Path $UserHome '.claude\projects'
+$agentsKey = ((Join-Path $Pleo 'agents') -replace '[^A-Za-z0-9]', '-')
+$transcripts = @(Get-ChildItem -Path $projects -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "$agentsKey-*" })
+Left "each lane's Claude Code transcript, under $projects ($($transcripts.Count) folder(s) named $agentsKey-<lane>)" 'Delete those folders to drop the lanes'' conversations. Your own chats are in the other folders there.'
+Left 'the dock''s pairing token in your browser''s storage for http://127.0.0.1:47821, and Chrome''s "local network" permission for polio-two.vercel.app' 'Chrome: Settings, Privacy and security, Site settings: clear the data of 127.0.0.1:47821, and reset the permission of polio-two.vercel.app.'
+Left 'Windows'' remembered choice to open polio-helper:// links' 'Nothing to do: the link is gone, so it does nothing now.'
+Left "the lanes' folders in $(Join-Path $Pleo 'agents') and handovers\owners.json in Pleo" 'They are your work. Delete a lane folder once its branch is merged.'
+Left 'the claude/<lane> branches on GitHub' 'Delete them on GitHub once they are merged.'
 
 Write-Host ''
 if ($DryRun) { Write-Host 'Dry run: nothing was changed.' } else { Write-Host 'Polio Helper is removed.' }

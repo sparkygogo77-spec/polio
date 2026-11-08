@@ -1,19 +1,26 @@
 # Polio Helper: install once (AGENTS-PANEL-PROPOSAL.md, section 2, "Install once").
 #
 # The Agents dock's "Set up the helper" shows one line to paste into PowerShell
-# (helper/install/line.ts). It runs this file straight from the polio repo, so
-# you can read it first at the same address.
+# (helper/install/line.ts). It runs this file straight from the polio repo at
+# one named commit (-Commit), so you can read it first at the same address and
+# the helper's code is exactly that commit, not whatever the branch holds later.
 #
 # What it does, as you (no admin rights, nothing elevated):
-#   1. checks Node 24 and Git, and finds Claude Code;
-#   2. puts the helper in %USERPROFILE%\PolioHelper (a clone of the polio repo,
-#      plus its packages and the browser the live check uses);
+#   1. checks Node 24 and Git, and finds Claude Code: -Claude, else
+#      ~\.local\bin\claude.exe, else claude on PATH, else the Claude desktop
+#      app's own copy (%APPDATA%\Claude\claude-code\<version>\<hash>\claude.exe,
+#      the newest version). It says which one it chose;
+#   2. puts the helper in %USERPROFILE%\PolioHelper (a clone of the polio repo
+#      held at -Commit, plus its packages and the browser the live check uses),
+#      and helper.json with a daily token cap (-TokensPerDay, 2,000,000 unless
+#      you say otherwise; the dock shows it and can change it);
 #   3. registers the polio-helper:// link for you only (HKCU). The link can do
 #      two things: start the helper, or bring up its dock. Anything else in a
 #      link is refused before anything runs;
-#   4. adds a hidden "at log on" task for you (or, if Windows refuses that, a
-#      shortcut in your Startup folder), so the helper starts with Windows;
-#   5. starts the tray icon: Open, Pause all, Quit.
+#   4. does NOT start the helper with Windows: the Builder's "Start the helper"
+#      starts it when you want it. Say -AtLogOn for a hidden "at log on" task
+#      (or, if Windows refuses that, a shortcut in your Startup folder);
+#   5. starts the tray icon now: Open, Pause all, Quit.
 #
 # What it never does:
 #   - ask for an API key, or read, store or pass on a Claude sign-in. The
@@ -33,14 +40,19 @@ param(
   [string]$Pleo = (Join-Path $env:USERPROFILE 'Downloads\Pleo'),
   [string]$From = 'https://github.com/sparkygogo77-spec/polio.git',
   [string]$Branch = 'claude/template-ui-website-builder-11bfgl',
+  [string]$Commit = '',
   [string]$Node = '',
   [string]$Git = '',
   [string]$Claude = '',
+  [string]$AppData = $env:APPDATA,
+  [string]$UserHome = $env:USERPROFILE,
+  [long]$TokensPerDay = 2000000,
   [string]$ClassesKey = 'HKCU:\Software\Classes',
   [string]$TaskName = 'Polio Helper',
   [string]$StartupDir = '',
   [string]$StateDir = (Join-Path $env:LOCALAPPDATA 'PolioHelper'),
   [switch]$NoDeps,
+  [switch]$AtLogOn,
   [switch]$NoTask,
   [switch]$NoStart,
   [switch]$DryRun
@@ -85,11 +97,39 @@ if ($gitVersion -notmatch '^git version') { throw "Git at $Git doesn't answer. I
 Say "$gitVersion at $Git"
 
 Step 'check-claude' 'Claude Code, signed in as you (your plan; no API key)'
-if (-not $Claude) {
-  $local = Join-Path $env:USERPROFILE '.local\bin\claude.exe'
-  $Claude = if (Test-Path $local) { $local } else { Find '' 'claude' }
+# The newest claude.exe the Claude desktop app keeps for itself:
+# <AppData>\Claude\claude-code\<version>\<hash>\claude.exe. The helper looks
+# again each time it starts (helper/agents/find-claude.ts), so an app update
+# that moves it doesn't stop the lanes.
+function DesktopClaude([string]$appData) {
+  if (-not $appData) { return '' }
+  $base = Join-Path $appData 'Claude\claude-code'
+  if (-not (Test-Path $base)) { return '' }
+  $best = ''; $bestVersion = $null
+  foreach ($d in @(Get-ChildItem -Path $base -Directory -ErrorAction SilentlyContinue)) {
+    $ver = $null
+    if (-not [version]::TryParse($d.Name, [ref]$ver)) { continue }
+    $exe = @(Get-ChildItem -Path $d.FullName -Directory -ErrorAction SilentlyContinue |
+      ForEach-Object { Join-Path $_.FullName 'claude.exe' } | Where-Object { Test-Path $_ } |
+      Sort-Object { (Get-Item $_).LastWriteTime } -Descending) | Select-Object -First 1
+    if ($exe -and ($null -eq $bestVersion -or $ver -gt $bestVersion)) { $best = [string]$exe; $bestVersion = $ver }
+  }
+  return $best
 }
-if ($Claude) { Say "Claude Code at $Claude. The helper uses the sign-in it already has." }
+$claudeFrom = 'given with -Claude'
+if (-not $Claude) {
+  $local = if ($UserHome) { Join-Path $UserHome '.local\bin\claude.exe' } else { '' }
+  if ($local -and (Test-Path $local)) { $Claude = $local; $claudeFrom = 'the Claude Code install in your user folder' }
+  else {
+    $Claude = Find '' 'claude'
+    if ($Claude) { $claudeFrom = 'claude on PATH' }
+    else {
+      $Claude = DesktopClaude $AppData
+      if ($Claude) { $claudeFrom = "the Claude desktop app's own copy, the newest version" }
+    }
+  }
+}
+if ($Claude) { Say "Claude Code at $Claude ($claudeFrom). The helper uses the sign-in it already has." }
 else { Say 'Claude Code was not found. Install it and run "claude" once to sign in; the helper waits for it and never asks for a key.' }
 
 # ---- 2. the helper's folder -----------------------------------------------------
@@ -97,18 +137,24 @@ Step 'folder' "the helper's folder"
 if (-not (Test-Path $Root)) { if (-not $DryRun) { New-Item -ItemType Directory -Path $Root | Out-Null } }
 Added 'folder' $Root
 
-Step 'fetch' "the helper's code, from $From ($Branch)"
+if ($Commit -and $Commit -notmatch '^[0-9a-fA-F]{7,40}$') { throw "-Commit must be a commit id (7 to 40 hex digits), not '$Commit'." }
+$what = if ($Commit) { "commit $Commit of $Branch" } else { "the tip of $Branch (no -Commit given)" }
+Step 'fetch' "the helper's code, from $From, $what"
 if (-not $DryRun) {
   if (Test-Path (Join-Path $Repo '.git')) {
     & $Git -C $Repo fetch -q origin $Branch
-    & $Git -C $Repo checkout -q $Branch
-    & $Git -C $Repo merge -q --ff-only "origin/$Branch"
   } else {
     & $Git clone -q --branch $Branch $From $Repo
   }
   if ($LASTEXITCODE -ne 0) { throw "Git couldn't fetch the helper (exit $LASTEXITCODE)." }
-}
-Say "into $Repo"
+  # The helper runs from this checkout, so it is held at one commit: the one
+  # the line names. Lanes branch from origin/<branch>, never from here.
+  $at = if ($Commit) { $Commit } else { "origin/$Branch" }
+  & $Git -C $Repo -c advice.detachedHead=false checkout -q --detach $at
+  if ($LASTEXITCODE -ne 0) { throw "Git couldn't check out $at (exit $LASTEXITCODE). Is it a commit of $Branch?" }
+  $head = (& $Git -C $Repo rev-parse HEAD | Out-String).Trim()
+  Say "into $Repo, held at $head"
+} else { Say "into $Repo" }
 
 Step 'deps' 'the packages and the live-check browser'
 if ($NoDeps) { Say 'skipped (-NoDeps)' }
@@ -123,13 +169,21 @@ elseif (-not $DryRun) {
   } finally { Pop-Location }
 }
 
-Step 'config' 'helper.json: where Node, the repo, Pleo and Claude Code are'
+Step 'config' 'helper.json: where Node, the repo, Pleo and Claude Code are, and the daily token cap'
+if ($TokensPerDay -lt 10000) { throw "-TokensPerDay must be at least 10000 (it was $TokensPerDay)." }
+# A cap set by an earlier install is kept unless -TokensPerDay is given again.
+$configFile = Join-Path $Root 'helper.json'
+if ((Test-Path $configFile) -and -not $PSBoundParameters.ContainsKey('TokensPerDay')) {
+  try { $had = (Get-Content -Raw $configFile | ConvertFrom-Json).tokensPerDay; if ($had -ge 10000) { $TokensPerDay = [long]$had } } catch { }
+}
 $config = [ordered]@{
   node = $Node; repo = $Repo; pleo = $Pleo
   handovers = (Join-Path $Pleo 'handovers'); agents = (Join-Path $Pleo 'agents')
   claude = $Claude; dock = 'http://127.0.0.1:47821/dock/'
+  tokensPerDay = $TokensPerDay
 }
-if (-not $DryRun) { $config | ConvertTo-Json | Set-Content -Encoding ASCII (Join-Path $Root 'helper.json') }
+Say "Daily cap: $TokensPerDay tokens. Lanes pause there; the dock shows it and can change it."
+if (-not $DryRun) { $config | ConvertTo-Json | Set-Content -Encoding ASCII $configFile }
 
 # ---- 3. the launcher and the link ------------------------------------------------
 # The launcher is the only thing the link, the log-on task and the Startup
@@ -175,9 +229,9 @@ if (-not $DryRun) {
 Added 'registry' $key
 
 # ---- 4. start with Windows -----------------------------------------------------
-Step 'logon' 'start with Windows, hidden'
+Step 'logon' 'start with Windows: only with -AtLogOn'
 $shortcut = Join-Path $StartupDir 'Polio Helper.lnk'
-if ($NoTask) { Say 'skipped (-NoTask)' }
+if ($NoTask -or -not $AtLogOn) { Say 'not added: the helper starts when you press Start the helper in the Builder. Say -AtLogOn to start it with Windows.' }
 elseif ($DryRun) { Added 'task' $TaskName }
 else {
   try {
@@ -217,4 +271,4 @@ else { Start-Process -FilePath $Wscript -ArgumentList "`"$Launcher`"", 'start' }
 
 Write-Host ''
 if ($DryRun) { Write-Host 'Dry run: nothing was changed.' }
-else { Write-Host 'Polio Helper is installed. In the Builder, open Agents and press Pair with this PC.' }
+else { Write-Host 'Polio Helper is installed. In the Builder, open Agents and press Show a code on my PC.' }
