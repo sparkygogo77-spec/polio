@@ -114,9 +114,13 @@ if (SITES) {
     await page.waitForTimeout(1500);
     await tab("Parts");
     const rows = await side.locator("[data-part-section], [data-kind-row], li").count();
-    const node = page.locator("[data-studio-scroll] [data-node-id]").first();
+    /* The first part with a panel of its own: a page background or a stray box has none, so try a few. */
+    const nodes = page.locator("[data-studio-scroll] [data-node-id]");
     let sections = [];
-    if (await node.count()) { await node.click({ force: true }); await page.waitForTimeout(600); sections = await side.locator("[data-part-section]").evaluateAll((ss) => ss.map((s) => s.getAttribute("data-part-section"))); }
+    for (let i = 0; i < Math.min(6, await nodes.count()) && !sections.includes("content"); i++) {
+      await nodes.nth(i).click({ force: true }); await page.waitForTimeout(600);
+      sections = await side.locator("[data-part-section]").evaluateAll((ss) => ss.map((s) => s.getAttribute("data-part-section")));
+    }
     check(`6 ${site}: Parts lists the parts and a picked part has its sections`, rows > 0 && ["content", "place", "look", "more"].every((id) => sections.includes(id)), `${rows} rows; ${sections.join(", ")}`);
     await tab("Site");
     const site1 = await there('[data-format-section="whole-site"]');
