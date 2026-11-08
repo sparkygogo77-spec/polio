@@ -38,7 +38,8 @@ export type SiteRequest =
   | (Asked & { op: "picked"; site?: string })
   | (Asked & { op: "at"; site?: string; x: number; y: number })
   | (Asked & { op: "select"; site?: string; ids: string[] })
-  | (Asked & { op: "shot"; site?: string; page?: string; part?: string })
+  /* A picture of a part (a crop its size), or of what J sees of the board (`screen`); `side` is the long side in pixels. */
+  | (Asked & { op: "shot"; site?: string; page?: string; part?: string; screen?: boolean; side?: number })
   | (Asked & { op: "apply"; site: string; name: string; steps: SiteStep[]; base?: string });
 
 /** Every field a part has (`board/store/model.ts#StudioNode`), but its ids, which no step may set. A patch naming another changes nothing, so it is refused; `tests/agent-commands.mjs` holds this to the model. */

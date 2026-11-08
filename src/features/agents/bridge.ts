@@ -47,6 +47,7 @@ import { getFeature } from "@/features/studio/shelf";
 import { canTrade, tradePlaces } from "@/features/studio/board/tradePlaces";
 import { holderPath, holdersFirst } from "@/features/studio/paintOrder";
 import { HELPER_ORIGIN } from "./context";
+import { SHOT_MAX_SIDE, SHOT_SIDE, shootBoard, type Crop } from "./shot";
 import { useAgents } from "./store";
 
 export { BIG_CHANGE, SITE_OPS, checkApply, partsTouched, planApply, versionOf, type BoardLike, type SiteStep, type SiteRequest, type SiteReply } from "./siteSteps";
@@ -297,16 +298,49 @@ function select(ids: unknown): { ok: true; result: unknown } | { ok: false; says
   return { ok: true, result: picked() };
 }
 
-/** A shot is a reference the helper takes, not pixels: the Builder has no screenshot library (agents-entry.md). */
-function shot(page?: string, part?: string): unknown {
+/** Around a part's picture, so its edge and what it sits on are in it. */
+const SHOT_MARGIN = 16;
+
+/**
+ * A real picture, made in this browser (`shot.ts`): of one part, cropped to
+ * its drawn box with a margin, or of what J sees of the board. Only the open
+ * page is drawn, so only it can be shot: another page is refused plainly, not
+ * answered with a picture of the wrong one. A shot changes nothing and leaves
+ * no undo step. The board reference is kept for callers that used it.
+ */
+async function shot(r: Extract<SiteRequest, { op: "shot" }>): Promise<{ ok: true; result: unknown } | { ok: false; says: string }> {
   const s = useStudio.getState();
-  const pg = s.pages.find((p) => p.id === (page ?? s.activePageId));
-  if (!pg) return { ok: false, says: `page ${JSON.stringify(page)} is not on the open site` };
-  const node = part ? s.nodes.find((n) => n.id === part) : null;
-  if (part && !node) return { ok: false, says: `part ${JSON.stringify(part)} is not on the open site` };
-  const el = typeof document !== "undefined" ? document.querySelector(part ? `[data-node-id="${part}"]` : "[data-frame]") : null;
-  const r = el?.getBoundingClientRect();
-  return { ok: true, result: { ref: `board:${pg.id}@${s.frameWidth}${node ? `#${node.id}` : ""}`, width: s.frameWidth, box: node ? { x: node.x, y: node.y, w: node.w, h: node.h } : null, onScreen: r ? { x: r.x, y: r.y, w: r.width, h: r.height } : null } };
+  const pg = s.pages.find((p) => p.id === (r.page ?? s.activePageId));
+  if (!pg) return { ok: false, says: `page ${JSON.stringify(r.page)} is not on the open site` };
+  if (pg.id !== s.activePageId) return { ok: false, says: `page ${JSON.stringify(pg.id)} isn't drawn: J has ${JSON.stringify(s.activePageId)} open, and a picture is of what is drawn` };
+  const node = r.part !== undefined ? s.nodes.find((n) => n.id === r.part) : null;
+  if (r.part !== undefined && !node) return { ok: false, says: `part ${JSON.stringify(r.part)} is not on the open site` };
+  if (node && node.pageId !== pg.id) return { ok: false, says: `part ${JSON.stringify(node.id)} is on page ${JSON.stringify(node.pageId)}, which isn't drawn: J has ${JSON.stringify(s.activePageId)} open` };
+  if (r.side !== undefined && !(typeof r.side === "number" && Number.isFinite(r.side) && r.side >= 100 && r.side <= SHOT_MAX_SIDE)) return { ok: false, says: `side ${JSON.stringify(r.side)} is not a length from 100 to ${SHOT_MAX_SIDE} pixels` };
+  const frame = document.querySelector("[data-frame]")?.getBoundingClientRect();
+  if (!frame || !frame.width) return { ok: false, says: "the board isn't drawn yet" };
+  const scale = frame.width / s.frameWidth;
+  const toPage = (x: number, y: number) => ({ x: (x - frame.left) / scale, y: (y - frame.top) / scale });
+  const pageH = frame.height / scale;
+  const clamp = (c: Crop): Crop => { const x = Math.max(0, Math.floor(c.x)), y = Math.max(0, Math.floor(c.y)); return { x, y, w: Math.max(1, Math.min(Math.ceil(c.x + c.w), s.frameWidth) - x), h: Math.max(1, Math.min(Math.ceil(c.y + c.h), pageH) - y) }; };
+  const el = node ? document.querySelector(`[data-node-id="${node.id}"]`) : null;
+  const rect = el?.getClientRects().length ? el.getBoundingClientRect() : null;
+  if (node && !rect) return { ok: false, says: `part ${JSON.stringify(node.id)} isn't drawn at this width, so there is no picture of it` };
+  let crop: Crop;
+  if (node && rect) { const p = toPage(rect.left, rect.top); crop = clamp({ x: p.x - SHOT_MARGIN, y: p.y - SHOT_MARGIN, w: rect.width / scale + 2 * SHOT_MARGIN, h: rect.height / scale + 2 * SHOT_MARGIN }); }
+  else {
+    /* What J sees: the window's share of the frame. */
+    const a = toPage(Math.max(frame.left, 0), Math.max(frame.top, 0)), b = toPage(Math.min(frame.right, window.innerWidth), Math.min(frame.bottom, window.innerHeight));
+    if (b.x <= a.x || b.y <= a.y) return { ok: false, says: "none of the board is on screen" };
+    crop = clamp({ x: a.x, y: a.y, w: b.x - a.x, h: b.y - a.y });
+  }
+  const picture = await shootBoard(crop, r.side ?? SHOT_SIDE);
+  return { ok: true, result: {
+    ref: `board:${pg.id}@${s.frameWidth}${node ? `#${node.id}` : ""}`, width: s.frameWidth,
+    box: node ? { x: node.x, y: node.y, w: node.w, h: node.h } : null, onScreen: rect ? { x: rect.x, y: rect.y, w: rect.width, h: rect.height } : { x: frame.x, y: frame.y, w: frame.width, h: frame.height },
+    picture: { mime: picture.mime, width: picture.width, height: picture.height, crop: picture.crop, scale: picture.scale, data: picture.data },
+    missing: picture.missing,
+  } };
 }
 
 /** Every request the bridge took, for the tests and a look in the console. */
@@ -411,7 +445,7 @@ async function answer(r: SiteRequest): Promise<SiteReply> {
     case "picked": return { ...base, ok: true, result: picked() };
     case "at": return { ...base, ...at(r.x, r.y) };
     case "select": return { ...base, ...select(r.ids) };
-    case "shot": { const s = shot(r.page, r.part) as { ok: true; result: unknown } | { ok: false; says: string }; return { ...base, ...s }; }
+    case "shot": return { ...base, ...(await shot(r)) };
     case "apply": return apply(r);
     default: return { ...base, ok: false, says: `unknown op` };
   }

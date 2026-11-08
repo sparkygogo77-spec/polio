@@ -10,7 +10,7 @@
  *   site.picked   what J has picked on the board
  *   site.at       the parts under a point, topmost first
  *   site.select   pick parts on the board
- *   site.shot     a picture reference of a page or a part (the helper shoots it)
+ *   site.shot     a picture of a part, or of what J sees of the board
  *   site.apply    a named list of board steps → one undo step on J's board
  *
  * The server holds nothing of the site. Every call is relayed to the helper
@@ -59,8 +59,8 @@ export const SITE_TOOLS = [
   },
   {
     name: "site.shot",
-    description: "A picture reference of a page, or of one part on it, as the board shows it now. Returns the board reference the helper shoots, the part's box, and where it is on screen.",
-    inputSchema: { type: "object", properties: { page: { type: "string", description: "A page id from site.read; the open page when left out." }, part: { type: "string", description: "A part id from site.read." } }, additionalProperties: false },
+    description: "A real picture, as J sees it on the board now: of one part (cropped to its drawn box, with a little around it) when `part` is given, else of what J sees of the open page. Only the open page is drawn, so only it can be shot. The picture comes back as an image, with its crop in the page's own pixels and `missing` for anything it couldn't draw. A part is cheap (a few hundred tokens); the screen is more: ask for a part when a part is what you changed.",
+    inputSchema: { type: "object", properties: { part: { type: "string", description: "A part id from site.outline or site.read: a picture of that part." }, screen: { type: "boolean", description: "What J sees of the board now (the default when no part is given)." }, side: { type: "number", description: "The picture's long side in pixels, 100 to 1600; 800 when left out. A part smaller than that is not blown up." }, page: { type: "string", description: "A page id; the open page when left out, and the only one that can be shot." } }, additionalProperties: false },
   },
   {
     name: "site.apply",
@@ -105,7 +105,7 @@ export function toRequest(name: string, args: Record<string, unknown> | undefine
     case "site.picked": return { ...base, op: "picked" };
     case "site.at": return { ...base, op: "at", x: a.x, y: a.y };
     case "site.select": return { ...base, op: "select", ids: a.ids };
-    case "site.shot": return { ...base, op: "shot", ...(typeof a.page === "string" ? { page: a.page } : {}), ...(typeof a.part === "string" ? { part: a.part } : {}) };
+    case "site.shot": return { ...base, op: "shot", ...(typeof a.page === "string" ? { page: a.page } : {}), ...(typeof a.part === "string" ? { part: a.part } : {}), ...(a.screen !== undefined ? { screen: a.screen } : {}), ...(a.side !== undefined ? { side: a.side } : {}) };
     case "site.apply": return { ...base, op: "apply", site: a.site, name: a.name, steps: a.steps, ...(a.base !== undefined ? { base: a.base } : {}) };
     default: return null;
   }
@@ -117,6 +117,14 @@ export type Send = (request: Record<string, unknown>) => Promise<{ ok: true; res
 
 let seq = 0;
 const text = (v: unknown) => ({ content: [{ type: "text", text: typeof v === "string" ? v : JSON.stringify(v) }] });
+/** A result carrying a picture is answered as an image the model sees, with the rest of it as text. */
+function content(v: unknown) {
+  const p = (v as { picture?: { data?: unknown; mime?: unknown } } | null)?.picture;
+  if (!p || typeof p.data !== "string" || typeof p.mime !== "string") return text(v);
+  const { data: _data, ...meta } = p;
+  void _data;
+  return { content: [{ type: "image", data: p.data, mimeType: p.mime }, { type: "text", text: JSON.stringify({ ...(v as object), picture: meta }) }] };
+}
 
 /** One JSON-RPC message in, zero or one out. Pure but for `send`. */
 export async function handle(msg: Rpc, send: Send): Promise<Rpc | null> {
@@ -135,7 +143,7 @@ export async function handle(msg: Rpc, send: Send): Promise<Rpc | null> {
       const req = toRequest(name, args, `s${++seq}-${Date.now().toString(36)}`);
       if (!req) return fail(-32602, `unknown tool ${name}`);
       const got = await send(req);
-      return reply(got.ok ? text(got.result) : { ...text(got.says), isError: true });
+      return reply(got.ok ? content(got.result) : { ...text(got.says), isError: true });
     }
     default:
       return msg.id === undefined ? null : fail(-32601, `method not found: ${msg.method}`);
