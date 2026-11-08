@@ -26,6 +26,8 @@ import { compareHref, frameOf } from "../compare/model";
 import { AIMS, AIM_LABEL, LAYERS, LAYER_LABEL, specWords, type Aim, type Layer, type Spec } from "./model";
 import { useVariations, variationsOf } from "./store";
 import { acceptWord, again, discard, keep, makeVariations } from "./run";
+import { ReferenceNote } from "../reference/ReferenceNote";
+import { referenceFor } from "../reference/run";
 
 const NONE = "__none";
 const BATCH = 4;
@@ -83,7 +85,12 @@ export function VariationsPage() {
       if (r && r.ok && r.ids?.[0]) go({ v: r.ids[0] });
     } finally { setBusy(null); }
   };
-  const batch = (claude: boolean) => of && run(claude ? "claude" : "roll", () => makeVariations({ of, count: BATCH, aims, locks, from: current?.v ?? null, like: aims.includes("like") ? like : null, claude }));
+  const batch = (claude: boolean) => of && run(claude ? "claude" : "roll", async () => {
+    const named = aims.includes("like") ? like : null;
+    /* A page that cannot be read says why under the box, and the name goes on alone. */
+    const read = named ? await referenceFor(of, named) : null;
+    return makeVariations({ of, count: BATCH, aims, locks, from: current?.v ?? null, like: named, reference: read?.ok ? read.record : null, claude });
+  });
   const toggleLock = (l: Layer) => of && useVariations.getState().setLocks(of, locks.includes(l) ? locks.filter((x) => x !== l) : [...locks, l]);
 
   const originals = projects.filter((p) => !byId[p.id]);
@@ -112,6 +119,7 @@ export function VariationsPage() {
               {aims.includes("like") ? (
                 <input data-variations-like="" value={like} onChange={(e) => setLike(e.target.value)} placeholder="a site to be like: stripe.com" className="ml-6 w-72 rounded-md border border-border bg-bg px-2 py-1 text-plain text-fg" />
               ) : null}
+              {aims.includes("like") ? <ReferenceNote project={of} text={like} className="ml-6 w-96" /> : null}
             </div>
             <div className="flex items-center gap-2">
               <button type="button" data-variations-roll="" disabled={!!busy} onClick={() => batch(false)} className="tactile inline-flex items-center gap-1.5 rounded-md border border-accent bg-accent-soft px-3 py-1.5 text-plain font-medium text-fg">

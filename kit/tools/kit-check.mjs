@@ -10,7 +10,7 @@
 // it from a <template>, the tokens it uses and every code reference (file, line, function).
 // No dependencies: plain Node 18+.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join, relative, resolve } from 'node:path';
 
 // ------------------------------------------------------------------ small helpers
@@ -825,7 +825,7 @@ export function check(manifestPath, { write = false } = {}) {
 
 // ------------------------------------------------------------------ command line
 
-if (import.meta.url === new URL(`file://${resolve(process.argv[1] ?? '')}`).href) {
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const args = process.argv.slice(2);
   const manifestPath = args.find((a) => !a.startsWith('--')) ?? 'builder.json';
   const { problems, map, notes = [] } = check(manifestPath, { write: args.includes('--write') });

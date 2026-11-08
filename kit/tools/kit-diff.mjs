@@ -22,6 +22,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, relative, resolve, sep } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { check } from './kit-check.mjs';
 import { sayFrame, stateFrames } from './state-frames.mjs';
 
@@ -122,7 +123,7 @@ function recordHooks(record) {
   return out;
 }
 
-if (import.meta.url === new URL(`file://${resolve(process.argv[1] ?? '')}`).href) {
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const args = process.argv.slice(2);
   const at = args.indexOf('--base');
   const base = at >= 0 ? args[at + 1] : undefined;

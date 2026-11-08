@@ -6,6 +6,7 @@ import { MAX_ELEMENTS, READ_BUDGET_MS, REFUSAL_SAYS } from "@/features/studio/si
 import { allowedResolved, requestCheck } from "@/features/studio/siteResolve";
 import { CANDIDATES, FACES, MEASURE, type Candidate } from "@/features/studio/bring-in";
 import { carryFaces, type FacesRead } from "@/features/studio/look";
+import { readReference } from "@/features/studio/reference/open";
 
 /**
  * Reading one element off a live page, exactly.
@@ -44,6 +45,27 @@ export const maxDuration = 60;
 /** How tall a picture of the page, or of one element, may be. A first screen 3000px tall was cut at 2000. */
 const MAX_SHOT_HEIGHT = 4000;
 
+/**
+ * A site J likes, read whole (`reference: true`): one public page summed up and
+ * photographed (`features/studio/reference/`), for the browser to keep with the
+ * project. No Claude and no key. It is here and not on a route of its own
+ * because a route that opens the browser is 85 MB more in every deployment
+ * (`tests/function-sizes.mjs`). Same bounds, and every failure is HTTP 200.
+ */
+async function readReferencePage(typed: string, until: number) {
+  /* The address first, so a refused one says why even on a box with no browser. */
+  const first = await allowedResolved(typed);
+  if (!first.ok) return NextResponse.json({ ok: false, reason: first.why, message: first.says.charAt(0).toLowerCase() + first.says.slice(1) });
+  const found = await findPlaywright();
+  if (!found.pw) return NextResponse.json({ ok: false, reason: "no-browser", message: NO_PLAYWRIGHT });
+  return NextResponse.json(await readReference(typed, {
+    launch: async () => found.pw.chromium.launch(await found.launchOptions()) as never,
+    gate: (u) => allowedResolved(u),
+    check: requestCheck(),
+    until,
+  }));
+}
+
 export async function GET() {
   const found = await findPlaywright();
   return NextResponse.json({ ok: !!found.pw, ...(found.pw ? { from: found.from } : { reason: "no-browser", message: NO_PLAYWRIGHT }) });
@@ -60,6 +82,7 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ ok: false, reason: "bad-request", message: "Expected a JSON body." }, { status: 400 });
   }
+  if (body.reference === true) return readReferencePage(String(body.url ?? ""), until);
 
   const gate = await allowedResolved(String(body.url ?? ""));
   if (!gate.ok) return NextResponse.json({ ok: false, reason: gate.why, message: gate.says, took: took() });

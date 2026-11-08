@@ -9,7 +9,7 @@
 // the tolerance. Parts the record marks hidden, and empty ones (1px in the builder), are skipped when
 // the build does not draw them.
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 /** Any record, or a bare capture route file, as `{ pages: [...] }`. */
 export function readRecord(json) {
@@ -85,7 +85,7 @@ export function recordDiff(design, built, { page = null, px = 4 } = {}) {
   return { differ, same, checked: want.size };
 }
 
-if (import.meta.url === new URL(`file://${resolve(process.argv[1] ?? '')}`).href) {
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const args = process.argv.slice(2);
   const opt = (n) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : null; };
   const files = args.filter((a, i) => !a.startsWith('--') && !['--page', '--px'].includes(args[i - 1]));

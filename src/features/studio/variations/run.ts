@@ -30,6 +30,8 @@ import { directionName, emptySpec, rollSpec, type Aim, type Layer, type Variatio
 import { useVariations } from "./store";
 import type { BetterVariant } from "../better/prompt";
 import { askFor } from "./ask";
+import { summaryOf, type ReferenceRecord } from "../reference/model";
+import { storedReference } from "../reference/run";
 
 const LIVE = "builder.studio";
 const slot = (id: string) => `builder.doc:${id}`;
@@ -109,6 +111,8 @@ export interface MakeOptions {
   /** The variation whose locked layers are kept. */
   from?: Variation | null;
   like?: string | null;
+  /** The named site as read: Claude gets it in full, the free roll its accent hue. */
+  reference?: ReferenceRecord | null;
   /** Ask Claude for the specs (one call, several at once) rather than rolling them here. */
   claude?: boolean;
   seed?: number;
@@ -118,6 +122,9 @@ export type MakeResult = { ok: true; ids: string[]; note?: string } | { ok: fals
 
 /** A seed: anything, as long as two batches in a row differ. */
 const newSeed = () => (Math.floor(Math.random() * 2 ** 31) ^ Date.now()) >>> 0;
+
+/** The free roll stays near a site's own hue; with a site named and read, near that one's. */
+const shapeLike = <T extends { hue: number | null }>(shape: T, ref?: ReferenceRecord | null): T => (ref?.hue != null ? { ...shape, hue: ref.hue } : shape);
 
 export async function makeVariations(o: MakeOptions): Promise<MakeResult> {
   await useBuilds.getState().save();
@@ -136,7 +143,7 @@ export async function makeVariations(o: MakeOptions): Promise<MakeResult> {
     });
   } else {
     for (let i = 0; i < Math.max(1, Math.min(8, o.count)); i++) {
-      const r = rollSpec({ seed: base + i * 104729, aims: o.aims, shape: got.p.shape, prev: o.from ?? null, locks: o.locks });
+      const r = rollSpec({ seed: base + i * 104729, aims: o.aims, shape: shapeLike(got.p.shape, o.reference), prev: o.from ?? null, locks: o.locks });
       specs.push({ v: { spec: r.spec, seeds: r.seeds, aims: o.aims, locks: o.locks ?? [], by: "local", name: directionName(r.spec), like: o.like ?? null, words: [], accepted: [] } });
     }
   }
@@ -155,7 +162,7 @@ export async function again(id: string, locks: Layer[], seed = newSeed()): Promi
   if (!v) return { ok: false, says: "That is not a variation this browser made." };
   const got = await original(v.of);
   if (!got) return { ok: false, says: "The original's document could not be read." };
-  const r = rollSpec({ seed, aims: v.aims, shape: got.p.shape, prev: v, locks });
+  const r = rollSpec({ seed, aims: v.aims, shape: shapeLike(got.p.shape, v.like ? await storedReference(v.of, v.like) : null), prev: v, locks });
   const name = useBuilds.getState().projects.find((p) => p.id === id)?.name ?? "";
   const n = Number(/variation (\d+)$/.exec(name)?.[1]) || nextNumber(v.of);
   /* Words he accepted stay, where the part still says what they replaced. */
@@ -210,8 +217,10 @@ async function pictures(p: Prepared, limit: number): Promise<{ data: string; lab
 
 async function askClaude(o: MakeOptions, p: Prepared): Promise<{ ok: true; variants: BetterVariant[] } | { ok: false; says: string }> {
   const name = useBuilds.getState().projects.find((x) => x.id === o.of)?.name ?? "the site";
-  const ask = askFor(p, { aims: o.aims, like: o.like, count: o.count, locks: o.locks }, name);
-  const shots = await pictures(p, 3);
+  const ask = askFor(p, { aims: o.aims, like: o.like, reference: o.reference ? summaryOf(o.reference) : null, count: o.count, locks: o.locks }, name);
+  /* One of the pictures the call may carry is the reference's, and the whole body has to fit the host's limit. */
+  const shots: { data: string; label: string; media?: string }[] = await pictures(p, o.reference ? 2 : 3);
+  if (o.reference) shots.push({ data: o.reference.shot, label: "A picture of the REFERENCE, for its layout only:", media: "image/jpeg" });
   try {
     const res = await fetch("/api/studio/better", { method: "POST", headers: { "content-type": "application/json", ...keyHeader() }, body: JSON.stringify({ ask, pictures: shots, shape: p.shape }) });
     const data = (await res.json()) as { ok: boolean; variants?: BetterVariant[]; message?: string };
