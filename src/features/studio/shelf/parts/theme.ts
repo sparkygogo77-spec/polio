@@ -478,8 +478,20 @@ export function applyLayout(t: Theme, layout: NodeLayout | null | undefined): Th
 export function applyBand(t: Theme, band: { middle: boolean; size: number | null } | null): Theme {
   if (!band) return t;
   const sized = band.size && band.size > 0 ? { fontPx: band.size } : null;
-  if (!band.middle) return sized ? { ...t, ...sized } : t;
-  return { ...t, ...sized, band: { middle: true }, centred: { x: t.centred?.x ?? false, y: true } };
+  /*
+   * AND ITS WORDS RUN ON ONE LINE, WHATEVER SIZE THEY ARE GIVEN. A ribbon's
+   * words are a running line: the page never wraps them. At the owner's
+   * bigger size (42px against the 34px the capture measured) trumpmorty.fun's
+   * navy ribbon no longer fitted the track the capture had measured, so
+   * `parts/Text.tsx` read it as words far longer than the box and let it wrap:
+   * two lines, the words 65 → 84, the band 73 → 92, and everything under the
+   * hero moved down 19px (the import checkup, 2026-11-01). Said to be one line
+   * (`said.nowrap`), it is held to one and never measured for wrapping.
+   * `tests/ribbon-one-line.mjs`.
+   */
+  const one = { ...t, ...sized, said: { ...t.said, nowrap: true } };
+  if (!band.middle) return one;
+  return { ...one, band: { middle: true }, centred: { x: t.centred?.x ?? false, y: true } };
 }
 
 /**
