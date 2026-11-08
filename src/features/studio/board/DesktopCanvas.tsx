@@ -60,7 +60,8 @@ import { svgUnder } from "../live/svgUnder";
 import { HOT, useHoverHot } from "./hoverHot";
 import { useHoverOutlines } from "./hoverOutlines";
 import { PickBar } from "./PickBar";
-import { climbSpot, clickSpot, oneLevelIn, setClickSpot, stepOutOf } from "./selectTools";
+import { clickSpot, oneLevelIn, setClickSpot } from "./selectTools";
+import { STEP_GESTURE, forgetPath, keyStep, stepArea, stepIn, stepOut, wheelStep } from "./stepPick";
 import { useRestFar } from "./restFar";
 import { useSkipFar } from "./skipFar";
 import { useDrawNear } from "./drawNear";
@@ -776,6 +777,18 @@ export function DesktopCanvas() {
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       const store = useStudio.getState();
+      /* With a part picked, the step gesture (`stepPick.ts#STEP_GESTURE`: the wheel over the stepping area) steps the pick out to the bigger box or back in; the page does not scroll there. Off the area the wheel scrolls as ever. */
+      if (store.mode === "design" && store.tool === "select") {
+        const area = stepArea();
+        /* Over the area by its box, not by the DOM: the parts are a flat list, so what holds what is not an ancestor. */
+        const box = area ? document.querySelector(`[data-node-id="${CSS.escape(area)}"]`)?.getBoundingClientRect() : null;
+        const overArea = !!box && e.clientX >= box.left && e.clientX <= box.right && e.clientY >= box.top && e.clientY <= box.bottom;
+        if (area) {
+          const dir = wheelStep(e, overArea);
+          if (dir) { e.preventDefault(); play((dir > 0 ? stepOut() : stepIn()) ? "tap" : "deny"); return; }
+          if (STEP_GESTURE === "alt-wheel" ? e.altKey : STEP_GESTURE === "scroll-on-picked" && overArea && !e.altKey) { e.preventDefault(); return; }
+        }
+      }
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
         const floor = 0.2;
@@ -1008,7 +1021,7 @@ export function DesktopCanvas() {
     const onKey = (e: KeyboardEvent) => {
       /* Alt only with ↑ or ↓: the picked part trades places up or down the page (below). */
       if (e.defaultPrevented || (e.altKey && e.key !== "ArrowUp" && e.key !== "ArrowDown") || e.metaKey || e.ctrlKey) return;
-      if (!["Escape", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return;
+      if (!["Escape", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "[", "]"].includes(e.key)) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
       if (editingWords()) return;
@@ -1025,13 +1038,18 @@ export function DesktopCanvas() {
         if (s.tool !== "select") { s.setTool("select"); play("tap"); return; }
         if (s.handling) { s.hold(null); return; }
         if (!s.selection.length) return;
-        const one = picked.length === 1 && s.selection.length === 1 ? picked[0]! : null;
-        /* Climbing out stops below the site's own wrapper (`selectTools.ts#stepOutOf`, the toolbar's step out too). */
-        const up = one ? stepOutOf(s.nodes, one) : null;
-        if (up) s.setSelection([up.id]);
-        else s.clearSelection();
-        climbSpot(up?.id ?? null);
+        /* Climbing out stops below the site's own wrapper (`stepPick.ts#stepOut`, the toolbar's step out and the wheel too; the path out is kept so a step in comes back the same way). Escape out to nothing drops the path (J: Esc resets). */
+        stepOut();
+        if (!useStudio.getState().selection.length) forgetPath();
         play("tap");
+        return;
+      }
+      /* `[` steps the pick out to the bigger box, `]` back in along the way it came (`stepPick.ts`). Only with Select in hand, not while a key is typed into a field (above). */
+      const way = keyStep(e.key);
+      if (way) {
+        if (s.tool !== "select") return;
+        e.preventDefault();
+        play((way > 0 ? stepOut() : stepIn()) ? "tap" : "deny");
         return;
       }
       if (e.key === "Enter") {
