@@ -1,11 +1,12 @@
 /**
  * THE WHEEL'S POP-UPS ON BOTH SHAPES, ON EVERY REPO FIXTURE.
  *
- * The round wheel wears the ring (design C): Edge's controls on a slab of a ring
- * round the wheel, out past it at the slab's angle, the per-corner pop-up
- * further round the same ring. The square menu wears the tag (design A). One
- * drag is one undo step on the ring as on the tag; Esc closes the smaller one,
- * then it. Texture, Aura and Hue open pop-ups too, on both shapes: change a
+ * Both wheels wear the tag (design A; J picked it over the ring, 2026-11-08).
+ * The ring (design C: Edge's controls on a slab of a ring round the wheel, out
+ * past it at the slab's angle, the per-corner pop-up further round the same
+ * ring) waits behind `RING_ON_ROUND` in `popupPlace.ts`; with it on, the
+ * round wheel's checks are the ring's. One drag is one undo step; Esc closes
+ * the smaller one, then it; a press away closes it. Texture, Aura and Hue open pop-ups too, on both shapes: change a
  * value in each, the part's drawn look changes, one undo puts the part back.
  * No page errors.
  *
@@ -24,6 +25,9 @@ const req = createRequire(import.meta.url);
 const { chromium } = req("playwright-core");
 const BASE = (process.argv[2] ?? "http://localhost:3451").replace(/\/$/, "");
 const SINK = process.argv[3] ?? process.env.SINK ?? "capture";
+/* Which look the round wheel wears is one switch in the source (`RING_ON_ROUND`, `popupPlace.ts`): the checks follow it, so the ring stays tested if it comes back. */
+const RING = /export const RING_ON_ROUND = true/.test(readFileSync(new URL("../src/features/studio/radial/popupPlace.ts", import.meta.url), "utf8"));
+const ROUND = RING ? "ring" : "tag";
 const SITES = (process.env.SITES ?? "share-xyz,trumpmorty-fun,gotchi-gg,stonkfun-xyz,parasiteonsol-fun,trendtrader-pro").split(",");
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? `: ${detail}` : ""}`); };
@@ -99,32 +103,40 @@ async function runSite(site) {
     await page.waitForTimeout(350);
   };
 
-  /* ---- Round: the ring ---- */
+  /* ---- Round: the tag (or the ring, when it is switched on) ---- */
   await page.evaluate(() => window.__studioHistory.act("setMenuShape", "round"));
   await open("edge");
-  check(`${site}: on the round wheel Edge opens the ring`, (await shapeOf("edge")) === "ring" && (await frames()) === 1 && (await page.locator('[data-radial-editor="edge"]').count()) === 0, `${await shapeOf("edge")}, ${await frames()} frame`);
-  if ((await shapeOf("edge")) === "ring") {
-    const ring = await page.evaluate(() => {
-      const g = document.querySelector('[data-wheel-popup-frame="main"]');
-      const p = document.querySelector('[data-wheel-popup="edge"]').getBoundingClientRect();
-      const cx = Number(g.getAttribute("data-ring-cx")), cy = Number(g.getAttribute("data-ring-cy")), rIn = Number(g.getAttribute("data-ring-in"));
-      const near = Math.hypot(Math.max(p.x - cx, 0, cx - p.x - p.width), Math.max(p.y - cy, 0, cy - p.y - p.height));
-      /* The wheel's own pieces come in to here at their nearest corner; the ring starts past every one. */
-      const reach = Math.max(...[...document.querySelectorAll("[data-radial] [data-shard]")].map((el) => { const r = el.getBoundingClientRect(); return Math.min(...[[r.x, r.y], [r.right, r.y], [r.x, r.bottom], [r.right, r.bottom]].map(([x, y]) => Math.hypot(x - cx, y - cy))); }));
-      const shard = document.querySelector('[data-radial] [data-shard="edge"]').getBoundingClientRect();
-      const slabWay = Math.atan2(shard.y + shard.height / 2 - cy, shard.x + shard.width / 2 - cx);
-      const popWay = Math.atan2(p.y + p.height / 2 - cy, p.x + p.width / 2 - cx);
-      const turn = Math.abs(Math.atan2(Math.sin(popWay - slabWay), Math.cos(popWay - slabWay)));
-      return { near, rIn, reach, turn };
-    });
-    check(`${site}: the ring stands out past the wheel, round it at the slab's angle`, ring.near >= ring.rIn - 1 && ring.rIn >= ring.reach && ring.turn < 0.9, `controls ${Math.round(ring.near)}px out, ring from ${Math.round(ring.rIn)}, pieces to ${Math.round(ring.reach)}, ${ring.turn.toFixed(2)} rad off the slab`);
-    check(`${site}: the ring is inside the window`, inWindow(await box('[data-wheel-popup="edge"]')));
+  check(`${site}: on the round wheel Edge opens the ${ROUND}`, (await shapeOf("edge")) === ROUND && (await frames()) === (RING ? 1 : 0) && (await page.locator('[data-radial-editor="edge"]').count()) === 0, `${await shapeOf("edge")}, ${await frames()} frame`);
+  if ((await shapeOf("edge")) === ROUND) {
+    if (RING) {
+      const ring = await page.evaluate(() => {
+        const g = document.querySelector('[data-wheel-popup-frame="main"]');
+        const p = document.querySelector('[data-wheel-popup="edge"]').getBoundingClientRect();
+        const cx = Number(g.getAttribute("data-ring-cx")), cy = Number(g.getAttribute("data-ring-cy")), rIn = Number(g.getAttribute("data-ring-in"));
+        const near = Math.hypot(Math.max(p.x - cx, 0, cx - p.x - p.width), Math.max(p.y - cy, 0, cy - p.y - p.height));
+        /* The wheel's own pieces come in to here at their nearest corner; the ring starts past every one. */
+        const reach = Math.max(...[...document.querySelectorAll("[data-radial] [data-shard]")].map((el) => { const r = el.getBoundingClientRect(); return Math.min(...[[r.x, r.y], [r.right, r.y], [r.x, r.bottom], [r.right, r.bottom]].map(([x, y]) => Math.hypot(x - cx, y - cy))); }));
+        const shard = document.querySelector('[data-radial] [data-shard="edge"]').getBoundingClientRect();
+        const slabWay = Math.atan2(shard.y + shard.height / 2 - cy, shard.x + shard.width / 2 - cx);
+        const popWay = Math.atan2(p.y + p.height / 2 - cy, p.x + p.width / 2 - cx);
+        const turn = Math.abs(Math.atan2(Math.sin(popWay - slabWay), Math.cos(popWay - slabWay)));
+        return { near, rIn, reach, turn };
+      });
+      check(`${site}: the ring stands out past the wheel, round it at the slab's angle`, ring.near >= ring.rIn - 1 && ring.rIn >= ring.reach && ring.turn < 0.9, `controls ${Math.round(ring.near)}px out, ring from ${Math.round(ring.rIn)}, pieces to ${Math.round(ring.reach)}, ${ring.turn.toFixed(2)} rad off the slab`);
+    } else {
+      /* The tag on the round wheel stands clear of it across, wholly left or right of its pieces, as on the square menu. */
+      const b = await box('[data-wheel-popup="edge"]');
+      const spans = await page.evaluate(() => [...document.querySelectorAll("[data-radial] [data-shard]")].map((el) => { const r = el.getBoundingClientRect(); return [r.x, r.x + r.width]; }));
+      const lo = Math.min(...spans.map((x) => x[0])), hi = Math.max(...spans.map((x) => x[1]));
+      check(`${site}: on the round wheel the tag stands beside the wheel, clear of it`, !!b && (b.x + b.width <= lo + 2 || b.x >= hi - 2), b ? `${Math.round(b.x)}..${Math.round(b.x + b.width)}, wheel ${Math.round(lo)}..${Math.round(hi)}` : "none");
+    }
+    check(`${site}: the round wheel's ${ROUND} is inside the window`, inWindow(await box('[data-wheel-popup="edge"]')));
 
     const wasN = JSON.stringify(await node());
     const wasDrawn = await drawn();
     const steps0 = await past();
     await drag('[data-popup-slider="Corners"] input', 0.5);
-    check(`${site}: on the ring a drag of the corners is one undo step`, (await past()) === steps0 + 1 && (await node()).radius > 0, `${steps0} to ${await past()}, radius ${(await node()).radius}`);
+    check(`${site}: on the round wheel's ${ROUND} a drag of the corners is one undo step`, (await past()) === steps0 + 1 && (await node()).radius > 0, `${steps0} to ${await past()}, radius ${(await node()).radius}`);
     await page.keyboard.press("Control+z");
     await settle(wasDrawn);
     check(`${site}: undo puts the corners back`, JSON.stringify(await node()) === wasN && (await drawn()) === wasDrawn, `${await differs(wasN)}${(await drawn()) === wasDrawn ? "" : ` (drawn differs ${lineDiff(wasDrawn, await drawn())})`}`);
@@ -133,18 +145,18 @@ async function runSite(site) {
     await page.waitForTimeout(300);
     const big = await box('[data-wheel-popup="edge"]'), small = await box('[data-wheel-popup="corners"]');
     const cross = small && big && !(small.x + small.width <= big.x || big.x + big.width <= small.x || small.y + small.height <= big.y || big.y + big.height <= small.y);
-    check(`${site}: Each corner opens further round the ring`, !!small && !cross && inWindow(small) && (await shapeOf("corners")) === "ring" && (await frames()) === 2);
+    check(`${site}: Each corner opens a smaller ${ROUND} beside it`, !!small && !cross && inWindow(small) && (await shapeOf("corners")) === ROUND && (await frames()) === (RING ? 2 : 0));
     await page.keyboard.press("Escape");
     await page.waitForTimeout(150);
-    check(`${site}: Esc closes the smaller ring first`, (await page.locator('[data-wheel-popup="corners"]').count()) === 0 && (await page.locator('[data-wheel-popup="edge"]').count()) === 1);
+    check(`${site}: Esc closes the smaller one first`, (await page.locator('[data-wheel-popup="corners"]').count()) === 0 && (await page.locator('[data-wheel-popup="edge"]').count()) === 1);
     await page.keyboard.press("Escape");
     await page.waitForTimeout(150);
-    check(`${site}: then Esc closes the ring`, (await page.locator('[data-wheel-popup="edge"]').count()) === 0 && (await frames()) === 0);
+    check(`${site}: then Esc closes the ${ROUND}`, (await page.locator('[data-wheel-popup="edge"]').count()) === 0 && (await frames()) === 0);
     await closeAll();
     await open("edge");
     await page.mouse.click(target.x, target.y);
     await page.waitForTimeout(200);
-    check(`${site}: a press away closes the ring`, (await page.locator('[data-wheel-popup="edge"]').count()) === 0);
+    check(`${site}: a press away closes it`, (await page.locator('[data-wheel-popup="edge"]').count()) === 0);
   }
   await closeAll();
 
@@ -211,7 +223,7 @@ async function runSite(site) {
   };
   for (const shape of ["round", "square"]) {
     await page.evaluate((s) => window.__studioHistory.act("setMenuShape", s), shape);
-    const want = shape === "round" ? "ring" : "tag";
+    const want = shape === "round" ? ROUND : "tag";
     for (const [which, e] of Object.entries(edits)) {
       /* Where to come back to after this one: the part and the site's texture stack as they are now. */
       const start = async () => JSON.stringify([await node(), await page.evaluate(() => (window.__studioHistory.doc().look?.texture ?? []).length)]);

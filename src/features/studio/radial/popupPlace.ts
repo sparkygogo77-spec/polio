@@ -15,11 +15,13 @@
  * the same side, top level with it, then under it, then wherever there is room.
  *
  * Look: J's pick A, the tag: rounded, a lit border in the colour of what
- * opened it, scanlines over void purple, a mono title. On the round wheel it
- * is design C, the ring (J, 2026-11-08, "build the ring too"): the same
- * controls on a void slab cut to the wheel's own curve, out past the wheel at
- * the slab's angle, its smaller pop-up further round the same ring. Which one
- * a wheel gets is `popupShape`, and nothing else decides it.
+ * opened it, scanlines over void purple, a mono title. Design C, the ring
+ * (J, 2026-11-08, "build the ring too"), is built too: the same controls on a
+ * void slab cut to the wheel's own curve, out past the wheel at the slab's
+ * angle, its smaller pop-up further round the same ring. Shown both, J picked
+ * the tag (the Texture tag, 2026-11-08), so the tag is on both wheels and the
+ * ring waits behind `RING_ON_ROUND`. Which one a wheel gets is `popupShape`,
+ * and nothing else decides it.
  */
 import type * as React from "react";
 import { VOID } from "@/core/ui/void";
@@ -35,8 +37,10 @@ const GAP = 10;
 
 /** The two looks a pop-up can wear. */
 export type PopupShape = "tag" | "ring";
-/** The one place that decides it: the square menu wears the tag, the round wheel the ring. */
-export const popupShape = (menu: "square" | "round"): PopupShape => (menu === "round" ? "ring" : "tag");
+/** Whether the round wheel wears the ring. Off: J picked the tag for both (2026-11-08). True brings the ring back, nothing else to change. */
+export const RING_ON_ROUND = false;
+/** The one place that decides it: the tag, or the ring on the round wheel when `RING_ON_ROUND` is on. */
+export const popupShape = (menu: "square" | "round"): PopupShape => (menu === "round" && RING_ON_ROUND ? "ring" : "tag");
 
 const inside = (v: number, size: number, win: number) => Math.max(MARGIN, Math.min(win - size - MARGIN, v));
 
