@@ -35,7 +35,7 @@ import { componentSpec, componentsOf, KIND_WORD, type CompNode, type ComponentKi
 import { siteRoles, colourName, ROLE_LABEL as USE_LABEL, type Part } from "../siteRoles.ts";
 import { siteKinds } from "../themeKinds.ts";
 import {
-  emptyTokens, FIXED_FIELDS, ID_PREFIX, kindOfField, newSystemId, SYSTEM_KIND, SYSTEM_VERSION,
+  allTokens, emptyTokens, FIXED_FIELDS, ID_PREFIX, kindOfField, newSystemId, SYSTEM_KIND, SYSTEM_VERSION, valueOf,
   type ColourToken, type CssToken, type FaceToken, type FieldPath, type LookRef, type LookRefs, type NodeSys, type SizeToken, type StateLook, type System, type SystemComponent, type TokenKind, type Variant,
 } from "./model.ts";
 import { fieldValue, sameValue, type SysNode } from "./resolve.ts";
@@ -367,6 +367,34 @@ export function takeSystem(input: TakeInput): Taken {
       linked, oneOffs, instances,
     },
   };
+}
+
+/**
+ * A SYSTEM FROM ANOTHER BOARD, WORN BY THIS ONE ("Like one of my sites").
+ * The System was taken from a different site's parts, so these parts cannot
+ * be linked by the tally that made it: instead, every field whose value a
+ * token of `s` already holds points at that token, and the part draws what
+ * it drew (the token holds the same value). Every other field keeps its own.
+ * Nothing moves; a Tidy afterwards moves the linked ones onto the scale.
+ */
+export function linkHeld<N extends TakeNode>(nodes: readonly N[], s: System): { nodes: N[]; linked: number; oneOffs: number } {
+  const byKind: Partial<Record<TokenKind, { id: string; value: string | number; face?: string }[]>> = {};
+  for (const { kind, token } of allTokens(s)) (byKind[kind] ??= []).push({ id: token.id, value: valueOf(token), ...("stack" in token ? { face: token.face } : {}) });
+  let linked = 0, oneOffs = 0;
+  const out = nodes.map((n) => {
+    let f: Partial<Record<FieldPath, string>> | null = null;
+    for (const field of fieldsOf(n)) {
+      const kind = kindOfField(field)!;
+      if (!linkable(n, field, kind)) continue;
+      const v = fieldValue(n, field)!;
+      const t = byKind[kind]?.find((x) => sameValue(kind, x.value, v) && (kind !== "face" || (x.face ?? "") === (n.font?.face ?? "")));
+      if (!t) { oneOffs++; continue; }
+      (f ??= {})[field] = t.id;
+      linked++;
+    }
+    return f ? withSys(n, { s: s.id, f }) : n.sys ? withSys(n, null) : n;
+  });
+  return { nodes: out, linked, oneOffs };
 }
 
 /** One colour and nothing more: `rgb(0, 0, 0)`, `#000`, not a shadow that starts with one. */
