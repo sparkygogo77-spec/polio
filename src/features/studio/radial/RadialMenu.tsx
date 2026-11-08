@@ -55,8 +55,8 @@ import { BACKGROUND_ID, heldBackground, livePath, useStudio } from "../board/sto
 import { createSpaceAt } from "../createSpace";
 import { PREVIEW } from "../colourMenu";
 import { BackgroundEditor } from "../BackgroundEditors";
-import { WheelPopup } from "./WheelPopup";
-import { levelTop } from "./popupPlace";
+import { isPopup, WheelPopup, type PopupId } from "./WheelPopup";
+import { levelTop, popupShape } from "./popupPlace";
 import { openImport } from "../ImportFlow";
 import {
 BLUE_RINGS, GREEN_RINGS, middleOf, piece, Q_BOTTOM, Q_DELETE, Q_EMPTY, Q_TOP, QUADS, ROUND, type Pt
@@ -728,11 +728,13 @@ export function RadialMenu() {
   };
 
   /*
-   * Edge is a pop-up beside the hand (`WheelPopup.tsx`), not the three slabs:
-   * it goes to the side its slab leans to, turned with the wheel, level with
-   * the wheel's top (`popupPlace.ts`). The wheel runs out `reach` on its flats.
+   * Edge, Texture, Aura and Hue are pop-ups beside the hand (`WheelPopup.tsx`),
+   * not the three slabs: the tag on the square menu, beside the wheel on the
+   * side its slab leans to and level with its top; the ring on the round one,
+   * out past it at the slab's angle (`popupPlace.ts`, `popupShape`). The wheel
+   * runs out `reach` on its flats.
    */
-  const popupOn = editing === "edge" && !bg && !!node;
+  const popupOn = isPopup(editing) && !bg && !!node;
   const popupSlab = popupOn ? greenPieces.find((p) => p.choice.id === editing) : null;
   const popupWay = popupSlab ? Math.atan2(popupSlab.at[1], popupSlab.at[0]) : 0;
 
@@ -959,7 +961,7 @@ export function RadialMenu() {
 
         {pull ? <PullEnds pull={pull} /> : null}
       </div>
-      {popupOn ? <WheelPopup node={node!} palette={palette} cx={px} cy={py} angle={popupWay + spin * Math.PI * 2} reach={GREEN_RINGS.reach} top={levelTop(py, greenFrom, greenTo, GREEN_RINGS.hole, GREEN_RINGS.reach, shape === "square", spin)} onClose={closePopup} /> : null}
+      {popupOn ? <WheelPopup key={editing} which={editing as PopupId} shape={popupShape(shape)} node={node!} palette={palette} cx={px} cy={py} angle={popupWay + spin * Math.PI * 2} reach={GREEN_RINGS.reach} top={levelTop(py, greenFrom, greenTo, GREEN_RINGS.hole, GREEN_RINGS.reach, shape === "square", spin)} onClose={closePopup} /> : null}
     </div>
   );
 }

@@ -227,6 +227,18 @@ same boxes as everywhere else, in the screen's colours.
   side). Where and what frame live in `radial/popupPlace.ts` alone, so J's
   placement drawing or a ring-shaped frame for the round wheel is one file.
   `tests/wheel-popups.mjs`.
+- **The round wheel wears the ring** (J, 2026-11-08, "build the ring too",
+  design C). On the round wheel the same pop-up is a void slab of an outer
+  ring cut to the wheel's own curve, out past the wheel at the angle of the
+  slab that opened it, with a lit rim; the smaller one continues round the
+  same ring, the way up the screen first. With no room at that angle it turns
+  round the ring until it is inside the window. The square menu keeps the
+  tag. Which one shows is `popupShape` in `radial/popupPlace.ts`, nothing
+  else. Texture, Aura and Hue are pop-ups too, on both shapes, with the
+  slabs' own values: Texture picks the site's layer, no texture, or a picture
+  of the part's own, with Reiterate and Drift; Aura its colour, style and
+  size; Hue the part's colour one role at a time, as hue, lightness and
+  strength. The page's own wheel keeps its slabs. `tests/wheel-ring.mjs`.
 - **Never an empty slab.** An editor that would leave a slab bare is folded
   into its neighbour: the page's colour, fill and veil are one Color editor;
   its width comes with Fit in view and the wires beside it. A slab with only
