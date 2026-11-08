@@ -62,6 +62,31 @@ check("the kit's embedded copy (kitFiles.ts) carries the same guards", !/resolve
 const config = readFileSync(join(root, "next.config.ts"), "utf8");
 check("next.config.ts excludes playwright-core/lib/vite and /types from the browser routes", /playwright-core\/lib\/vite\/\*\*/.test(config) && /playwright-core\/types\/\*\*/.test(config));
 
+/*
+ * The include names playwright-core folder by folder (Turbopack's glob has no
+ * negation, and a bare `*` on a folder takes it whole), so the installed
+ * package is checked against the list: every folder is carried or named as
+ * left out, and every file beside the folders has a dot for `*.*` to catch,
+ * except the three nothing loads.
+ */
+const PW = join(root, "node_modules", "playwright-core");
+const LEFT_OUT = new Set(["types", "lib/vite"]);
+const DOTLESS_OK = new Set(["LICENSE", "NOTICE", "lib/xdg-open"]);
+const carried = new Set([...config.matchAll(/"((?:lib\/)?[a-z]+)\/\*\*"/g)].map((m) => m[1]));
+const entries = (d) => { try { return readdirSync(join(PW, d), { withFileTypes: true }); } catch { return null; } };
+const top = entries("");
+if (!top) check("playwright-core is installed", false, "no node_modules/playwright-core");
+else {
+  const folders = [...top.filter((e) => e.isDirectory()).map((e) => e.name), ...(entries("lib") ?? []).filter((e) => e.isDirectory()).map((e) => `lib/${e.name}`)];
+  const unnamed = folders.filter((f) => f !== "lib" && !carried.has(f) && !LEFT_OUT.has(f));
+  check(`every folder of playwright-core is carried by the include or named as left out (${folders.length} folders)`, unnamed.length === 0, unnamed.join(", "));
+  const files = [...top.filter((e) => e.isFile()).map((e) => e.name), ...(entries("lib") ?? []).filter((e) => e.isFile()).map((e) => `lib/${e.name}`)];
+  const missed = files.filter((f) => !/\.[^/]+$/.test(f.split("/").pop()) && !DOTLESS_OK.has(f));
+  check("every file beside those folders has an extension for *.* to carry, or is one nothing loads", missed.length === 0, missed.join(", "));
+  const leftIn = [...LEFT_OUT].filter((f) => carried.has(f));
+  check("neither left-out folder is also included", leftIn.length === 0, leftIn.join(", "));
+}
+
 const bad = results.filter((r) => !r).length;
 console.log(`\n${bad ? `${bad} FAILED` : "all good"} — ${results.length - bad}/${results.length}`);
 process.exit(bad ? 1 : 0);
