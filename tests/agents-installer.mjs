@@ -1,7 +1,8 @@
 /**
  * Agents panel, the installer (helper/install/*).
  *
- * - The one line the dock shows runs install.ps1 from the repo's base branch.
+ * - The one line the dock shows runs install.ps1 at one named commit, and
+ *   holds the helper there (-Commit); without a commit, the branch tip.
  * - The scripts never ask for admin, an API key or a sign-in token, and never
  *   touch certificates, trust stores or security settings.
  * - Install's steps, in dry-run: the order, what each adds, and that nothing
@@ -43,9 +44,12 @@ const scripts = ["install.ps1", "uninstall.ps1", "tray.ps1"];
 
 // ---- the line --------------------------------------------------------------
 const L = await import("../helper/install/line.ts");
-check("the line runs install.ps1 from the base branch on GitHub",
-  L.INSTALL_LINE === "& ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/sparkygogo77-spec/polio/claude/template-ui-website-builder-11bfgl/helper/install/install.ps1')))", L.INSTALL_LINE);
-check("the uninstall line is the same shape", L.UNINSTALL_LINE.endsWith("/helper/install/uninstall.ps1')))"));
+const sha = "0123456789abcdef0123456789abcdef01234567";
+check("the line runs install.ps1 at one commit, and holds the helper there",
+  L.installLine(sha).line === `& ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/sparkygogo77-spec/polio/${sha}/helper/install/install.ps1'))) -Commit ${sha}` && L.installLine(sha).pinned, L.installLine(sha).line);
+check("without a commit it says it isn't pinned", !L.installLine(null).pinned && L.installLine(null).line.includes("/claude/template-ui-website-builder-11bfgl/helper/install/install.ps1"));
+check("a commit that isn't one is not put in the line", !L.installLine("main; calc").pinned && !L.installLine("main; calc").line.includes("calc"));
+check("the uninstall line is the same shape", L.uninstallLine(sha).endsWith(`/${sha}/helper/install/uninstall.ps1')))`));
 check("the Builder's links are start and open only", JSON.stringify(Object.values(L.LINKS)) === '["polio-helper://start","polio-helper://open"]');
 
 // ---- what the scripts never do ------------------------------------------------
@@ -64,7 +68,7 @@ for (const n of scripts) check(`${n} is plain ASCII (Windows PowerShell 5.1 read
 check("the tray starts the helper with no window", /CreateNoWindow = true/.test(text["tray.ps1"]) && /UseShellExecute = false/.test(text["tray.ps1"]));
 check("the tray runs the helper with --tray", /'--tray'/.test(text["tray.ps1"]));
 check("the launcher starts the tray hidden (window style 0, -WindowStyle Hidden)", /sh\.Run cmd, 0, False/.test(text["install.ps1"]) && /-WindowStyle Hidden/.test(text["install.ps1"]));
-check("the log-on task is hidden and limited", /-Hidden/.test(text["install.ps1"]) && /-RunLevel Limited/.test(text["install.ps1"]));
+check("the log-on task (only with -AtLogOn) is hidden and limited", /-Hidden/.test(text["install.ps1"]) && /-RunLevel Limited/.test(text["install.ps1"]) && /-not \$AtLogOn/.test(text["install.ps1"]));
 check("the link is registered for this user only (HKCU)", /'HKCU:\\Software\\Classes'/.test(text["install.ps1"]));
 
 if (process.platform !== "win32") {
@@ -104,13 +108,16 @@ try {
   check("dry run: it succeeds", dry.status === 0, dry.stderr.trim().split("\n")[0]);
   check("dry run: the steps, in order", steps.join(",") === "check-node,check-git,check-claude,folder,fetch,deps,config,launcher,link,logon,start", steps.join(","));
   const addsDry = listed(dry.stdout, "ADD");
-  check("dry run: it says what it would add (folder, link, task, state)",
-    JSON.stringify(addsDry.map((a) => a.split(" ")[0])) === JSON.stringify(["folder", "registry", "state", "task"]), addsDry.join(" | "));
+  check("dry run: it says what it would add (folder, link, state; no log-on task by default)",
+    JSON.stringify(addsDry.map((a) => a.split(" ")[0])) === JSON.stringify(["folder", "registry", "state"]), addsDry.join(" | "));
+  const dryLogon = ps("install.ps1", [...common, "-DryRun", "-AtLogOn"]);
+  check("dry run with -AtLogOn: it would add the log-on task too", listed(dryLogon.stdout, "ADD").some((a) => a.startsWith("task ")), listed(dryLogon.stdout, "ADD").join(" | "));
   check("dry run: nothing changed (no folder, no link)", !existsSync(root) && !regHas(classes));
   check("dry run: it never asks for an API key", !/api key/i.test(dry.stdout.replace(/no API key|never asks for a key/gi, "")));
 
   const unDry = ps("uninstall.ps1", [...common, "-DryRun"]);
-  check("dry-run uninstall removes what dry-run install adds", JSON.stringify(listed(unDry.stdout, "REMOVE")) === JSON.stringify(addsDry), listed(unDry.stdout, "REMOVE").join(" | "));
+  // Uninstall also removes a log-on task an older (or -AtLogOn) install added.
+  check("dry-run uninstall removes what dry-run install adds", addsDry.every((a) => listed(unDry.stdout, "REMOVE").includes(a)) && listed(unDry.stdout, "REMOVE").every((r) => addsDry.includes(r) || r.startsWith("task ")), listed(unDry.stdout, "REMOVE").join(" | "));
 
   // Node too old
   const old = join(tmp, "node22.cmd");
@@ -137,7 +144,7 @@ try {
   check("the link runs only the launcher, with the link as its one argument", /^"[^"]*\\wscript\.exe" "[^"]*\\launch\.vbs" "%1"$/i.test(cmd), cmd);
   check("the link is marked as a URL protocol", spawnSync("powershell.exe", ["-NoProfile", "-Command", `(Get-ItemProperty -Path '${classes}\\polio-helper').PSObject.Properties.Name -contains 'URL Protocol'`], { encoding: "utf8", windowsHide: true }).stdout.trim() === "True");
   const config = JSON.parse(readFileSync(join(root, "helper.json"), "utf8"));
-  check("helper.json names Node, the clone and Pleo's folders, and no key", config.repo === join(root, "polio") && /node/i.test(config.node) && config.agents === join(tmp, "Pleo", "agents") && !/key|token/i.test(JSON.stringify(Object.keys(config))));
+  check("helper.json names Node, the clone and Pleo's folders, and no key", config.repo === join(root, "polio") && /node/i.test(config.node) && config.agents === join(tmp, "Pleo", "agents") && !/key|token/i.test(JSON.stringify(Object.keys(config).filter((k) => k !== "tokensPerDay"))) && config.tokensPerDay === 2000000, JSON.stringify(Object.keys(config)));
 
   // the launcher: start and open, nothing else
   const link = (...args) => spawnSync("cscript.exe", ["//nologo", launcher, ...args], { encoding: "utf8", windowsHide: true, env: { ...process.env, POLIO_HELPER_LINK_DRYRUN: "1" } });

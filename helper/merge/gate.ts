@@ -8,7 +8,10 @@
  *   - a P1;
  *   - a lane marked only-you (it adds a Builder control);
  *   - a lane touching keys, accounts or saving;
- *   - a lane touching the capture or export engine.
+ *   - a lane touching the capture or export engine;
+ *   - a lane changing the helper itself (helper/) or Claude Code's settings
+ *     and hooks (.claude/): otherwise an agent's merge could change the
+ *     program that runs the agents, unseen (audit helper-install.md, risk 4).
  *
  * Pure, no imports beyond the contract's types: the tests import it straight.
  */
@@ -29,6 +32,7 @@ export const ASK_FIRST: { test: RegExp; why: string }[] = [
   { test: /(^|\/)board\/store\/(persist|history)\.ts$|(^|\/)account\/sync\.ts$|(^|\/)saves?\//i, why: "touches saving" },
   { test: /^capture\/|(^|\/)capture\/|(^|\/)reassemble\.ts$/i, why: "changes the capture engine" },
   { test: /(^|\/)send-out\/|(^|\/)scaffolding\//i, why: "changes the export engine" },
+  { test: /^(helper|\.claude)\//i, why: "changes the helper" },
 ];
 
 /** Null when the merge may go on its own; otherwise the reason it waits for J. */

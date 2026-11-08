@@ -12,11 +12,46 @@
  * Over either, or when Claude Code says the plan limit is reached, the
  * runner pauses the lanes it covers (by "runner", reason "spend-cap").
  */
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { CONTRACT_VERSION, type LaneSpend, type Pays, type PlanUse, type Spend, type Tokens } from "../contract.ts";
 
 type Entry = { requestId: string; lane: string; pays: Pays; tokens: Tokens; ms: number; since: number | null; measured: boolean };
 
 export type Caps = { tokensPerDay?: number; tokensPerRequest?: number };
+
+/**
+ * An installed helper is never uncapped (audit helper-install.md, risk 3).
+ * 2,000,000 counted tokens a day is about 80 small lanes at the 25,000 a tiny
+ * lane used on 2026-10-29, and well under one 5-hour window of the plan. The
+ * installer writes it to helper.json, the tray passes it as
+ * --tokens-per-day, and the dock shows and changes it (GET/POST /caps). A
+ * change from the dock is kept in <state>/caps.json and wins at the next start.
+ */
+export const DEFAULT_TOKENS_PER_DAY = 2_000_000;
+export const MIN_CAP = 10_000;
+export const MAX_CAP = 1_000_000_000;
+
+/** A cap as J may set it: a whole number of tokens from 10,000 to 1,000,000,000. */
+export function goodCap(n: unknown): n is number {
+  return typeof n === "number" && Number.isInteger(n) && n >= MIN_CAP && n <= MAX_CAP;
+}
+
+/** The caps kept by the dock's last change, or {} when there are none (or the file is bad). */
+export function readCapsFile(file: string): Caps {
+  try {
+    const x = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
+    const out: Caps = {};
+    if (goodCap(x.tokensPerDay)) out.tokensPerDay = x.tokensPerDay;
+    if (goodCap(x.tokensPerRequest)) out.tokensPerRequest = x.tokensPerRequest;
+    return out;
+  } catch { return {}; }
+}
+
+export function writeCapsFile(file: string, caps: Caps) {
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, JSON.stringify({ ...caps, at: new Date().toISOString() }, null, 2));
+}
 
 export type Over = { scope: "day" | "request" | "plan"; requestId?: string; why: string };
 

@@ -26,6 +26,27 @@ export const DOCK_URL = `${HELPER_ORIGIN}/dock`;
 /** The link Windows hands to the helper: it can start it or bring up its window, nothing else. */
 export const START_LINK = "polio-helper://start";
 
+/*
+ * The install line "Set up the helper" shows, held at ONE commit: the one
+ * this Builder was built from (`/api/version`). A copy of
+ * `helper/install/line.ts` (the helper isn't part of the Next build);
+ * tests/helper-install-fixes.mjs checks the two agree.
+ */
+const INSTALL_BRANCH = "claude/template-ui-website-builder-11bfgl";
+const INSTALL_RAW = "https://raw.githubusercontent.com/sparkygogo77-spec/polio";
+const COMMIT_ID = /^[0-9a-f]{7,40}$/;
+const runLine = (url: string, args: string) => `& ([scriptblock]::Create((irm '${url}')))${args}`;
+export function installLine(commit: string | null | undefined): { line: string; pinned: boolean } {
+  const c = typeof commit === "string" && COMMIT_ID.test(commit) ? commit : null;
+  return c
+    ? { line: runLine(`${INSTALL_RAW}/${c}/helper/install/install.ps1`, ` -Commit ${c}`), pinned: true }
+    : { line: runLine(`${INSTALL_RAW}/${INSTALL_BRANCH}/helper/install/install.ps1`, ""), pinned: false };
+}
+export function uninstallLine(commit: string | null | undefined): string {
+  const c = typeof commit === "string" && COMMIT_ID.test(commit) ? commit : INSTALL_BRANCH;
+  return runLine(`${INSTALL_RAW}/${c}/helper/install/uninstall.ps1`, "");
+}
+
 /** Right-click a part, Ask agents, then one of these (J, Q9). Same order as the contract. */
 export const PART_ACTIONS = ["change", "features", "security", "backend", "explain"] as const;
 export type PartAction = (typeof PART_ACTIONS)[number];

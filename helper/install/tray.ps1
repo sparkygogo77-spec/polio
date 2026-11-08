@@ -6,7 +6,12 @@
 #   - the helper prints "@pair <code>": a small window shows the code, so only
 #     someone at this PC can pair the Builder;
 #   - "@ready <port>": the icon says it's running (and -Open opens the dock);
-#   - the tray writes "pause-all", "resume-all" or "quit" to the helper.
+#   - the tray writes "pause-all", "resume-all", "deny" or "quit" to the helper.
+# Every other line goes to logs\helper.log, except the pairing code: "@pair"
+# lines are never written, and the log is kept under 1 MB (its newest half is
+# kept when it would grow past that).
+# The helper is started with the daily token cap from helper.json
+# (tokensPerDay; 2,000,000 when it is missing), so it is never uncapped.
 # Only one tray runs at a time. A second start (another link click) just opens
 # the dock if -Open was asked, and leaves.
 # uninstall.ps1 asks it to quit through the named event Local\PolioHelperQuit.
@@ -49,7 +54,7 @@ public class PolioHelperChild {
     DataReceivedEventHandler keep = (s, e) => {
       if (e.Data == null) return;
       Lines.Enqueue(e.Data);
-      try { File.AppendAllText(log, DateTime.Now.ToString("s") + " " + e.Data + Environment.NewLine); } catch { }
+      Keep(log, e.Data);
     };
     P.OutputDataReceived += keep;
     P.ErrorDataReceived += keep;
@@ -58,6 +63,32 @@ public class PolioHelperChild {
     P.BeginErrorReadLine();
   }
   public void Say(string line) { try { P.StandardInput.WriteLine(line); P.StandardInput.Flush(); } catch { } }
+  public const long MaxLog = 1048576;
+  static readonly object LogLock = new object();
+  // One helper line into the log: never the pairing code, and never past 1 MB.
+  public static bool Keep(string log, string line) {
+    if (line == null) return false;
+    string t = line.TrimStart();
+    if (t.StartsWith("@pair") || System.Text.RegularExpressions.Regex.IsMatch(line, @"Code:\s*\d{3}\s?\d{3}")) return false;
+    string text = DateTime.Now.ToString("s") + " " + line + Environment.NewLine;
+    lock (LogLock) {
+      try {
+        var fi = new FileInfo(log);
+        if (fi.Exists && fi.Length + text.Length > MaxLog) {
+          byte[] all = File.ReadAllBytes(log);
+          int from = all.Length - (int)(MaxLog / 2);
+          if (from < 0) from = 0;
+          while (from < all.Length && all[from] != 10) from++;
+          if (from < all.Length) from++;
+          byte[] tail = new byte[all.Length - from];
+          Array.Copy(all, from, tail, 0, tail.Length);
+          File.WriteAllBytes(log, tail);
+        }
+        File.AppendAllText(log, text);
+        return true;
+      } catch { return false; }
+    }
+  }
 }
 '@
 
@@ -68,6 +99,9 @@ $main = Join-Path $config.repo 'helper\server\main.ts'
 $q = { param($s) '"' + $s + '"' }
 $helperArgs = @((& $q $main), '--tray', '--repo', (& $q $config.repo), '--handovers', (& $q $config.handovers), '--agents', (& $q $config.agents))
 if ($config.claude) { $helperArgs += @('--claude', (& $q $config.claude)) }
+$cap = 2000000
+if ($config.tokensPerDay -and [long]$config.tokensPerDay -ge 10000) { $cap = [long]$config.tokensPerDay }
+$helperArgs += @('--tokens-per-day', [string]$cap)
 $argLine = $helperArgs -join ' '
 
 $script:child = $null
@@ -134,7 +168,8 @@ function Show-Code([string]$code) {
   $deny = New-Object System.Windows.Forms.Button
   $deny.Text = 'Deny'
   $deny.SetBounds(224, 112, 80, 28)
-  $deny.add_Click({ $f.Close() })
+  # Deny ends the code in the helper too, so typing it afterwards does nothing.
+  $deny.add_Click({ $script:child.Say('deny'); $f.Close() })
   $f.Controls.AddRange(@($l, $deny))
   $f.Show()
 }

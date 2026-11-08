@@ -26,7 +26,7 @@ import { Button } from "@/core/ui/button";
 import { Tooltip } from "@/core/ui/tooltip";
 import { useStudio } from "@/features/studio/board/store";
 import { siteSystem } from "@/features/studio/system/api";
-import { ACTION_WORDS, DOCK_URL, HELPER_ORIGIN, PART_ACTIONS, START_LINK, checkContext, contextFor, type AgentsContext, type PartAction, type PartLike, type SystemLike } from "./context";
+import { ACTION_WORDS, DOCK_URL, HELPER_ORIGIN, PART_ACTIONS, START_LINK, checkContext, installLine, uninstallLine, contextFor, type AgentsContext, type PartAction, type PartLike, type SystemLike } from "./context";
 import { closeAsk, closeDock, openDock, reachHelper, setDockTab, useAgents } from "./store";
 import { listen } from "./bridge";
 import { LanesBoard } from "./LanesBoard";
@@ -75,8 +75,21 @@ export function AgentsButton() {
   );
 }
 
+/** The commit this Builder was built from, for the install line (null until known, or on a build that has none). */
+function useBuiltCommit(): string | null {
+  const [commit, setCommit] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    let on = true;
+    fetch("/api/version", { cache: "no-store" }).then((r) => r.json()).then((v: { commit?: unknown }) => { if (on && typeof v.commit === "string") setCommit(v.commit); }).catch(() => {});
+    return () => { on = false; };
+  }, []);
+  return commit;
+}
+
 function Setup() {
   const checking = useAgents((s) => s.reach === "checking");
+  const commit = useBuiltCommit();
+  const install = installLine(commit);
   return (
     <div data-agents-setup="" className="flex flex-col gap-3 p-4 text-small">
       <p className="font-medium">The helper isn&apos;t answering on this PC.</p>
@@ -87,11 +100,17 @@ function Setup() {
       <details data-agents-setup-steps="">
         <summary className="cursor-pointer">Set up the helper</summary>
         <ol className="mt-2 list-decimal space-y-1 pl-5 text-fg-muted">
-          <li>Install Polio Helper once. It starts with Windows.</li>
+          <li>
+            Install Polio Helper once: paste this line into PowerShell. It doesn&apos;t start with Windows.
+            <code data-agents-install-line="" data-pinned={install.pinned ? "1" : "0"} className="mt-1 block select-all break-all rounded bg-surface p-1.5 font-mono text-[10px] text-fg">{install.line}</code>
+            {install.pinned ? null : <span className="block text-[10px]">This Builder doesn&apos;t know its commit, so the line takes the newest helper.</span>}
+          </li>
           <li>Press Start the helper. The first time, Windows asks to open Polio Helper.</li>
           <li>When Chrome asks to connect to devices on your local network, press Allow.</li>
-          <li>In the dock, press Pair with this PC and type the code the helper shows.</li>
+          <li>In the dock, press Show a code on my PC, type the code the helper shows, and press Pair.</li>
         </ol>
+        <p className="mt-2 text-fg-muted">To remove it, paste this line; it lists what it removes and what it leaves.</p>
+        <code data-agents-uninstall-line="" className="mt-1 block select-all break-all rounded bg-surface p-1.5 font-mono text-[10px] text-fg">{uninstallLine(commit)}</code>
       </details>
       <div className="flex gap-2">
         <Button variant="ghost" size="sm" data-agents-retry="" disabled={checking} onClick={() => void reachHelper()}>
