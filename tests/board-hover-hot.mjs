@@ -132,6 +132,34 @@ await page.mouse.move(150, 300); // the side panel, off the board
 await page.waitForTimeout(200);
 const hotOff = await page.evaluate(() => document.querySelector("[data-hot]")?.getAttribute("data-hot") ?? "");
 check("4. on a part something is hot; off the board nothing is", hotOn.length > 0 && hotOff === "", `on: "${hotOn.slice(0, 40)}", off: "${hotOff}"`);
+
+/*
+ * 5. A MOVE OF THE POINTER RESTYLES ONE GROUP, NOT EVERY GROUP. With one `data-hot` attribute read by every group's rule,
+ * the browser restyled every part any rule named on each change: ~1,050 elements a move on this board (17–22 ms), against
+ * ~160 with no motion sheet. One attribute a host (`hoverHot.ts#litHosts`, `data-hot-<host>`) leaves the move to the
+ * group's own parts: at most 400 elements a move here (EDIT-ISSUES #69).
+ */
+const spots = await page.evaluate(() => {
+  const out = [];
+  for (const el of document.querySelectorAll("[data-node-id]")) {
+    const r = el.getBoundingClientRect();
+    if (r.width > 30 && r.height > 16 && r.top > 120 && r.bottom < 760 && r.left > 320 && r.right < 1200) {
+      const x = r.left + r.width / 2, y = r.top + r.height / 2;
+      if (document.elementFromPoint(x, y)?.closest("[data-node-id]") === el) out.push({ x, y });
+    }
+    if (out.length >= 12) break;
+  }
+  return out;
+});
+const moves = 24;
+const restyled = async () => {
+  const { events } = await h.trace(async () => { for (let i = 0; i < moves; i++) { const s = spots[i % spots.length]; await page.mouse.move(s.x, s.y); await page.waitForTimeout(120); } });
+  const ult = events.filter((e) => e.name === "UpdateLayoutTree" && e.ph === "X");
+  return { elements: Math.round(ult.reduce((a, e) => a + (e.args?.elementCount ?? 0), 0) / moves), ms: +(ult.reduce((a, e) => a + e.dur, 0) / 1000 / moves).toFixed(1) };
+};
+await restyled();
+const move = await restyled();
+check("5. a move of the pointer from one part to another restyles at most 400 elements", spots.length >= 3 && move.elements <= 400, `${move.elements} elements, ${move.ms} ms a move (${spots.length} spots)`);
 check("…and nothing threw", h.errors.length === 0, h.errors[0] ?? "");
 
 await h.close();

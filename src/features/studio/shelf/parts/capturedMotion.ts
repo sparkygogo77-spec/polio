@@ -330,7 +330,7 @@ export function movesItself(n: MotionNode): boolean {
  * made by the parts inside as well, about the element's own centre, with
  * the element's transition, so they travel together as they did.
  */
-export function motionCss(nodes: readonly MotionNode[], keyframes: readonly CapturedKeyframes[] | undefined, at: (id: string) => string, nested?: ReadonlySet<string>, pathCode?: (id: string) => string | null, usedCodes?: Set<string>, hot?: string): string {
+export function motionCss(nodes: readonly MotionNode[], keyframes: readonly CapturedKeyframes[] | undefined, at: (id: string) => string, nested?: ReadonlySet<string>, pathCode?: (id: string) => string | null, usedCodes?: Set<string>, hot?: string, /** Given `hot`: every host a group's rule reads, by id, for the board to light (`board/hoverHot.ts#setHotHosts`). */ hotHosts?: Map<string, { code: string | null; ids: readonly string[] | null }>): string {
   const rules: string[] = [];
   const within = insideIndex(nodes);
   /*
@@ -354,13 +354,19 @@ export function motionCss(nodes: readonly MotionNode[], keyframes: readonly Capt
    * one attribute a state (`hotAttr`), and the rule names those tokens: the
    * same parts fire it.
    */
+  /*
+   * ONE ATTRIBUTE A HOST. Read as one attribute for all (`[data-hot~="host"]`), a change to it restyled every part any
+   * rule on it named, about 1,050 elements a move of the pointer on sol face's board (EDIT-ISSUES #69). The board writes
+   * `<attr>-<host id>` for each host the hot part lights (`hoverHot.ts#litHosts`), and a group's rule reads its own host's
+   * attribute alone, so a move restyles that group's parts and no other (`tests/board-hover-hot.mjs`, check 5).
+   */
   const trigger = (host: MotionNode, group: readonly MotionNode[], pseudo: string) => {
     const code = pathCode?.(host.id);
     const attr = hot ? hotAttr(hot, pseudo) : null;
     if (attr) {
       if (code) usedCodes?.add(code);
-      const tokens = code ? [host.id, `@${code}`] : group.map((x) => x.id);
-      return `:is(${tokens.map((t) => `[${attr}~="${t}"]`).join(", ")})`;
+      hotHosts?.set(host.id, code ? { code, ids: null } : { code: null, ids: group.map((x) => x.id) });
+      return `[${attr}-${host.id}]`;
     }
     if (!code) return `:root:has(${group.map((x) => `${at(x.id)}${pseudo}`).join(", ")})`;
     usedCodes?.add(code);
