@@ -409,6 +409,10 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
         animation: entranceCss(p.node.anim, p.node.animSpeed, p.node.animDelay, p.node.animEase),
         // A part a press shows: hidden where the page opens, until the press (`Show on press`) shows it.
         ...((p.node as { state?: unknown }).state ? { display: "none" as const } : null),
+        /* A captured part with no box at this width (the phone-only menu button, 0 × 0 on the desktop) is not drawn at all here: clipped to
+           its box it still stood 29px tall from its own padding, a part on the page the board does not show (EDIT-ISSUES #65). The small
+           widths' rules show it where it has a box (`smallCss.ts`, `display: flex !important`). `tests/small-only-unseen.mjs`. */
+        ...(p.node.from?.selector && p.node.w <= 0 && p.node.h <= 0 ? { display: "none" as const } : null),
         // A card over the page ("What's new"): its box takes no room and no press; what it opens is fixed over the window.
         ...(isOverlay(p.node.featureId) ? { minHeight: 0, height: 0, pointerEvents: "none" as const, animation: undefined } : null),
         ...(carried.get(p.node.id)?.some((k) => behind(k.node.id, p.node.id)) ? { isolation: "isolate" as const } : null),

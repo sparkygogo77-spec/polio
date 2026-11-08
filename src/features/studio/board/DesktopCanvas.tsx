@@ -57,7 +57,7 @@ import { pageFeatures } from "../shelf";
 import { ON_BOARD } from "../shelf";
 import { codesWorn, motionCss, pathCodes } from "../shelf/parts/capturedMotion";
 import { svgUnder } from "../live/svgUnder";
-import { HOT, useHoverHot } from "./hoverHot";
+import { HOT, setHotHosts, useHoverHot, type HotHost } from "./hoverHot";
 import { useHoverOutlines } from "./hoverOutlines";
 import { PickBar } from "./PickBar";
 import { clickSpot, oneLevelIn, setClickSpot } from "./selectTools";
@@ -1699,13 +1699,16 @@ export function DesktopCanvas() {
    * 217 ms with the sheet on (`tests/board-motion-light.mjs`). The parts
    * under a named path wear its code (`data-at`), as on the published page.
    */
-  const { motionSheet, atOf } = React.useMemo(() => {
+  const { motionSheet, atOf, hotHosts } = React.useMemo(() => {
     const pathCode = pathCodes(pageAll);
     const used = new Set<string>();
-    /* A group's hover reads the board's `data-hot`, not `:root:has(…:hover)` (`hoverHot.ts`, `tests/board-hover-hot.mjs`). */
-    const css = motionCss(pageAll, look.keyframes, (id) => `[data-node-id="${id}"]`, undefined, pathCode, used, HOT);
-    return { motionSheet: css, atOf: codesWorn(pageAll, pathCode, used) };
+    const hosts = new Map<string, HotHost>();
+    /* A group's hover reads the board's `data-hot-<host>`, not `:root:has(…:hover)` (`hoverHot.ts`, `tests/board-hover-hot.mjs`). */
+    const css = motionCss(pageAll, look.keyframes, (id) => `[data-node-id="${id}"]`, undefined, pathCode, used, HOT, hosts);
+    return { motionSheet: css, atOf: codesWorn(pageAll, pathCode, used), hotHosts: hosts };
   }, [pageAll, look.keyframes]);
+  /* The hosts the sheet reads, for the board to light as the pointer, the focus and a press move (`hoverHot.ts#litHosts`). */
+  React.useEffect(() => { setHotHosts(hotHosts); }, [hotHosts]);
   const groundLayers = React.useMemo(() => groundLayersOf(page), [page]);
   /*
    * Each part's stack kept as the same object while it stands the same.
