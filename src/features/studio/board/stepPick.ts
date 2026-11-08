@@ -9,11 +9,15 @@
  * keys all step through these two functions, so they share one ladder.
  *
  * THE GESTURE IS ONE SETTING, `STEP_GESTURE`, read everywhere it matters:
- *   "alt-wheel"          Alt + wheel down steps out, Alt + wheel up steps in;
- *                        a plain wheel scrolls the page as it always did
- *                        (the coordinator's pick, 2026-11-08);
- *   "wheel-over-picked"  the wheel over the picked box steps instead of
- *                        scrolling; off the box it scrolls;
+ *   "scroll-on-picked"   J's (2026-11-08: "the scroll should work only when
+ *                        my cursor is still on the object i clicked on ...
+ *                        or on any of the panels encompassed by the widest
+ *                        part"): a plain wheel over the stepping area steps,
+ *                        down = out, up = in, and the page does not scroll
+ *                        there; off the area it scrolls as ever. The area is
+ *                        the box picked, widened to the widest box stepped
+ *                        out to on the current path (`stepArea`);
+ *   "alt-wheel"          Alt + wheel steps; a plain wheel scrolls;
  *   "keys"               only `[` (out) and `]` (in).
  * `[` and `]` work under every setting. Stepping picks; it is never a step
  * of undo (`setSelection` writes no history). `tests/select-step.mjs`.
@@ -22,19 +26,21 @@ import { holds } from "../owner";
 import { useStudio } from "./store";
 import { climbSpot, stepOutOf } from "./selectTools";
 
-export type StepGesture = "alt-wheel" | "wheel-over-picked" | "keys";
+export type StepGesture = "scroll-on-picked" | "alt-wheel" | "keys";
 /** THE ONE SETTING. Change this word and nothing else to change the gesture. */
-export const STEP_GESTURE: StepGesture = "alt-wheel";
+export const STEP_GESTURE: StepGesture = "scroll-on-picked";
 
 /** The hint shown once, by the toolbar, under each setting. */
 export const STEP_HINT: Record<StepGesture, string> = {
+  "scroll-on-picked": "Scroll on the picked part: bigger box / smaller box",
   "alt-wheel": "Alt + scroll: bigger box / smaller box",
-  "wheel-over-picked": "Scroll over it: bigger box / smaller box",
   "keys": "[ bigger box   ] smaller box",
 };
 
-/** How much wheel makes one step: one notch of a mouse wheel, a short flick of a trackpad. */
+/** How much wheel makes one step: one notch of a mouse wheel (100 px in Chromium), or a trackpad's pushes adding up to it. */
 const NOTCH = 40;
+/** A wheel event smaller than this is a trackpad's light touch and counts for nothing. */
+const TOUCH = 12;
 /** A pause longer than this starts the count again, so a flick's tail does not add to the next one. */
 const PAUSE = 400;
 
@@ -43,7 +49,7 @@ const PAUSE = 400;
  * left from ("" when the last step out left nothing picked). A pick that was not made by a step (a click, the
  * part list) leaves `at` naming some other part, and the path is dropped the next time it is read.
  */
-let path: { at: string; ids: string[] } | null = null;
+let path: { at: string; ids: string[]; widest: string } | null = null;
 const listeners = new Set<() => void>();
 /** Called after every step; the toolbar's hint goes away on the first. */
 export function onStep(f: () => void) { listeners.add(f); return () => { listeners.delete(f); }; }
@@ -67,8 +73,8 @@ export function stepOut(): boolean {
   const part = s.nodes.find((n) => n.id === cur)!;
   const up = stepOutOf(s.nodes, part);
   if (path && path.at === cur) path.ids.push(cur);
-  else path = { at: cur, ids: [cur] };
-  if (up) s.setSelection([up.id]);
+  else path = { at: cur, ids: [cur], widest: cur };
+  if (up) { s.setSelection([up.id]); path.widest = up.id; }
   else s.clearSelection();
   path.at = up?.id ?? "";
   climbSpot(up?.id ?? null);
@@ -94,18 +100,34 @@ export function stepIn(): boolean {
   return true;
 }
 
+/** The path is dropped: Escape out to nothing, or a pick made some other way. */
+export function forgetPath() { path = null; }
+
+/**
+ * THE STEPPING AREA: the part whose box the wheel steps over. The picked part, widened to the widest box the
+ * path has stepped out to, so from the section a wheel anywhere on the section comes back in. Null when nothing
+ * is picked and no path is left.
+ */
+export function stepArea(): string | null {
+  const cur = pickNow();
+  if (cur === null) return null;
+  if (path && path.at === cur) return path.widest;
+  return cur || null;
+}
+
 /** Whether a step in is possible from here: with nothing picked, only when the last step out left the path behind. */
 export function canStepIn(): boolean { const cur = pickNow(); return cur !== null && !!path && path.at === cur && path.ids.length > 0; }
 
 let acc = 0, accAt = -Infinity;
 /**
  * Which way a wheel event steps under the setting: 1 out, -1 in, 0 when this wheel is a scroll. `overPicked` says
- * whether the pointer is over the picked part. Small deltas add up to a notch; a pause starts over.
+ * whether the pointer is over the stepping area (`stepArea`). Small deltas add up to a notch; a pause starts over.
  */
 export function wheelStep(e: WheelEvent, overPicked: boolean): -1 | 0 | 1 {
   if (STEP_GESTURE === "keys" || e.ctrlKey || e.metaKey || e.shiftKey) return 0;
   if (STEP_GESTURE === "alt-wheel" ? !e.altKey : !overPicked || e.altKey) return 0;
   const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
+  if (Math.abs(dy) < TOUCH) return 0;
   if (e.timeStamp - accAt > PAUSE) acc = 0;
   accAt = e.timeStamp;
   acc += dy;

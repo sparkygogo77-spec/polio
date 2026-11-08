@@ -61,7 +61,7 @@ import { HOT, useHoverHot } from "./hoverHot";
 import { useHoverOutlines } from "./hoverOutlines";
 import { PickBar } from "./PickBar";
 import { clickSpot, oneLevelIn, setClickSpot } from "./selectTools";
-import { STEP_GESTURE, canStepIn, keyStep, stepIn, stepOut, wheelStep } from "./stepPick";
+import { STEP_GESTURE, forgetPath, keyStep, stepArea, stepIn, stepOut, wheelStep } from "./stepPick";
 import { useRestFar } from "./restFar";
 import { useSkipFar } from "./skipFar";
 import { useDrawNear } from "./drawNear";
@@ -777,13 +777,17 @@ export function DesktopCanvas() {
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       const store = useStudio.getState();
-      /* With a part picked, the step gesture (`stepPick.ts#STEP_GESTURE`: Alt + wheel) steps the pick out to the bigger box or back in. A plain wheel scrolls as ever. */
-      if (store.mode === "design" && store.tool === "select" && (store.selection.length === 1 || (!store.selection.length && canStepIn()))) {
-        const picked = store.selection[0];
-        const overPicked = !!picked && !!(e.target as Element | null)?.closest?.(`[data-node-id="${CSS.escape(picked)}"]`);
-        const dir = wheelStep(e, overPicked);
-        if (dir) { e.preventDefault(); play((dir > 0 ? stepOut() : stepIn()) ? "tap" : "deny"); return; }
-        if (STEP_GESTURE === "alt-wheel" ? e.altKey : overPicked && !e.altKey) { e.preventDefault(); return; }
+      /* With a part picked, the step gesture (`stepPick.ts#STEP_GESTURE`: the wheel over the stepping area) steps the pick out to the bigger box or back in; the page does not scroll there. Off the area the wheel scrolls as ever. */
+      if (store.mode === "design" && store.tool === "select") {
+        const area = stepArea();
+        /* Over the area by its box, not by the DOM: the parts are a flat list, so what holds what is not an ancestor. */
+        const box = area ? document.querySelector(`[data-node-id="${CSS.escape(area)}"]`)?.getBoundingClientRect() : null;
+        const overArea = !!box && e.clientX >= box.left && e.clientX <= box.right && e.clientY >= box.top && e.clientY <= box.bottom;
+        if (area) {
+          const dir = wheelStep(e, overArea);
+          if (dir) { e.preventDefault(); play((dir > 0 ? stepOut() : stepIn()) ? "tap" : "deny"); return; }
+          if (STEP_GESTURE === "alt-wheel" ? e.altKey : STEP_GESTURE === "scroll-on-picked" && overArea && !e.altKey) { e.preventDefault(); return; }
+        }
       }
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
@@ -1034,8 +1038,9 @@ export function DesktopCanvas() {
         if (s.tool !== "select") { s.setTool("select"); play("tap"); return; }
         if (s.handling) { s.hold(null); return; }
         if (!s.selection.length) return;
-        /* Climbing out stops below the site's own wrapper (`stepPick.ts#stepOut`, the toolbar's step out and Alt + wheel too; the path out is kept so a step in comes back the same way). */
+        /* Climbing out stops below the site's own wrapper (`stepPick.ts#stepOut`, the toolbar's step out and the wheel too; the path out is kept so a step in comes back the same way). Escape out to nothing drops the path (J: Esc resets). */
         stepOut();
+        if (!useStudio.getState().selection.length) forgetPath();
         play("tap");
         return;
       }
