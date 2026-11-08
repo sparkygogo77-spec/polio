@@ -25,7 +25,7 @@ import { play } from "@/core/audio/engine";
 import { useStudio } from "./store";
 import { closeRadial, openRadial, useRadialOpen } from "../RadialMenu";
 import { useEditingWords } from "../WordsInPlace";
-import { climbSpot, stepOutOf } from "./selectTools";
+import { STEP_GESTURE, STEP_HINT, markStepHintSeen, onStep, stepHintSeen, stepOut } from "./stepPick";
 
 const GAP = 8;
 /* Where the pointer is, read when the bar is placed: one passive listener for the whole app, which only writes two numbers. */
@@ -49,12 +49,28 @@ function act(doing: Doing, id: string, at: { x: number; y: number }) {
   if (doing === "looks") { openRadial(id, at.x, at.y, null, "look"); play("select"); return; }
   if (doing === "duplicate") { s.duplicateNodes([id]); play("confirm"); closeRadial(); return; }
   if (doing === "delete") { s.removeNodes([id]); play("deny"); closeRadial(); return; }
-  const part = s.nodes.find((n) => n.id === id);
-  const up = part ? stepOutOf(s.nodes, part) : null;
-  if (up) s.setSelection([up.id]);
-  else s.clearSelection();
-  climbSpot(up?.id ?? null);
+  /* The same step Escape and Alt + wheel take, on the same ladder (`stepPick.ts`). */
+  stepOut();
   play("tap");
+}
+
+/**
+ * The one-time hint under the bar: how to step out to a bigger box and back in, worded for the gesture in force
+ * (`stepPick.ts#STEP_GESTURE`). Shown the first time a part is picked in this browser, gone on the first step or
+ * after a while, and never again.
+ */
+function useStepHint(show: boolean) {
+  const [hint, setHint] = React.useState(false);
+  React.useEffect(() => {
+    if (!show || stepHintSeen()) return;
+    setHint(true);
+    markStepHintSeen();
+    const hide = () => setHint(false);
+    const t = setTimeout(hide, 12_000);
+    const off = onStep(hide);
+    return () => { clearTimeout(t); off(); };
+  }, [show]);
+  return hint && show;
 }
 
 export function PickBar({ dragging, pane }: { dragging: boolean; pane: () => HTMLElement | null }) {
@@ -62,6 +78,7 @@ export function PickBar({ dragging, pane }: { dragging: boolean; pane: () => HTM
   const wheel = useRadialOpen();
   const typing = useEditingWords();
   const show = !!one && !dragging && !wheel && !typing;
+  const hint = useStepHint(show);
   const bar = React.useRef<HTMLDivElement>(null);
   const [at, setAt] = React.useState<{ left: number; top: number; below: boolean } | null>(null);
 
@@ -133,6 +150,16 @@ export function PickBar({ dragging, pane }: { dragging: boolean; pane: () => HTM
           <Icon className="size-4" strokeWidth={2} />
         </button>
       ))}
+      {hint ? (
+        /* Absolutely placed, so it adds nothing to the bar's measured size; on the far side of the bar from the part. */
+        <div
+          data-step-hint={STEP_GESTURE}
+          className="pointer-events-none absolute right-0 whitespace-nowrap rounded-md px-2 py-1 text-[11px] leading-tight"
+          style={{ ...(at?.below ? { top: "calc(100% + 4px)" } : { bottom: "calc(100% + 4px)" }), color: BLUE, background: VOID.face, boxShadow: `inset 0 0 0 1px ${VOID.rim}, 0 4px 12px oklch(0 0 0 / 0.4)` }}
+        >
+          {STEP_HINT[STEP_GESTURE]}
+        </div>
+      ) : null}
     </div>,
     document.body,
   );
