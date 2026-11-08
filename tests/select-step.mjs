@@ -214,8 +214,9 @@ async function onSite(label, siteDoc) {
   await h.wheel(100, true);
   const b = (await h.sel())[0];
   await h.wheel(100, true);
-  const c = (await h.sel())[0];
-  say("Alt + wheel down steps out twice, to a bigger box each time", !!a && !!b && !!c && a !== b && b !== c, `${a} → ${b} → ${c}`);
+  const c = (await h.sel())[0] ?? "(nothing)";
+  /* Two steps out: to the holder, then to its holder or, when the holder sits right under the page, to nothing picked. */
+  say("Alt + wheel down steps out twice: to a bigger box, then to the next or to nothing", !!a && !!b && a !== b && b !== c, `${a} → ${b} → ${c}`);
   await h.wheel(-100, true);
   const b2 = (await h.sel())[0];
   await h.wheel(-100, true);
