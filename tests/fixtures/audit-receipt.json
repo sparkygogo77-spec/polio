@@ -1,0 +1,2064 @@
+{
+ "kind": "polio-audit-receipt",
+ "version": 1,
+ "when": "2026-11-08T21:36:05.207Z",
+ "root": "<a checkout>",
+ "commit": "17bf627",
+ "branch": "HEAD",
+ "limit": 524288000,
+ "before": {
+  "total": 565683410,
+  "functions": 38,
+  "over": true
+ },
+ "afterCuts": {
+  "total": 532314464,
+  "over": true
+ },
+ "functions": [
+  {
+   "fn": "api/studio/zip",
+   "bytes": 89046674,
+   "heaviest": [
+    [
+     "node_modules/@sparticuz/chromium",
+     69200877
+    ],
+    [
+     "../work-editable-fix",
+     13178967
+    ],
+    [
+     "src/app",
+     4199421
+    ],
+    [
+     "node_modules/playwright-core",
+     1979047
+    ]
+   ]
+  },
+  {
+   "fn": "api/studio/element",
+   "bytes": 88984487,
+   "heaviest": [
+    [
+     "node_modules/@sparticuz/chromium",
+     69200877
+    ],
+    [
+     "../work-editable-fix",
+     13178967
+    ],
+    [
+     "src/app",
+     4199421
+    ],
+    [
+     "node_modules/playwright-core",
+     1979047
+    ]
+   ]
+  },
+  {
+   "fn": "api/studio/preview-video",
+   "bytes": 88838697,
+   "heaviest": [
+    [
+     "node_modules/@sparticuz/chromium",
+     69200877
+    ],
+    [
+     "../work-editable-fix",
+     13178967
+    ],
+    [
+     "src/app",
+     4199421
+    ],
+    [
+     "node_modules/playwright-core",
+     1979047
+    ]
+   ]
+  },
+  {
+   "fn": "api/studio/render",
+   "bytes": 88786993,
+   "heaviest": [
+    [
+     "node_modules/@sparticuz/chromium",
+     69200877
+    ],
+    [
+     "../work-editable-fix",
+     13178967
+    ],
+    [
+     "src/app",
+     4199421
+    ],
+    [
+     "node_modules/playwright-core",
+     1979047
+    ]
+   ]
+  },
+  {
+   "fn": "api/studio/screenshot",
+   "bytes": 88785109,
+   "heaviest": [
+    [
+     "node_modules/@sparticuz/chromium",
+     69200877
+    ],
+    [
+     "../work-editable-fix",
+     13178967
+    ],
+    [
+     "src/app",
+     4199421
+    ],
+    [
+     "node_modules/playwright-core",
+     1979047
+    ]
+   ]
+  },
+  {
+   "fn": "api/studio/kit-map",
+   "bytes": 38981632,
+   "heaviest": [
+    [
+     "capture/fixtures",
+     16543535
+    ],
+    [
+     "src/features",
+     8479705
+    ],
+    [
+     "src/app",
+     4665164
+    ],
+    [
+     "public/construct",
+     3665957
+    ]
+   ]
+  },
+  {
+   "fn": "api/account/data",
+   "bytes": 8177401,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     7247891
+    ],
+    [
+     ".next/server",
+     928984
+    ],
+    [
+     "node_modules",
+     0
+    ],
+    [
+     ".next/node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "(builder)/[...slug]",
+   "bytes": 7599387,
+   "heaviest": [
+    [
+     ".next/server",
+     6203947
+    ],
+    [
+     "../work-editable-fix",
+     1394493
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "(builder)",
+   "bytes": 7599210,
+   "heaviest": [
+    [
+     ".next/server",
+     6203769
+    ],
+    [
+     "../work-editable-fix",
+     1394493
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "(site)/site/[[...slug]]",
+   "bytes": 4321075,
+   "heaviest": [
+    [
+     ".next/server",
+     2925624
+    ],
+    [
+     "../work-editable-fix",
+     1394493
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "api/account/upload",
+   "bytes": 2484155,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1580131
+    ],
+    [
+     ".next/server",
+     903515
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "api/account/keys",
+   "bytes": 2477360,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1580131
+    ],
+    [
+     ".next/server",
+     896702
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "api/account/status",
+   "bytes": 2476257,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1580131
+    ],
+    [
+     ".next/server",
+     895595
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "api/studio/draft",
+   "bytes": 2352138,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1580131
+    ],
+    [
+     ".next/server",
+     771307
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "api/studio/publish",
+   "bytes": 2113744,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1580131
+    ],
+    [
+     ".next/server",
+     532851
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "api/studio/better",
+   "bytes": 2071149,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1580131
+    ],
+    [
+     ".next/server",
+     490453
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "api/studio/reshape",
+   "bytes": 2064409,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1580131
+    ],
+    [
+     ".next/server",
+     483804
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "api/studio/generate",
+   "bytes": 2063100,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1580131
+    ],
+    [
+     ".next/server",
+     482493
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "api/studio/body",
+   "bytes": 2055973,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1580131
+    ],
+    [
+     ".next/server",
+     475374
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "api/keys/test",
+   "bytes": 2052963,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1580131
+    ],
+    [
+     ".next/server",
+     472370
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "api/studio/image",
+   "bytes": 1867692,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1580131
+    ],
+    [
+     ".next/server",
+     287130
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "api/studio/deploy",
+   "bytes": 1814161,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1580131
+    ],
+    [
+     ".next/server",
+     233597
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "api/updates",
+   "bytes": 1810268,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1580131
+    ],
+    [
+     ".next/server",
+     229698
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "api/studio/remake",
+   "bytes": 1808885,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1580131
+    ],
+    [
+     ".next/server",
+     228321
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "api/tweets/send",
+   "bytes": 1805978,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1580131
+    ],
+    [
+     ".next/server",
+     225453
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "api/studio/repo",
+   "bytes": 1805612,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1580131
+    ],
+    [
+     ".next/server",
+     225052
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "api/studio/branches",
+   "bytes": 1805600,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1580131
+    ],
+    [
+     ".next/server",
+     225032
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "api/tweets/status",
+   "bytes": 1804579,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1580131
+    ],
+    [
+     ".next/server",
+     224052
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "api/studio/merge",
+   "bytes": 1803960,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1580131
+    ],
+    [
+     ".next/server",
+     223398
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "api/studio/embed-check",
+   "bytes": 1803769,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1580131
+    ],
+    [
+     ".next/server",
+     223195
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "api/studio/capture-artifact",
+   "bytes": 1802929,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1580131
+    ],
+    [
+     ".next/server",
+     222354
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "api/studio/repo/choices",
+   "bytes": 1801714,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1580131
+    ],
+    [
+     ".next/server",
+     221170
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "api/version",
+   "bytes": 1800253,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1580131
+    ],
+    [
+     ".next/server",
+     219718
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "api/keys/status",
+   "bytes": 1800163,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1580131
+    ],
+    [
+     ".next/server",
+     219640
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "icon.svg",
+   "bytes": 1800051,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1580131
+    ],
+    [
+     ".next/server",
+     219522
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "_not-found",
+   "bytes": 1751939,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1394493
+    ],
+    [
+     ".next/server",
+     356678
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "_global-error",
+   "bytes": 1750910,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1394493
+    ],
+    [
+     ".next/server",
+     355867
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  },
+  {
+   "fn": "api/studio/picture",
+   "bytes": 1713034,
+   "heaviest": [
+    [
+     "../work-editable-fix",
+     1580131
+    ],
+    [
+     ".next/server",
+     132547
+    ],
+    [
+     "node_modules",
+     0
+    ]
+   ]
+  }
+ ],
+ "features": [
+  {
+   "name": "The serverless browser, actually installed",
+   "date": "2026-09-10",
+   "commit": "023adaa",
+   "uncertain": false,
+   "found": 1,
+   "saves": 0,
+   "findings": [
+    "f3"
+   ]
+  },
+  {
+   "name": "Laughing Gates V5xd46",
+   "date": "2026-09-30",
+   "commit": "fd301ea",
+   "uncertain": false,
+   "found": 1,
+   "saves": 9742740,
+   "findings": [
+    "f2"
+   ]
+  },
+  {
+   "name": "Kit game parts, four new slot kinds and shared state names (rules 26-28)",
+   "date": "2026-10-06",
+   "commit": "c88d437",
+   "uncertain": false,
+   "found": 1,
+   "saves": 23626206,
+   "findings": [
+    "f1"
+   ]
+  },
+  {
+   "name": "Pages Doc Fetch",
+   "date": "2026-10-21",
+   "commit": "ac04865",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Font Variation",
+   "date": "2026-10-21",
+   "commit": "464e688",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Widths Trim",
+   "date": "2026-10-21",
+   "commit": "093c442",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Pages Store Split",
+   "date": "2026-10-21",
+   "commit": "505e41b",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Pages Title",
+   "date": "2026-10-21",
+   "commit": "f6af7db",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Pages Shell Lazy",
+   "date": "2026-10-21",
+   "commit": "c3f1712",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Pages Route Split",
+   "date": "2026-10-21",
+   "commit": "345cb21",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Rails Apart",
+   "date": "2026-10-21",
+   "commit": "569d0f7",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Pages Kit Lazy",
+   "date": "2026-10-21",
+   "commit": "9123264",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Pages Site Split",
+   "date": "2026-10-21",
+   "commit": "6f6cf91",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Gitattributes Lf",
+   "date": "2026-10-21",
+   "commit": "c930589",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Changed Windows",
+   "date": "2026-10-21",
+   "commit": "d663318",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Grew Moves Fonts",
+   "date": "2026-10-21",
+   "commit": "2020004",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Board Theme Windows",
+   "date": "2026-10-21",
+   "commit": "dad109f",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Board Layout No Lab",
+   "date": "2026-10-21",
+   "commit": "13295de",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Refresh Solcinerator Doc",
+   "date": "2026-10-21",
+   "commit": "ee0faa1",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Windows Unpack",
+   "date": "2026-10-21",
+   "commit": "dd66260",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Fold Pad",
+   "date": "2026-10-21",
+   "commit": "c142e49",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Small Only Unseen",
+   "date": "2026-10-21",
+   "commit": "055c1ce",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Line In Box Normal",
+   "date": "2026-10-21",
+   "commit": "dc9f7cb",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Stack Apart",
+   "date": "2026-10-21",
+   "commit": "e4f67ed",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Split Holder Box",
+   "date": "2026-10-21",
+   "commit": "a5bf625",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Snap Not Growth",
+   "date": "2026-10-21",
+   "commit": "836e100",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Captured No Filler",
+   "date": "2026-10-21",
+   "commit": "5e1bbae",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Lighter Viewtop",
+   "date": "2026-10-21",
+   "commit": "c4d6122",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Line In Box",
+   "date": "2026-10-21",
+   "commit": "34e86d0",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Lighter Skip",
+   "date": "2026-10-21",
+   "commit": "5a8585e",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Text Run Lines",
+   "date": "2026-10-21",
+   "commit": "cfaf911",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Ci Fonts",
+   "date": "2026-10-21",
+   "commit": "e0d247b",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Lighter Hover",
+   "date": "2026-10-21",
+   "commit": "5ffdf68",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Lighter Builder",
+   "date": "2026-10-21",
+   "commit": "0bd24ac",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Keep Lines Room",
+   "date": "2026-10-21",
+   "commit": "300b98d",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Bg Stored",
+   "date": "2026-10-21",
+   "commit": "99aa914",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Run Poll Key",
+   "date": "2026-10-21",
+   "commit": "5b48f9a",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Parts In Id",
+   "date": "2026-10-21",
+   "commit": "9e2c38d",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Account Svg Big",
+   "date": "2026-10-21",
+   "commit": "59d70c9",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Hover Scroll",
+   "date": "2026-10-21",
+   "commit": "7b0fa6a",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Element Ids",
+   "date": "2026-10-21",
+   "commit": "132f6e5",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Bg Layers",
+   "date": "2026-10-21",
+   "commit": "0324f4b",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Options Guard",
+   "date": "2026-10-21",
+   "commit": "aa196b8",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Solface Names 2",
+   "date": "2026-10-21",
+   "commit": "3958358",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Solface Layers",
+   "date": "2026-10-21",
+   "commit": "df44832",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Sticky Rail Export",
+   "date": "2026-10-22",
+   "commit": "08a0e28",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Measure Still",
+   "date": "2026-10-22",
+   "commit": "41d70ce",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Foot Layer Rides",
+   "date": "2026-10-22",
+   "commit": "6b5baf5",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Handles On Top",
+   "date": "2026-10-22",
+   "commit": "bce99ab",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Inert Words Press",
+   "date": "2026-10-22",
+   "commit": "fba289b",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Press Goes In",
+   "date": "2026-10-22",
+   "commit": "d721a55",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Publish Keep Lines",
+   "date": "2026-10-22",
+   "commit": "f050675",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Held Go Along",
+   "date": "2026-10-22",
+   "commit": "8f996e0",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Typed Words Widen",
+   "date": "2026-10-22",
+   "commit": "89aa777",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Publish Share Height",
+   "date": "2026-10-22",
+   "commit": "f1a836c",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Publish Picture Box",
+   "date": "2026-10-22",
+   "commit": "937de11",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Publish Window States",
+   "date": "2026-10-22",
+   "commit": "69adf37",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Delete One Undo",
+   "date": "2026-10-22",
+   "commit": "85d0ed9",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Fix More Tools Labels",
+   "date": "2026-10-22",
+   "commit": "d8d3577",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Fix See On Shelf Folded",
+   "date": "2026-10-22",
+   "commit": "0a7b9dc",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Fix Save Reminder Leaves",
+   "date": "2026-10-22",
+   "commit": "22464de",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Fix Tour Look Texture",
+   "date": "2026-10-22",
+   "commit": "3a587f0",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Fix Palette Focus After Menu",
+   "date": "2026-10-22",
+   "commit": "6a8002c",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Fix Box On Captured Part",
+   "date": "2026-10-22",
+   "commit": "d020b2b",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Fix Hover Tilt Release",
+   "date": "2026-10-22",
+   "commit": "07cfced",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Motion Drift",
+   "date": "2026-10-22",
+   "commit": "9aa7c09",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Shelf Library Drift",
+   "date": "2026-10-22",
+   "commit": "3eedfb2",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Shelf Panels Open",
+   "date": "2026-10-22",
+   "commit": "6b21fdf",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Zip Entry Slashes",
+   "date": "2026-10-22",
+   "commit": "a18d99a",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Kit Round Trip Crlf",
+   "date": "2026-10-22",
+   "commit": "2a81ea0",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Source Pins Moved",
+   "date": "2026-10-22",
+   "commit": "5e85009",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Site Named For Repo",
+   "date": "2026-10-22",
+   "commit": "6dc39af",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Repo Carried By Id",
+   "date": "2026-10-22",
+   "commit": "0578276",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Open Shelf Publishing",
+   "date": "2026-10-22",
+   "commit": "150261f",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Folds And Panels",
+   "date": "2026-10-22",
+   "commit": "5c555ab",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Go Live Windows",
+   "date": "2026-10-22",
+   "commit": "51ec3bf",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Symlink Junction",
+   "date": "2026-10-22",
+   "commit": "fed457c",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Responsive Sections Docstore",
+   "date": "2026-10-22",
+   "commit": "a770c5f",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests One Line Width Face",
+   "date": "2026-10-22",
+   "commit": "291ab02",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Motion Light Relative",
+   "date": "2026-10-22",
+   "commit": "a0c634a",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Open The Shelf",
+   "date": "2026-10-22",
+   "commit": "8fbff14",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Kit Motion Fixes",
+   "date": "2026-10-22",
+   "commit": "6b266a7",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Kit Check Windows Paths",
+   "date": "2026-10-22",
+   "commit": "58dd98d",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Chromium Env",
+   "date": "2026-10-22",
+   "commit": "9aac8c6",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Wait For Push",
+   "date": "2026-10-22",
+   "commit": "c111456",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Skip Missing Sources",
+   "date": "2026-10-22",
+   "commit": "4ff3d25",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Path Separators",
+   "date": "2026-10-22",
+   "commit": "e36e1d6",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Jiti Store First",
+   "date": "2026-10-22",
+   "commit": "a421ee4",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Edit Board Memo",
+   "date": "2026-10-22",
+   "commit": "8047189",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Edit Part Motions",
+   "date": "2026-10-22",
+   "commit": "7f7eb69",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Build Runs Cleanup",
+   "date": "2026-10-22",
+   "commit": "f4bb28f",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Changed Windows",
+   "date": "2026-10-22",
+   "commit": "e0860be",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Firstpaint Ground",
+   "date": "2026-10-22",
+   "commit": "82273cf",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Firstpaint Near",
+   "date": "2026-10-22",
+   "commit": "431b468",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Letters Typed Plain",
+   "date": "2026-10-23",
+   "commit": "85f6684",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Units Inset Kept",
+   "date": "2026-10-23",
+   "commit": "b0105e2",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "One Row Widens",
+   "date": "2026-10-23",
+   "commit": "7c22705",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Names Indexed",
+   "date": "2026-10-23",
+   "commit": "60d9c0e",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Brief Closed Idle",
+   "date": "2026-10-23",
+   "commit": "e5f06d0",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Texture Row",
+   "date": "2026-10-23",
+   "commit": "fe02c27",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Drawn Part Source",
+   "date": "2026-10-23",
+   "commit": "f6a13db",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Live Turn In Builder",
+   "date": "2026-10-23",
+   "commit": "a160e80",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Hand Steady Live Store",
+   "date": "2026-10-23",
+   "commit": "18ee309",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Tv Import Wraps",
+   "date": "2026-10-23",
+   "commit": "6940fed",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Keeps Lines Outcome",
+   "date": "2026-10-23",
+   "commit": "66ece32",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Count Lines By Line",
+   "date": "2026-10-23",
+   "commit": "f8a0a36",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Applycaptured Font",
+   "date": "2026-10-23",
+   "commit": "878f487",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Part Colour Moved",
+   "date": "2026-10-23",
+   "commit": "0fe7798",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tests Hand Picture Opaque",
+   "date": "2026-10-23",
+   "commit": "9651235",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Held Rows Own Words",
+   "date": "2026-10-23",
+   "commit": "2106470",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Fix Heading Size Panel",
+   "date": "2026-10-23",
+   "commit": "f77b9b3",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Size Widens",
+   "date": "2026-10-23",
+   "commit": "37d9dc3",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Pages Out",
+   "date": "2026-10-24",
+   "commit": "a0ad98e",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "New Idea",
+   "date": "2026-10-24",
+   "commit": "022f69d",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Tokens Out",
+   "date": "2026-10-24",
+   "commit": "820c5fa",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Covered Holder Grab",
+   "date": "2026-10-24",
+   "commit": "2060faf",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Bigger Row Grows",
+   "date": "2026-10-24",
+   "commit": "165f37d",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Wheel Move Hover",
+   "date": "2026-10-24",
+   "commit": "bd13577",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "One Line Wraps",
+   "date": "2026-10-24",
+   "commit": "3761922",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Boxes Hug",
+   "date": "2026-10-24",
+   "commit": "1b56f57",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Hover Follows Fill",
+   "date": "2026-10-24",
+   "commit": "3eaebe1",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Hover Edit",
+   "date": "2026-10-24",
+   "commit": "0a1bd62",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "System Model",
+   "date": "2026-10-24",
+   "commit": "721f12d",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Layout Reader",
+   "date": "2026-10-24",
+   "commit": "1f7bb42",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Compare View",
+   "date": "2026-10-24",
+   "commit": "0f3ae74",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Section Move Buttons",
+   "date": "2026-10-24",
+   "commit": "04e2359",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Export Quality",
+   "date": "2026-10-25",
+   "commit": "f561441",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Agents Dock",
+   "date": "2026-10-25",
+   "commit": "ac5f940",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Agents Site Bridge",
+   "date": "2026-10-25",
+   "commit": "4555459",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Agents Entry",
+   "date": "2026-10-25",
+   "commit": "4161a18",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Whats New",
+   "date": "2026-10-25",
+   "commit": "fa5abcd",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Agents Contract",
+   "date": "2026-10-25",
+   "commit": "6360192",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "House Style",
+   "date": "2026-10-25",
+   "commit": "d8d1a6d",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Export Sync",
+   "date": "2026-10-25",
+   "commit": "66a76c8",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Variations",
+   "date": "2026-10-25",
+   "commit": "faa7aee",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Exact Out",
+   "date": "2026-10-25",
+   "commit": "242bd76",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Library Out",
+   "date": "2026-10-25",
+   "commit": "b94831a",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Variations Taste",
+   "date": "2026-10-27",
+   "commit": "a3dde3b",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Builds Home",
+   "date": "2026-10-27",
+   "commit": "b8c3dbc",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Idea Versions",
+   "date": "2026-10-27",
+   "commit": "45e65d0",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Edit Audit Fixes",
+   "date": "2026-10-27",
+   "commit": "ec4b505",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Parts Bind",
+   "date": "2026-10-27",
+   "commit": "9cc8aab",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Agents Live",
+   "date": "2026-10-27",
+   "commit": "501ab04",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Fable Security Fixes",
+   "date": "2026-10-27",
+   "commit": "c13bf19",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Agents Installer",
+   "date": "2026-10-27",
+   "commit": "4490750",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Agents Merge Check 2",
+   "date": "2026-10-27",
+   "commit": "97d83f1",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Agents Lead",
+   "date": "2026-10-27",
+   "commit": "fbe5561",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Agents Plan Only",
+   "date": "2026-10-27",
+   "commit": "4b6b710",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Agents Runner",
+   "date": "2026-10-27",
+   "commit": "34e860b",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Edit Names",
+   "date": "2026-10-29",
+   "commit": "0da6737",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Agents Plan Use",
+   "date": "2026-10-29",
+   "commit": "fa90e6d",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Agents Push Done",
+   "date": "2026-10-29",
+   "commit": "c46f5a7",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  },
+  {
+   "name": "Agents Cache Tokens",
+   "date": "2026-10-29",
+   "commit": "3c4b9df",
+   "found": 0,
+   "saves": 0,
+   "findings": []
+  }
+ ],
+ "findings": [
+  {
+   "id": "f1",
+   "kind": "cut",
+   "what": "Change how 8 tools spot \"run from the command line\" (one line each): `import.meta.url === pathToFileURL(process.argv[1] ?? '').href`.",
+   "why": "The old line reads a path from process.argv, which the build treats as \"could be any file\" and copies AGENTS.md, CLAUDE.md, README.md, capture, helper, kit, next.config.ts, package-lock.json, package.json, postcss.config.mjs, probe-bands.mjs, public, server.log, site.config.ts, site, tsconfig.json, vercel.json (22.5 MB) into api/studio/kit-map.",
+   "loses": null,
+   "bytes": {
+    "before": 38981206,
+    "after": 15355000,
+    "ceiling": true
+   },
+   "files": [
+    "kit/tools/add-part.mjs",
+    "kit/tools/code-notes.mjs",
+    "kit/tools/kit-check.mjs",
+    "kit/tools/kit-diff.mjs",
+    "kit/tools/new-site.mjs",
+    "kit/tools/record-diff.mjs",
+    "kit/tools/state-frames.mjs",
+    "src/features/studio/kitFiles.ts"
+   ],
+   "functions": [
+    "api/studio/kit-map"
+   ],
+   "apply": "Edit the guard line in each file; regenerate src/features/studio/kitFiles.ts if kit/tools changed (npm run kit:files).",
+   "pin": {
+    "feature": "Kit game parts, four new slot kinds and shared state names (rules 26-28)",
+    "date": "2026-10-06",
+    "merged": null,
+    "commit": "c88d437",
+    "certain": true
+   }
+  },
+  {
+   "id": "f2",
+   "kind": "cut",
+   "what": "Leave playwright's recorder, trace viewer, report pages and type files out of the browser routes (next.config.ts: include playwright-core folder by folder, exclude lib/vite/** and types/**).",
+   "why": "1.9 MB in each of 5 functions that no require ever reaches: they are web pages served only by show-trace and codegen.",
+   "loses": null,
+   "bytes": {
+    "before": 444438924,
+    "after": 434696184
+   },
+   "files": [
+    "next.config.ts"
+   ],
+   "functions": [
+    "api/studio/element",
+    "api/studio/preview-video",
+    "api/studio/render",
+    "api/studio/screenshot",
+    "api/studio/zip"
+   ],
+   "apply": "Narrow outputFileTracingIncludes for the five browser routes and add the two excludes; a test checks the installed package against the list.",
+   "pin": {
+    "feature": "Laughing Gates V5xd46",
+    "date": "2026-09-30",
+    "merged": "2026-10-03",
+    "commit": "fd301ea",
+    "certain": true
+   }
+  },
+  {
+   "id": "f3",
+   "kind": "shortcut",
+   "what": "One function opens the browser for all 5 routes (one handler; rewrites() keep the addresses).",
+   "why": "Each of api/studio/element, api/studio/preview-video, api/studio/render, api/studio/screenshot, api/studio/zip carries its own 84.8 MB browser. One copy ends this kind of hold for good.",
+   "loses": "5 features share one door, so a slow one can queue the others; and one handler to keep 5 routes' behaviour straight.",
+   "bytes": {
+    "before": 565683410,
+    "after": 210132270
+   },
+   "files": [
+    "src/app/api/studio/element/route.ts",
+    "src/app/api/studio/preview-video/route.ts",
+    "src/app/api/studio/render/route.ts",
+    "src/app/api/studio/screenshot/route.ts",
+    "src/app/api/studio/zip/route.ts"
+   ],
+   "functions": [
+    "api/studio/element",
+    "api/studio/preview-video",
+    "api/studio/render",
+    "api/studio/screenshot",
+    "api/studio/zip"
+   ],
+   "apply": "A lane of its own: one route, a dispatcher by path, rewrites in next.config.ts, the five tests kept.",
+   "pin": {
+    "feature": "The serverless browser, actually installed",
+    "date": "2026-09-10",
+    "merged": null,
+    "commit": "023adaa",
+    "certain": true
+   }
+  }
+ ]
+}
