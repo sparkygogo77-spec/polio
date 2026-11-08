@@ -3,6 +3,17 @@ import type { NextConfig } from "next";
 /** The routes that open the headless browser (each through `api/studio/headless.ts`); `tests/function-sizes.mjs` holds the same list. */
 const BROWSER_ROUTES = ["/api/studio/element", "/api/studio/preview-video", "/api/studio/render", "/api/studio/screenshot", "/api/studio/zip"];
 
+/**
+ * `playwright-core` whole, less the two parts no launch ever loads:
+ * `lib/vite/` is the trace viewer, recorder, HTML report and dashboard (web
+ * pages, served only by `npx playwright show-trace` and codegen) and `types/`
+ * is declarations. Six megabytes no `require` reaches, in each of five
+ * functions. Said here, in the include, and again in the excludes below:
+ * Turbopack adds an include after it applies the excludes, so a wider glob
+ * would put the pages straight back.
+ */
+const PLAYWRIGHT_CORE_FILES = "./node_modules/playwright-core/{*,bin/**,lib/*,lib/!(vite)/**}";
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   /*
@@ -60,7 +71,7 @@ const nextConfig: NextConfig = {
    * measures it, `tests/function-sizes.mjs` holds it).
    */
   outputFileTracingIncludes: Object.fromEntries(
-    BROWSER_ROUTES.map((r) => [r, ["./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**", "./src/app/api/studio/fonts/files/**"]]),
+    BROWSER_ROUTES.map((r) => [r, [PLAYWRIGHT_CORE_FILES, "./node_modules/@sparticuz/chromium/**", "./src/app/api/studio/fonts/files/**"]]),
   ),
   /*
    * And nothing of the repository's own that no route reads: its checks,
