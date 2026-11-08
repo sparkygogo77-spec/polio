@@ -57,6 +57,7 @@ import { useLearned } from "../shelf/ui";
 import { learnedVersions } from "../shelf";
 import { giveWork, putSiteVersion } from "../ShelfCards";
 import { BAND_H, SHELF_OPEN_H, SHELF_STRIP_H, WORK_H, useNarrow, useViewportDevice } from "./sizes";
+import { WRITE_HOOKS, testHooksOpen } from "../testHooks";
 import { Toolbar } from "./toolbar";
 import { SIDE_TABS, SHEET, useSideWidth, SideEdge, SheetHandle } from "./side";
 
@@ -304,6 +305,8 @@ export function StudioPage() {
     w.__studioLightTo = (p) => aimLight(p);
     w.__studioLightEnd = (commit) => { endLightRig(commit ?? true); useStudio.getState().setPlacingLight(false); };
     w.__studioLightPasses = () => rigPasses();
+    /* Only on this PC's own addresses: on the live page any script could call them (`testHooks.ts`). */
+    if (!testHooksOpen()) for (const name of WRITE_HOOKS) delete (w as unknown as Record<string, unknown>)[name];
     return () => {
       delete w.__studioOpenBrief;
       delete w.__studioUndoDepth;

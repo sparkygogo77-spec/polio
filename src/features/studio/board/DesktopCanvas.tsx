@@ -37,7 +37,7 @@ import { useDrawKit } from "../DrawKits";
 import { insideOutline,lineFromStroke,nearlyClosed,PATH_WORDS,PATH_WORDS_SAMPLE,shapeFromLine,toBox,wornFor,type Worn } from "../wornModel";
 import { SmallBoard } from "../SmallBoard";
 import { partName } from "../partNames";
-import { inAppAreaIds,isWrapper,liftToAppArea,parentOf,ridersOf,wordsIn } from "../owner";
+import { inAppAreaIds,isWrapper,liftToAppArea,parentOf,ridersOf,wordsIn,wordsOf } from "../owner";
 import { rereadComponents,resizedWith } from "../components";
 import { editingWords,openWords,WordsInPlace } from "../WordsInPlace";
 import {
@@ -1103,6 +1103,8 @@ export function DesktopCanvas() {
         const inner = partUnder(store.nodes, read.hit!, p, shownOnBoard(store), ((places) => (n: StudioNode) => places.get(n.id))(placedOnBoard(store)));
         if (!inner) return;
         pressed.current = null;
+        /* Two presses that go in to words open them: through a see-through holder over a line, the dig picked the line and the person then needed Enter, and a double-click again only picked the holder again (EDIT-ISSUES #50; `tests/press-through-inert.mjs`). */
+        if (wordsOf(inner) && openWords(inner.id)) { e.preventDefault(); play("select"); return; }
         store.setSelection([inner.id]);
         store.want({ panel: "inspector", id: inner.id });
         play("select");

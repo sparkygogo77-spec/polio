@@ -22,6 +22,9 @@
  *   - a step can't reach keys, the Account or publishing: there is no op for
  *     them, and a patch that names one, or carries a key-shaped value, is
  *     refused (`checkApply`);
+ *   - a request sent with `base` must be written against the board as it is
+ *     now (`read` and `apply` answer the `version`), and a request that would
+ *     change nothing is refused: neither leaves an undo step;
  *   - a change that touches more than BIG_CHANGE parts first makes a
  *     Duplicate (the before) and offers Compare, as "Make a better version"
  *     does.
@@ -34,11 +37,12 @@ import { useStudio, type StudioNode } from "@/features/studio/board/store";
 import { useBuilds } from "@/features/builds/store";
 import { compareHref } from "@/features/studio/compare/model";
 import { setToken, siteSystem } from "@/features/studio/system/api";
+import { setTokenValue } from "@/features/studio/system/link";
 import { HELPER_ORIGIN } from "./context";
 import { useAgents } from "./store";
 
-export { BIG_CHANGE, SITE_OPS, checkApply, partsTouched, planApply, type BoardLike, type SiteStep, type SiteRequest, type SiteReply } from "./siteSteps";
-import { BIG_CHANGE, checkApply, planApply, type BoardLike, type SiteRequest, type SiteReply, type SiteStep } from "./siteSteps";
+export { BIG_CHANGE, SITE_OPS, checkApply, partsTouched, planApply, versionOf, type BoardLike, type SiteStep, type SiteRequest, type SiteReply } from "./siteSteps";
+import { BIG_CHANGE, checkApply, planApply, versionOf, type BoardLike, type SiteRequest, type SiteReply, type SiteStep } from "./siteSteps";
 
 /* ---- the board ---- */
 
@@ -56,9 +60,34 @@ const tokenIds = (): Set<string> => {
   return out;
 };
 
+/* A part as the agent reads it (READ_FIELDS). */
+const pick = (node: StudioNode) => { const n = node as unknown as Record<string, unknown>; return Object.fromEntries(READ_FIELDS.filter((k) => n[k] !== undefined && n[k] !== null).map((k) => [k, n[k]])); };
+
+/** The version of the copy an agent reads: the open page and the zoom are where J is looking, not what the site holds. */
+function boardVersion(): string {
+  const s = useStudio.getState();
+  return versionOf({ site: useBuilds.getState().activeId, parts: s.nodes.map(pick), pages: s.pages, look: s.look, system: siteSystem() });
+}
+
+const holds = (now: unknown, patch: Record<string, unknown>) => { const o = (now ?? {}) as Record<string, unknown>; return Object.keys(patch).every((k) => JSON.stringify(o[k]) === JSON.stringify(patch[k])); };
+
 function boardNow(): BoardLike {
   const s = useStudio.getState();
-  return { site: useBuilds.getState().activeId, nodeIds: new Set(s.nodes.map((n) => n.id)), pageIds: new Set(s.pages.map((p) => p.id)), tokenIds: tokenIds() };
+  const system = siteSystem();
+  return {
+    site: useBuilds.getState().activeId, nodeIds: new Set(s.nodes.map((n) => n.id)), pageIds: new Set(s.pages.map((p) => p.id)), tokenIds: tokenIds(),
+    version: boardVersion(),
+    tokenTakes: (id, value) => !!system && setTokenValue(system, id, value) !== null,
+    unchanged: (step) => {
+      switch (step.op) {
+        case "updateNode": return holds(s.nodes.find((n) => n.id === step.id), step.patch);
+        case "updatePage": return holds(s.pages.find((p) => p.id === step.id), step.patch);
+        case "setLook": return holds(s.look, step.patch);
+        case "removeNodes": return false;
+        case "setToken": return !!system && setTokenValue(system, step.id, step.value) === system;
+      }
+    },
+  };
 }
 
 /** The parts a step reaches on the board as it is. */
@@ -75,9 +104,9 @@ function reachOf(step: SiteStep): string[] {
 
 function read(): unknown {
   const s = useStudio.getState();
-  const pick = (node: StudioNode) => { const n = node as unknown as Record<string, unknown>; return Object.fromEntries(READ_FIELDS.filter((k) => n[k] !== undefined && n[k] !== null).map((k) => [k, n[k]])); };
   return {
     site: useBuilds.getState().activeId,
+    version: boardVersion(),
     name: s.brief.name,
     frameWidth: s.frameWidth,
     activePageId: s.activePageId,
@@ -145,7 +174,7 @@ export async function apply(r: Extract<SiteRequest, { op: "apply" }>): Promise<S
   useStudio.getState().landThread({ mode: "agent", ask: name, answer: `${touched} part${touched === 1 ? "" : "s"} changed in one step`, changes: did, state: "done" });
   const entry: Applied = { id: r.id, name, touched, duplicate, compare, at: Date.now() };
   applied.push(entry);
-  return reply({ ok: true, result: { name, touched, steps: did, undo: "one step", duplicate, compare } });
+  return reply({ ok: true, result: { name, touched, steps: did, undo: "one step", duplicate, compare, version: boardVersion() } });
 }
 
 async function answer(r: SiteRequest): Promise<SiteReply> {

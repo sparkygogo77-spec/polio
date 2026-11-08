@@ -4,7 +4,7 @@ import { Camera, Check, ChevronDown, ChevronLeft, ChevronRight, Circle, Ellipsis
 import { HistoryControls } from "../HistoryControls";
 import { CaptureSiteDoor } from "../CaptureSiteDialog";
 import { UpdatesPanel } from "../Updates";
-import { FRAME_WIDTHS, livePath, useStudio, type Tool } from "../board/store";
+import { BASE_ZOOM, FRAME_WIDTHS, livePath, useStudio, type Tool } from "../board/store";
 import { useRadialOpen } from "../RadialMenu";
 import { ProcessCounter } from "../DrawQueue";
 import { cn } from "@/core/lib/cn";
@@ -218,6 +218,8 @@ export function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean
           aria-label="Fit in view"
           title="Fit in view"
           data-fit-readout=""
+          /* The number is the nominal zoom (J's working size reads 100%, `store/model.ts#BASE_ZOOM`); the page is drawn at nominal × 1.21, and that scale is here for an agent or a test to read, not guess (EDIT-ISSUES #54). */
+          data-zoom-drawn={(zoom * BASE_ZOOM).toFixed(2)}
           onClick={() => useStudio.getState().requestFit()}
           /* Rung 3 of the ladder above said this goes below lg and the minus
              and plus stay. It stays at every width now, and the ladder says
@@ -293,7 +295,7 @@ export function MoreTools({ folding, shape, menuOpen, showWires, zoom, tool, ink
           {folding ? (
             <div className={row}>
               <span className="flex-1">Fit in view</span>
-              <button type="button" aria-label="Fit in view" data-fit-readout="" className="num text-small text-fg-muted hover:text-fg" onClick={() => { useStudio.getState().requestFit(); setOpen(false); }}>{Math.round(zoom * 100)}%</button>
+              <button type="button" aria-label="Fit in view" data-fit-readout="" data-zoom-drawn={(zoom * BASE_ZOOM).toFixed(2)} className="num text-small text-fg-muted hover:text-fg" onClick={() => { useStudio.getState().requestFit(); setOpen(false); }}>{Math.round(zoom * 100)}%</button>
             </div>
           ) : null}
           <div className={row}>

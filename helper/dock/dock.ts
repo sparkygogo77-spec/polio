@@ -20,7 +20,7 @@ import {
 } from "../contract.ts";
 import { fakeRunner, fakeScript, type FakeRunner } from "../fake.ts";
 import { BUILDER_ORIGINS, takeContext } from "./context.ts";
-import { liveHelper, type SiteCall } from "./live.ts";
+import { liveHelper, type SiteCall, type SiteRefusal } from "./live.ts";
 import { fakeSource, liveSource, mountPcView } from "./pcview.ts";
 import { ringSvg } from "./ring.ts";
 import { PC_MEMORY, PC_NOW, SAMPLE_LANES, SAMPLE_MERGES, SAMPLE_SPEND } from "./sample.ts";
@@ -55,9 +55,11 @@ const asks: { lane: string; what: "undo-merge" }[] = [];
 /** Site calls posted to the Builder and not yet answered, by id. */
 const siteWaiting = new Map<string, SiteCall>();
 const siteLog: { id: string; lane: string; op: unknown; ok?: boolean }[] = [];
+/** Refused site calls, by when and who: the stream sends the latest again when it reconnects. */
+const siteRefusals = new Map<string, SiteRefusal>();
 let plannedFirst = true;
 (window as unknown as { __dock: object }).__dock = {
-  sent, pcSent, asks, lanes, contextsRefused, siteLog,
+  sent, pcSent, asks, lanes, contextsRefused, siteLog, siteRefusals,
   get live() { return !FAKE; },
   get request() { return request; },
   get chips() { return chips; },
@@ -100,12 +102,26 @@ const live = liveHelper({
     siteLog.push({ id: r.id, lane: call.lane, op: r.op });
     window.parent.postMessage(r, BUILDER);
   },
+  siteRefused(entry) {
+    siteRefusals.set(`${entry.at}|${entry.lane}|${entry.why}`, entry);
+    drawSiteRefusals();
+  },
   state(s, why) {
     $("[data-pair]").hidden = s !== "pair";
     $("[data-helper]").textContent = s === "live" ? "on your PC, paired" : s === "pair" ? "pair with your PC first" : `helper not reachable${why ? ` (${why})` : ""}, trying again`;
     document.body.dataset.helperState = s;
   },
 }, {});
+
+/** "Everything Claude is doing": the site calls refused, newest first. Words only, nothing to press. */
+function drawSiteRefusals() {
+  const rows = [...siteRefusals.values()].sort((a, b) => b.at - a.at).slice(0, 20);
+  $("[data-site-refused-box]").hidden = !rows.length;
+  $("[data-site-refused]").innerHTML = rows.map((e) => {
+    const what = e.name ?? e.steps?.[0] ?? e.op ?? "a call";
+    return `<li data-site-refusal><b>${esc(e.lane ?? "no lane")}</b> ${esc(what)}<br><span class="quiet">${esc(e.why ?? "refused")}</span></li>`;
+  }).join("");
+}
 
 async function pairStart() {
   const r = await live.pairStart();

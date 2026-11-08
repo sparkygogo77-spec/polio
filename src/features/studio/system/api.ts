@@ -48,6 +48,7 @@ import { materialise, rolesOf, sameValue } from "./resolve";
 import { linksHold, takeSystem, withSys, type TakeNode, type TakeReport } from "./take";
 import * as L from "./link";
 import { houseOf, libraryList, markHouse, newer, useSystems } from "./store";
+import { testHooksOpen } from "../testHooks";
 
 /* ------------------------------------------------------------------ */
 /* Keeping the document, its copy and the library one                  */
@@ -185,7 +186,7 @@ export function installSystem(): () => void {
   };
   window.addEventListener("studio:doc-loaded", onLoaded);
   reconcile();
-  (window as unknown as { __polioSystem?: unknown }).__polioSystem = testHook;
+  if (testHooksOpen()) (window as unknown as { __polioSystem?: unknown }).__polioSystem = testHook;
   return () => { offStudio(); offLibrary(); window.removeEventListener("studio:doc-loaded", onLoaded); installed = false; delete (window as unknown as { __polioSystem?: unknown }).__polioSystem; };
 }
 
