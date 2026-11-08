@@ -61,7 +61,7 @@ import { HOT, useHoverHot } from "./hoverHot";
 import { useHoverOutlines } from "./hoverOutlines";
 import { PickBar } from "./PickBar";
 import { clickSpot, oneLevelIn, setClickSpot } from "./selectTools";
-import { STEP_GESTURE, keyStep, stepIn, stepOut, wheelStep } from "./stepPick";
+import { STEP_GESTURE, canStepIn, keyStep, stepIn, stepOut, wheelStep } from "./stepPick";
 import { useRestFar } from "./restFar";
 import { useSkipFar } from "./skipFar";
 import { useDrawNear } from "./drawNear";
@@ -778,9 +778,9 @@ export function DesktopCanvas() {
     const onWheel = (e: WheelEvent) => {
       const store = useStudio.getState();
       /* With a part picked, the step gesture (`stepPick.ts#STEP_GESTURE`: Alt + wheel) steps the pick out to the bigger box or back in. A plain wheel scrolls as ever. */
-      if (store.mode === "design" && store.tool === "select" && store.selection.length === 1) {
-        const picked = store.selection[0]!;
-        const overPicked = !!(e.target as Element | null)?.closest?.(`[data-node-id="${CSS.escape(picked)}"]`);
+      if (store.mode === "design" && store.tool === "select" && (store.selection.length === 1 || (!store.selection.length && canStepIn()))) {
+        const picked = store.selection[0];
+        const overPicked = !!picked && !!(e.target as Element | null)?.closest?.(`[data-node-id="${CSS.escape(picked)}"]`);
         const dir = wheelStep(e, overPicked);
         if (dir) { e.preventDefault(); play((dir > 0 ? stepOut() : stepIn()) ? "tap" : "deny"); return; }
         if (STEP_GESTURE === "alt-wheel" ? e.altKey : overPicked && !e.altKey) { e.preventDefault(); return; }

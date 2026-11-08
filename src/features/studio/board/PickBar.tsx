@@ -61,14 +61,14 @@ function act(doing: Doing, id: string, at: { x: number; y: number }) {
  */
 function useStepHint(show: boolean) {
   const [hint, setHint] = React.useState(false);
+  /* The first step takes it away, and so does time; neither is tied to the bar showing (a press hides the bar for a moment, and the hint must not outlive its own listener). */
+  const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(() => { const off = onStep(() => setHint(false)); return () => { off(); if (timer.current) clearTimeout(timer.current); }; }, []);
   React.useEffect(() => {
     if (!show || stepHintSeen()) return;
     setHint(true);
     markStepHintSeen();
-    const hide = () => setHint(false);
-    const t = setTimeout(hide, 12_000);
-    const off = onStep(hide);
-    return () => { clearTimeout(t); off(); };
+    timer.current = setTimeout(() => setHint(false), 12_000);
   }, [show]);
   return hint && show;
 }

@@ -94,6 +94,9 @@ export function stepIn(): boolean {
   return true;
 }
 
+/** Whether a step in is possible from here: with nothing picked, only when the last step out left the path behind. */
+export function canStepIn(): boolean { const cur = pickNow(); return cur !== null && !!path && path.at === cur && path.ids.length > 0; }
+
 let acc = 0, accAt = -Infinity;
 /**
  * Which way a wheel event steps under the setting: 1 out, -1 in, 0 when this wheel is a scroll. `overPicked` says
