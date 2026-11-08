@@ -105,27 +105,27 @@ const close = async () => {
 
 /* Edge: border width, shadow, their colours */
 await openOn("c", "Looks", "Edge");
-check("Looks → Edge opens the border and shadow editor", (await page.locator('[data-arc-slider="Border width"]').count()) === 1 && (await page.locator('[data-arc-slider="Shadow size"]').count()) === 1
-  && (await chip("Hard offset").count()) === 1, `${await page.locator("[data-arc-slider]").count()} sliders`);
+const popKey = (name) => page.locator(`[data-popup-key="${name}"]`);
+check("Looks → Edge opens the pop-up with corners, border, shadow and spacing", (await page.locator('[data-wheel-popup="edge"]').count()) === 1 && (await popKey("Border").count()) === 1 && (await popKey("Shadow").count()) === 1, `${await page.locator("[data-popup-key]").count()} keys`);
 if (!process.env.NO_SHOT) await page.screenshot({ path: join(here, "..", ".scratch", "menu-edge.png") });
-await page.locator('[data-arc-slider="Border width"]').first().focus();
+await popKey("Border").click();
+await page.locator('[data-popup-slider="Border width"] input').focus();
 for (let i = 0; i < 8; i++) { await page.keyboard.press("ArrowRight"); await page.waitForTimeout(40); }
 await page.waitForTimeout(300);
 let n = await nodesNow();
 check("the border width slider gives the part a border", (n.c.edge?.width ?? 0) > 0 && n.c.edge.style === "solid", JSON.stringify(n.c.edge));
-await chip("Hard offset").evaluate((b) => b.click());
+await popKey("Shadow").click();
+await popKey("Hard offset").click();
 await page.waitForTimeout(300);
 n = await nodesNow();
 check("Hard offset gives it the cartoon drop shadow", /\dpx \dpx 0px 0px$/.test(n.c.edge?.shadow ?? ""), n.c.edge?.shadow);
-await chip("Paint the shadow").evaluate((b) => b.click());
-await page.waitForTimeout(200);
-await chip("The site's accent").evaluate((b) => b.click());
+await page.locator(`[data-popup-swatch="The site's accent"]`).click();
 await page.waitForTimeout(300);
 const n2 = await nodesNow();
 check("the colour boxes paint the shadow when it is picked, and leave the border", n2.c.edge.shadow !== n.c.edge.shadow && n2.c.edge.colour === n.c.edge.colour, `${n.c.edge.shadow} → ${n2.c.edge.shadow}`);
-await chip("Paint the border").evaluate((b) => b.click());
+await popKey("Border").click();
 await page.waitForTimeout(200);
-await chip("The site's highlight").evaluate((b) => b.click());
+await page.locator(`[data-popup-swatch="The site's highlight"]`).click();
 await page.waitForTimeout(300);
 check("…and the border when that is picked", (await nodesNow()).c.edge.colour === "highlight", (await nodesNow()).c.edge.colour);
 await close();

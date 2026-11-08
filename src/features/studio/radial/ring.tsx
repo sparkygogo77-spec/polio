@@ -7,8 +7,7 @@ import {
 EDGE, joinFor, ROUND, SWELL,
 type Pt, type Shape
 } from "../menuGeometry";
-import { AnimQuads, AuraQuads, BehaviourQuads, EdgeQuads, FontQuads, HueQuads, TextureQuads } from "../RingEditors";
-import { tallyColours } from "../look";
+import { AnimQuads, AuraQuads, BehaviourQuads, FontQuads, HueQuads, TextureQuads } from "../RingEditors";
 import { PlateEditor } from "../PlateEditors";
 import { SayPlate } from "../SayBox";
 import { type Slab } from "../RingConsole";
@@ -387,16 +386,8 @@ export function Editor({ which, node, slabs, onMore }: { which: string; node: St
   const look = useStudio((st) => st.look);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
   const update = (patch: Partial<StudioNode>) => applyToSelection(node, patch);
-  const siteColours = React.useMemo(() => {
-    if (which !== "edge") return [];
-    const t = tallyColours(useStudio.getState().nodes, palette);
-    return [...new Set([...t.byUse.border, ...t.byUse.shadow, ...t.all].map((c) => c.value))];
-  }, [which, palette]);
 
-  // The three that are about looks are drawn on the slabs themselves.
-  if (which === "edge") {
-    return <EdgeQuads slabs={slabs} edge={node.edge ?? null} palette={palette} siteColours={siteColours} onChange={(edge) => update({ edge })} />;
-  }
+  // The three that are about looks are drawn on the slabs themselves. Edge is a pop-up (`WheelPopup.tsx`).
   if (which === "hue") {
     return <HueQuads slabs={slabs} colour={node.colour} palette={palette} onChange={(colour) => update({ colour })} />;
   }
