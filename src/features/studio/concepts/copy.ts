@@ -14,8 +14,10 @@
  *     night);
  *   · every catalogue part gets its content (cards, questions, prices,
  *     quotes, tiles, captions), so no part falls back to its sample words;
- *   · pictures come from what the kit has: the `picture` part draws a crop
- *     of the kit's scene, the gallery its swatches, never an empty grey bar.
+ *   · pictures are planned as `picture` and `gallery` parts here, and drawn
+ *     by `draft.ts#paintPictures` as colour blocks and shapes in the
+ *     direction's own colours, varied by subject: the kit has one scene
+ *     picture, and the same sky six times read as a template.
  *
  * Pure: no React, no store, no browser. `tests/concept-taste.mjs` reads
  * every part's words and fails on any placeholder.
@@ -130,13 +132,15 @@ export function linesFor(s: Subject, voice: Voice, seed: number): Lines {
   const Tsc = cap(Ts);
   const thing = s.thing;
   const name = s.name;
+  /* "the lantern shop"; for a one-word subject just "the bakery", never "the bakery bakery". */
+  const TT = s.topic ? `${T} ${thing}` : thing;
 
   const title = r(voice === "calm"
     ? [`${Tsc}, made slowly.`, `${Tsc}, kept simple.`, `A quieter kind of ${thing}.`, `${Tsc} worth the wait.`]
     : voice === "bold"
-      ? [`The ${thing} that gets ${Ts} right.`, `${Tsc}. Done properly.`, `Better ${Ts}, faster.`, `Every ${T} you could want.`]
+      ? [`The ${TT} that gets it right.`, `${Tsc}. Done properly.`, `Better ${Ts}, faster.`, `Everything a ${TT} should be.`]
       : voice === "warm"
-        ? [`Hello. We're the ${T} ${thing}.`, `Come in, the ${Ts} are lit.`, `${Tsc} from people who love them.`, `Made by hand, sent with a note.`]
+        ? [`Hello. We're the ${TT}.`, `Come in, the ${Ts} are ready.`, `${Tsc} from people who love them.`, `Made by hand, sent with a note.`]
         : [`${Tsc}. Turned up.`, `${Tc} after dark.`, `Open late. Loud on purpose.`, `${Tsc}, louder.`]);
   const sub = r(voice === "calm"
     ? [`A small ${thing} for people who care about ${Ts}. Few things, chosen well, sent with care.`, `We make ${Ts} the slow way, and keep the ones that pass. Nothing here is in a hurry.`]
@@ -144,7 +148,7 @@ export function linesFor(s: Subject, voice: Voice, seed: number): Lines {
       ? [`Everything you need for ${Ts}, shipped in two days, with a year's guarantee on every one.`, `Pick from ${r(["forty", "sixty", "twelve"])} ${Ts}, compare them side by side, and have yours by ${r(["Friday", "the weekend", "Thursday"])}.`]
       : voice === "warm"
         ? [`Run by ${r(["four", "two", "three"])} people who love ${Ts}. Come in, have a look, ask us anything.`, `Every one of our ${Ts} has a story. We'll tell you it when you ask.`]
-        : [`${Tsc} with one button, ${r(["twelve", "eight", "six"])} colours and a glow you can see from the street.`, `Rechargeable, loud and built for rooftops. ${Tsc} that do not sleep.`]);
+        : [`${Tsc} for the hours after dark: open late, loud on purpose, never boring.`, `One rule here: nothing quiet. ${Tsc} for people who come alive when the street goes dark.`]);
   const cta = voice === "calm" ? r([`See the ${Ts}`, "Have a look"]) : voice === "bold" ? r(["Shop now", "Get started"]) : voice === "warm" ? r(["Come and see", "Say hello"]) : r(["Get one", "See the drops"]);
   const cta2 = voice === "bold" ? "See prices" : voice === "night" ? "Join the club" : null;
 
@@ -169,7 +173,7 @@ export function linesFor(s: Subject, voice: Voice, seed: number): Lines {
     `What if my ${T} arrives damaged?: Send a photo and a new one goes out that day.`,
     r([`Can I return a ${T}?: Within thirty days, for any reason, post paid.`, `Do you repair ${Ts}?: Yes, ours for life, others for the cost of parts.`]),
   ] };
-  const prices = { h: voice === "night" ? "// Glow club" : voice === "calm" ? "By the month" : "Prices", p: voice === "calm" ? `${Tsc}, and what keeps them going, each month.` : "Plain prices, no surprises.", tiers: [
+  const prices = { h: voice === "night" ? "// The club" : voice === "calm" ? "By the month" : "Prices", p: voice === "calm" ? `${Tsc}, and what keeps them going, each month.` : "Plain prices, no surprises.", tiers: [
     `${r(["Single", "Starter", "Taster"])}: ${r(["12", "9", "15"])}`,
     `${r(["Household", "Regular", "Pair"])}: ${r(["28", "24", "32"])}`,
     `${r(["Workshop", "Studio", "Festival"])}: ${r(["60", "48", "70"])}`,
@@ -196,8 +200,8 @@ const join = (lines: readonly string[]) => lines.join("\n");
  * Each direction's Home page: which sections, in which order, with every
  * part's words. A catalogue part's label carries its section ("Prices:
  * table"), as `planToBoard` names headings and words, so the Mix reads one
- * section where there is one; a picture's section is its caption, and its
- * label the caption alone, since the part draws its label on a plate.
+ * section where there is one; a picture's label is "Picture: <caption>",
+ * and the part draws the caption alone on its plate (`parts/Media.tsx`).
  */
 export function pageFor(voice: Voice, L: Lines, part: Part, siteName: string): PlanSection[] {
   const sec = (name: string, ...parts: PlanPart[]): PlanSection => ({ name, parts });
@@ -207,10 +211,10 @@ export function pageFor(voice: Voice, L: Lines, part: Part, siteName: string): P
   const header = sec("Header", part("sticky-header", "Header", join(nav)));
   const footer = sec("Footer", part("footer", "Footer", join([siteName, L.contact.p.split(".")[0] ?? ""])));
   const first = sec("First screen", h(L.title, 1), p(L.sub), btn(L.cta), ...(L.cta2 ? [btn(L.cta2, false)] : []));
-  const picture = (caption: string): PlanSection => sec(caption, part("picture", caption, ""));
-  const gallery = sec(L.gallery.h, h(L.gallery.h), in_(L.gallery.h, "gallery", "pictures", join(L.gallery.captions), { columns: "3" }));
-  const whatName = L.what.h.replace(/^\/\/ /, "");
-  const what = sec(whatName, h(L.what.h), p(L.what.p), in_(whatName, "card-grid", "cards", join(L.what.cards)));
+  /* Section names are the same across directions (the headings keep the voice), so the grid's rows line up. */
+  const picture = (caption: string): PlanSection => sec("Picture", part("picture", `Picture: ${caption}`, ""));
+  const gallery = sec("Pictures", h(L.gallery.h), in_("Pictures", "gallery", "pictures", join(L.gallery.captions), { columns: "3" }));
+  const what = sec("What you get", h(L.what.h), p(L.what.p), in_("What you get", "card-grid", "cards", join(L.what.cards)));
   const story = sec("Story", h(L.story.h), p(L.story.p));
   const words = sec("Kind words", h(L.words.h), in_("Kind words", "testimonials", "quotes", join(L.words.quotes)));
   const faq = sec("Questions", h(L.faq.h), in_("Questions", "faq", "list", join(L.faq.rows)));

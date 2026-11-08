@@ -81,8 +81,11 @@ for (const [prompt, topic] of [["three concepts for a lantern shop landing page"
   const mute = drafts.flatMap((d) => d.doc.nodes.filter((n) => n.featureId && !SILENT.has(n.featureId) && !words(n).trim()).map((n) => `${d.direction} › ${n.label}`));
   check(`${tag}: every part that holds words has its own`, mute.length === 0, mute.slice(0, 4).join(" | "));
   check(`${tag}: the subject's words are on every first screen`, drafts.every((d) => { const h = heading(d.doc); const sub = d.doc.nodes.find((n) => /First screen: words/.test(n.label ?? "")); return topic.test(`${words(h)} ${words(sub)}`); }), drafts.map((d) => words(heading(d.doc))).join(" / "));
-  check(`${tag}: every concept has a picture or a gallery from the kit, and at least eight parts`, drafts.every((d) => d.doc.nodes.some((n) => n.featureId === "picture" || n.featureId === "gallery") && d.doc.nodes.length >= 8), drafts.map((d) => d.doc.nodes.length).join(" / "));
-  check(`${tag}: the header's words are its links, the picture has a caption`, drafts.every((d) => d.doc.nodes.filter((n) => n.featureId === "sticky-header").every((n) => words(n).split("\n").length >= 3) && d.doc.nodes.filter((n) => n.featureId === "picture").every((n) => (n.label ?? "").length > 3)));
+  const art = (d) => d.doc.nodes.filter((n) => n.featureId === "box" && /_ground$/.test(n.id) && /^Picture/.test(n.label ?? ""));
+  check(`${tag}: every concept has pictures drawn as colour blocks and shapes, no scene picture, and at least eight parts`, drafts.every((d) => art(d).length >= 1 && !d.doc.nodes.some((n) => n.featureId === "picture" || n.featureId === "gallery") && d.doc.nodes.length >= 8), drafts.map((d) => `${art(d).length} grounds / ${d.doc.nodes.length}`).join(" | "));
+  check(`${tag}: the pictures differ across the three directions (grounds in each one's own colours)`, new Set(drafts.map((d) => art(d)[0]?.colour?.bg)).size === 3, drafts.map((d) => String(art(d)[0]?.colour?.bg)).join(" | "));
+  check(`${tag}: a gallery is six different pictures, not one six times`, drafts.filter((d) => art(d).length >= 6).every((d) => new Set(art(d).map((n) => n.colour?.bg + "|" + d.doc.nodes.filter((m) => m.label === n.label && m.id !== n.id).map((m) => `${m.x - n.x},${m.y - n.y},${m.w}`).join(";"))).size >= 4), drafts.map((d) => art(d).length).join(" / "));
+  check(`${tag}: the header's words are its links`, drafts.every((d) => d.doc.nodes.filter((n) => n.featureId === "sticky-header").every((n) => words(n).split("\n").length >= 3)));
 
   /* Measured difference. */
   const gap = Tst.leastGap(drafts.map((d) => d.voice));
@@ -106,6 +109,17 @@ for (const [prompt, topic] of [["three concepts for a lantern shop landing page"
   const gridOk = drafts.every((d) => d.system.tokens.space.every((t) => t.px === 0 || t.px % 4 === 0));
   check(`${tag}: every space token is on the 4/8 grid`, gridOk, drafts.map((d) => d.system.tokens.space.map((t) => t.px).join(",")).join(" | "));
 }
+
+/* Two prompts back to back: no words leak from one subject into the other. */
+const LANTERN = /lantern|rechargeable|wick|glow|rooftop/i;
+const BAKERY = /baker|bread|loa(f|ves)|oven|dough/i;
+const l1 = D.draftConcepts("three concepts for a lantern shop landing page", { seed: 11, count: 4, allowed });
+const b1 = D.draftConcepts("a landing page for a small bakery", { seed: 11, count: 4, allowed });
+const allWords = (ds) => ds.flatMap((d) => d.doc.nodes.map((n) => words(n))).join("\n");
+const leaks = (text, re) => text.split("\n").filter((l) => re.test(l)).slice(0, 3);
+check("two prompts back to back: no lantern words on the bakery's pages, in any of the four directions", !LANTERN.test(allWords(b1)), leaks(allWords(b1), LANTERN).join(" | "));
+check("…and no bakery words on the lantern shop's", !BAKERY.test(allWords(l1)), leaks(allWords(l1), BAKERY).join(" | "));
+check("…the two subjects draw two different sets of pictures", JSON.stringify(l1.map((d) => d.doc.nodes.filter((n) => /^art/.test(n.id)).map((n) => [n.colour?.bg, n.x, n.y, n.w]))) !== JSON.stringify(b1.map((d) => d.doc.nodes.filter((n) => /^art/.test(n.id)).map((n) => [n.colour?.bg, n.x, n.y, n.w]))));
 
 /* Seeds. */
 const a = D.draftConcepts("three concepts for a lantern shop landing page", { seed: 5, count: 3, allowed });
