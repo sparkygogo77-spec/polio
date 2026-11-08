@@ -7,6 +7,8 @@ import dynamic from "next/dynamic";
 const BuildsPage = dynamic<RouteProps>(() => import("./BuildsPage").then((m) => m.BuildsPage));
 const ComparePage = dynamic<RouteProps>(() => import("@/features/studio/compare/ComparePage").then((m) => m.ComparePage));
 const VariationsPage = dynamic<RouteProps>(() => import("@/features/studio/variations/VariationsPage").then((m) => m.VariationsPage));
+const ConceptsPage = dynamic<RouteProps>(() => import("@/features/studio/concepts/ConceptsPage").then((m) => m.ConceptsPage));
+const ConceptsBack = dynamic(() => import("@/features/studio/concepts/ConceptsPage").then((m) => m.ConceptsBack), { ssr: false });
 
 /**
  * Builds is the front door — and, once a site is published, the only door
@@ -38,6 +40,7 @@ export const builds = defineFeature({
     { path: "/builds", component: BuildsPage, title: "Builds" },
     { path: "/builder/compare", component: ComparePage, title: "Compare" },
     { path: "/builder/variations", component: VariationsPage, title: "Variations" },
+    { path: "/builder/concepts", component: ConceptsPage, title: "Concepts" },
   ],
   /*
    * No nav tab, and no side entry.
@@ -49,7 +52,7 @@ export const builds = defineFeature({
    * "/", and "/" is Builds) is the way back from anywhere else.
    */
   nav: [],
-  topBarItems: [{ id: "builds.switch", order: 5, component: SwitchButton }],
+  topBarItems: [{ id: "builds.switch", order: 5, component: SwitchButton }, { id: "builds.concepts", order: 6, component: ConceptsBack }],
   commands: [
     {
       id: "builds.open",

@@ -7,6 +7,7 @@
  *
  *   Import a site        the capture dialog in the Builder (`?start=capture`);
  *   Start from an idea   a blank site, and the idea dialog over it (`?start=idea`);
+ *   Concepts             three concepts from one prompt, side by side (`/builder/concepts`);
  *   Make variations      pick a site, and its Variations page;
  *   Blank site           a blank site, open in the Builder;
  *   Agents               the dock, open (`?start=agents`); "Set up agents"
@@ -16,7 +17,7 @@
  * leaves (`agentsOnSite.ts`) says whether it has paired lately.
  */
 import * as React from "react";
-import { Bot, Camera, Dices, FilePlus2, Sparkles } from "lucide-react";
+import { Bot, Camera, Dices, FilePlus2, LayoutGrid, Sparkles } from "lucide-react";
 import { Popover } from "@/core/ui/popover";
 import { cn } from "@/core/lib/cn";
 import { useActions } from "@/core/actions";
@@ -24,7 +25,7 @@ import { useBuilds } from "./store";
 import { pairedRecently } from "./agentsOnSite";
 import { startHref } from "./start";
 
-export const START_ENTRIES = ["capture", "idea", "variations", "blank", "agents"] as const;
+export const START_ENTRIES = ["capture", "idea", "concepts", "variations", "blank", "agents"] as const;
 export type StartEntry = (typeof START_ENTRIES)[number];
 
 function Entry({ id, icon: Icon, title, body, onClick, children }: { id: StartEntry; icon: React.ComponentType<{ className?: string }>; title: string; body: string; onClick?: () => void; children?: React.ReactNode }) {
@@ -75,9 +76,10 @@ export function StartRow() {
   return (
     <section aria-labelledby="builds-start" data-start-row="" className="mt-8">
       <h2 id="builds-start" className="flex items-center gap-2 text-small font-medium uppercase tracking-[0.12em] text-fg-faint">Start something</h2>
-      <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
         <Entry id="capture" icon={Camera} title="Import a site" body="Paste an address: it is captured and brought in, every part editable." onClick={() => ctx.navigate(startHref("capture"))} />
         <Entry id="idea" icon={Sparkles} title="Start from an idea" body="Say what the site is, and Claude drafts it in the house style." onClick={() => blank(startHref("idea"))} />
+        <Entry id="concepts" icon={LayoutGrid} title="Concepts" body="Three concepts from one line, side by side, each a page you can edit; mix and promote one." onClick={() => ctx.navigate("/builder/concepts")} />
         <Entry id="variations" icon={Dices} title="Make variations" body="Better versions of a site you have, each a copy beside the original.">
           {projects.length > 1 ? (
             <Popover
