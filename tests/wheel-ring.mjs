@@ -70,8 +70,9 @@ async function runSite(site) {
   /* The first line of paint that differs, to say what moved. */
   const lineDiff = (a, b) => { const x = a.split("\n"), y = b.split("\n"); const i = x.findIndex((l, k) => l !== y[k]); return i < 0 ? `${x.length} vs ${y.length} lines` : `#${i}: ${x[i]} || ${y[i]}`; };
   /* Undo puts the selection back as it was too; the part is picked again so its paint is read in the same state. */
+  const pick = async () => { await page.evaluate((id) => window.__studioHistory.act("setSelection", [id]), target.id); await page.waitForTimeout(250); };
   const settle = async (want) => {
-    await page.evaluate((id) => window.__studioHistory.act("setSelection", [id]), target.id);
+    await pick();
     for (let i = 0; i < 20 && (await drawn()) !== want; i++) await page.waitForTimeout(150);
   };
   const open = async (which) => {
@@ -192,11 +193,18 @@ async function runSite(site) {
       },
     },
     hue: {
-      what: "the background's lightness",
+      /*
+       * The words, not the fill: on gotchi-gg a fill set and undone leaves the
+       * part's own dotted background off although the part is stored exactly
+       * as it was, with or without the wheel (a Builder bug of its own, reported).
+       */
+      what: "the words' lightness",
       run: async () => {
-        await drag('[data-wheel-popup="hue"] [data-popup-slider="Lightness"] input', 0.97);
+        await page.locator('[data-wheel-popup="hue"] [data-popup-swatch="Text on this part"]').click();
+        await page.waitForTimeout(150);
+        await drag('[data-wheel-popup="hue"] [data-popup-slider="Lightness"] input', 0.5);
         const n = await node();
-        return { stored: !!n.colour?.bg, detail: `bg ${n.colour?.bg}` };
+        return { stored: !!n.colour?.text, detail: `text ${n.colour?.text}` };
       },
     },
   };
@@ -204,28 +212,35 @@ async function runSite(site) {
     await page.evaluate((s) => window.__studioHistory.act("setMenuShape", s), shape);
     const want = shape === "round" ? "ring" : "tag";
     for (const [which, e] of Object.entries(edits)) {
-      const fill0 = await past();
+      /* Where to come back to after this one: the part and the site's texture stack as they are now. */
+      const start = async () => JSON.stringify([await node(), await page.evaluate(() => (window.__studioHistory.doc().look?.texture ?? []).length)]);
+      const home = await start();
+      const backHome = async () => { for (let i = 0; i < 6 && (await start()) !== home; i++) { await page.keyboard.press("Control+z"); await page.waitForTimeout(200); } };
       if (e.prep) await e.prep();
-      const prepped = (await past()) - fill0;
+      /*
+       * The part's paint is read with the wheel closed: an open Hue marks the
+       * colour being painted on the part itself, which is the wheel's, not the part's.
+       */
+      await closeAll();
+      const before = JSON.stringify(await node());
+      await pick();
+      const look = await drawn();
       await open(which);
       const got = await shapeOf(which);
       check(`${site}: on the ${shape} wheel ${which} opens the ${want}`, got === want && (await frames()) === (want === "ring" ? 1 : 0) && (await page.locator(`[data-radial-editor="${which}"]`).count()) === 0 && inWindow(await box(`[data-wheel-popup="${which}"]`)), String(got));
-      if (got !== want) { await closeAll(); for (let i = 0; i < prepped; i++) await page.keyboard.press("Control+z"); continue; }
-      const before = JSON.stringify(await node());
-      const look = await drawn();
-      const steps0 = await past();
+      if (got !== want) { await closeAll(); await backHome(); continue; }
       const r = await e.run();
+      await closeAll();
+      await pick();
       /* A picture is baked into a tile after it lands: give the part a moment to wear it. */
       let after = await drawn();
       for (let i = 0; i < 25 && after === look; i++) { await page.waitForTimeout(200); after = await drawn(); }
       check(`${site}: ${shape}, ${which}: ${e.what} is stored and the part changes`, r.stored && after !== look, r.detail);
-      /* A picture is two steps, as on the slabs: the layer joins the site's stack, then the part wears it. */
-      const steps = (await past()) - steps0;
       await page.keyboard.press("Control+z");
       await settle(look);
-      check(`${site}: ${shape}, ${which}: one undo puts the part back`, JSON.stringify(await node()) === before && (await drawn()) === look, `${steps} step(s) ${await differs(before)}${(await drawn()) === look ? "" : ` (drawn differs ${lineDiff(look, await drawn())})`}`);
-      await closeAll();
-      for (let i = 1; i < steps + prepped; i++) { await page.keyboard.press("Control+z"); await page.waitForTimeout(150); }
+      check(`${site}: ${shape}, ${which}: one undo puts the part back`, JSON.stringify(await node()) === before && (await drawn()) === look, `${await differs(before)}${(await drawn()) === look ? "" : ` (drawn differs ${lineDiff(look, await drawn())})`}`);
+      /* A picture is two steps, as on the slabs: the part wore it, and before that the layer joined the site's stack. Those and the prep go too. */
+      await backHome();
     }
   }
   await page.evaluate(() => window.__studioHistory.act("setMenuShape", "square"));
