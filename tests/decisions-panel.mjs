@@ -18,9 +18,10 @@
  *      Esc does nothing; with the helper down a press is refused with the
  *      message, and a reload still shows the last questions read.
  *   4. round 2: a Details button opens a strip with the chat, its state and
- *      when it was last heard from. The chat's history stays on this PC for
- *      now (J's call pending): no timeline and no history words reach the
- *      page. Once the helper lets history through, the same checks see the
+ *      when it was last heard from. Of the chat's history only the lines
+ *      the coordinator marked `public: true` reach the page (J, 2026-11-08);
+ *      an unmarked line never does. With none marked the strip says
+ *      "No shared timeline yet". The timeline checks see the
  *      newest change, "Earlier" going back step by step to the chat's start
  *      and "Collapse" folding it. The area picture is drawn where a question has one, and none where it
  *      hasn't; "New options, because:" goes to POST /lanes/ask, which writes
@@ -63,8 +64,12 @@ const question = (f, id) => f.decisions.find((d) => d.id === id);
 const rest = (f) => JSON.stringify({ ...f, decisions: f.decisions.map(({ answer, answeredAt, ...d }) => d) });
 /** Everything but the asks: what an ask for new options must never touch. */
 const restAsk = (f) => JSON.stringify({ ...f, decisions: f.decisions.map(({ ask, askedAt, ...d }) => d) });
-/** Export motion's steps as the panel shows them: newest first, the blank one left out. */
-const emSteps = em.history.filter((h) => h.text.trim()).map((h) => h.text).reverse();
+/** Export motion's steps as the panel shows them: only the public ones, newest first. */
+const emSteps = em.history.filter((h) => h.public === true && h.text.trim()).map((h) => h.text).reverse();
+/** Every non-blank step as written, newest first (what the client reads from a raw feed). */
+const emAll = em.history.filter((h) => h.text.trim()).map((h) => h.text).reverse();
+/** The lines the coordinator did not mark: not a word of them may reach the page. */
+const emHidden = em.history.filter((h) => h.public !== true && h.text.trim()).map((h) => h.text.trim());
 
 /* 1. Pure. */
 let L = null;
@@ -84,7 +89,7 @@ if (L) {
   check("a question with no id, no words or a nameless option is left out, not guessed", L.readDecisions([{ question: "x" }, { id: "y" }, { id: "z", question: "q", options: [{ label: "no key" }] }]).map((d) => `${d.id}:${d.options.length}`).join() === "z:0");
   check("last heard from, in words", L.agoOf("2026-11-03T09:00:00Z", Date.parse("2026-11-03T09:04:30Z")) === "4 min ago" && L.agoOf("", 0) === "" && L.agoOf(null, 0) === "");
   const emRead = feed?.coordinators?.[2]?.chats?.[0];
-  check("a chat's history is read oldest first, a step without words left out", emRead?.history?.length === 4 && emRead.history.map((h) => h.text).reverse().join("|") === emSteps.join("|") && L.readHistory("x").length === 0 && L.readHistory([{ at: 0, text: "a" }])[0]?.at === "1970-01-01T00:00:00.000Z", String(emRead?.history?.length));
+  check("a chat's history is read oldest first, a step without words left out", emRead?.history?.length === 4 && emRead.history.map((h) => h.text).reverse().join("|") === emAll.join("|") && L.readHistory("x").length === 0 && L.readHistory([{ at: 0, text: "a" }])[0]?.at === "1970-01-01T00:00:00.000Z", String(emRead?.history?.length));
   check("a question's area is a picture under handovers/, one that climbs out is dropped", feed?.questions?.[2]?.area === "decisions/a.png" && feed.questions[1].area === "" && L.readDecisions([{ id: "x", question: "q", area: "../a.png" }])[0]?.area === "");
   check("…and J's ask is read with it", L.readDecisions([{ id: "x", question: "q", ask: "cheaper", askedAt: "2026-11-03T10:00:00Z" }])[0]?.ask === "cheaper" && feed.questions[1].ask === "");
   check("a step's time is short, in J's own time", L.whenOf("2026-11-03T09:00:00.000Z").length > 0 && L.whenOf("2026-11-03T09:00:00.000Z").length < 24 && L.whenOf("") === "");
@@ -173,10 +178,17 @@ writeLanes();
 let live = null;
 try { live = await Sv.startHelperServer({ runner, pairing: new Pairing({ show() {} }), port: 0, builderOrigin: new URL(BASE).origin, lanes: { file: LANES, beats: join(root, "beats") } }); } catch (e) { check("a stand-in helper starts", false, String(e?.message ?? e)); }
 const posts = [], asks = [];
-/* The feed as the helper serves it: names, states, history and the questions, never a note. */
-const { namesOnly } = await import("../helper/server/lanes.ts");
+/* The feed as the helper serves it: names, states, the public lines of each history and the questions, never a note or an unmarked line. */
+const { namesOnly, publicHistory } = await import("../helper/server/lanes.ts");
 const served = () => namesOnly(lanesNow());
-const historyServed = served().coordinators.some((c) => c.chats.some((x) => Array.isArray(x.history)));
+{
+  const chats = served().coordinators.flatMap((c) => c.chats);
+  const text = JSON.stringify(served());
+  const emServed = chats.find((x) => x.id === em.id);
+  check("the helper serves only the lines marked public, each as its time and words and nothing else", emHidden.length === 2 && emSteps.length === 2 && emServed?.history?.length === 2 && emServed.history.every((h) => Object.keys(h).sort().join() === "at,text") && emServed.history.map((h) => h.text).reverse().join("|") === emSteps.join("|"), JSON.stringify(emServed?.history));
+  check("…an unmarked line, a note or a last line never leaves the PC", !emHidden.some((t) => text.includes(t)) && !text.includes(em.note) && !text.includes(em.last) && (chats.find((x) => x.id === imp.id)?.history?.length ?? -1) === 0, text.slice(0, 200));
+  check("publicHistory takes `public: true` only, never a truthy stand-in, and drops everything but time and words", publicHistory([{ at: "a", text: "x", public: true, note: "n" }, { at: "b", text: "y", public: "yes" }, { at: "c", text: "z", public: 1 }, { at: "d", text: "w" }, null, "s"]).map((h) => JSON.stringify(h)).join() === '{"at":"a","text":"x"}' && publicHistory("x").length === 0);
+}
 /** Forward the page's call to the stand-in, as the page sent it, and hand its answer back. */
 async function forward(route) {
   const r = route.request(), u = new URL(r.url());
@@ -245,16 +257,16 @@ check("each open question has a Details button, and no strip shows until it is p
 await page.locator('[data-decision-details="popup-design"]').click().catch(() => {});
 let st = await strip("popup-design");
 check("Details opens a strip with the chat the question belongs to, its state and when it was last heard from", st?.chat === em.id && /Export motion/.test(st.text) && /needs you/.test(st.text) && /ago|just now/.test(st.text) && (await page.locator('[data-decision-details="popup-design"]').getAttribute("aria-expanded")) === "true", JSON.stringify(st));
-if (historyServed) {
-  check("…and its newest change", st?.steps.length === 1 && st.steps[0] === emSteps[0], JSON.stringify(st?.steps));
+check("…and its newest public change, none of the unmarked lines' words", st?.steps.length === 1 && st.steps[0] === emSteps[0] && !emHidden.some((t) => st.text.includes(t)), JSON.stringify(st?.steps));
+{
   const seen = [];
   for (let i = 0; i < 6 && st?.earlier; i++) { await page.locator('[data-decision-earlier="popup-design"]').click().catch(() => {}); st = await strip("popup-design"); seen.push(st.steps.length); }
-  check("Earlier reveals one more step a press, in order, back to the chat's start", seen.join() === "2,3,4" && st.steps.join("|") === emSteps.join("|") && !st.earlier && /the chat's start/.test(st.text), `${seen.join()} ${st?.steps.join("|")}`);
+  check("Earlier reveals one more public step a press, in order, back to the chat's start", seen.join() === "2" && st.steps.join("|") === emSteps.join("|") && !st.earlier && /the chat's start/.test(st.text), `${seen.join()} ${st?.steps.join("|")}`);
+  /* A picture of the strip with its two public lines, for whoever asks (STRIP_SHOT); otherwise it goes to the temp folder. */
+  await page.screenshot({ path: process.env.STRIP_SHOT || join(root, "strip.png"), clip: { x: 1440 - 480, y: 0, width: 480, height: 900 } }).catch(() => {});
   await page.locator('[data-decision-collapse="popup-design"]').click().catch(() => {});
   st = await strip("popup-design");
   check("Collapse folds it back to the newest", st?.steps.length === 1 && st.steps[0] === emSteps[0] && !st.collapse);
-} else {
-  check("…and no timeline: the chat's history stays on this PC, none of its words reach the page", st?.steps.length === 0 && !st.earlier && (await page.locator("[data-decision-timeline]").count()) === 0 && !emSteps.some((t) => st.text.includes(t)), JSON.stringify(st?.steps));
 }
 check("a question with no area picture shows no picture box", st?.area === false);
 await page.locator('[data-decision-details="merge-order"]').click().catch(() => {});
@@ -262,7 +274,7 @@ const area = page.locator('[data-decision-area="merge-order"] img[data-decision-
 await area.scrollIntoViewIfNeeded().catch(() => {});
 await page.waitForFunction(() => { const i = document.querySelector('[data-decision-area="merge-order"] img'); return i?.complete && i.naturalWidth > 0; }, null, { timeout: 8000 }).catch(() => {});
 check("a question with an area picture draws it, captioned with its chat", await area.evaluate((i) => i.complete && i.naturalWidth > 0).catch(() => false) && /Import checkup/.test((await page.locator('[data-decision-area="merge-order"] figcaption').textContent().catch(() => "")) ?? ""));
-check(historyServed ? "…and that chat's only step is shown with no Earlier" : "…and no timeline for it either", (await strip("merge-order"))?.steps.length === (historyServed ? 1 : 0) && !(await strip("merge-order")).earlier);
+check("…and with none of its lines marked public, no step and \"No shared timeline yet\"", (await strip("merge-order"))?.steps.length === 0 && !(await strip("merge-order")).earlier && (await page.locator('[data-decision-timeline-empty="merge-order"]').textContent().catch(() => "")) === "No shared timeline yet" && !(await strip("merge-order")).text.includes(imp.history[0].text));
 await page.locator('[data-decision-ask="merge-order"]').fill("Cheaper ones, please").catch(() => {});
 await page.locator('[data-decision-ask-send="merge-order"]').click().catch(() => {});
 await page.waitForSelector('[data-decision-asked="merge-order"]', { timeout: 5000 }).catch(() => {});

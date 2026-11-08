@@ -205,9 +205,11 @@ function Question({ d, answer, chats, base, busy, said, onPress, onFocus, open, 
 }
 
 /**
- * Under a question: the chat it belongs to, its latest change ("Earlier"
- * going back one step a press, "Collapse" folding to the latest), the area
- * picture when there is one, and "New options, because:".
+ * Under a question: the chat it belongs to, its latest shared change ("Earlier"
+ * going back one step a press, "Collapse" folding to the latest; the helper
+ * sends only the lines the coordinator marked public, so with none it says
+ * "No shared timeline yet"), the area picture when there is one, and "New
+ * options, because:".
  */
 function Details({ d, chat, base, busy, shown, onShown, askSaid, onAsk, now }: {
   d: Decision; chat: LaneChat | null; base: string; busy: boolean; shown: number; onShown: (n: number) => void;
@@ -245,7 +247,7 @@ function Details({ d, chat, base, busy, shown, onShown, askSaid, onAsk, now }: {
             {n === newest.length && newest.length > 1 ? <span style={{ color: "#9fb8c8" }}>the chat&apos;s start</span> : null}
           </div>
         </div>
-      ) : null}
+      ) : chat ? <div data-decision-timeline-empty={d.id} style={{ color: "#9fb8c8" }}>No shared timeline yet</div> : null}
       {kind ? (
         <figure data-decision-area={d.id} className="m-0 flex flex-col gap-1">
           {kind === "image" ? (

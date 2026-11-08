@@ -23,7 +23,7 @@ export interface LaneChat {
   sentAt: number | null;
   /** When the coordinator last heard from it (an ISO time), for the notes under the board. */
   lastSeen: string;
-  /** What changed, oldest first, as the coordinator wrote it; the details strip shows the newest first. */
+  /** What changed, oldest first: only the lines the coordinator marked public reach here; the details strip shows the newest first. */
   history: HistoryStep[];
   /** The helper's own agent: its controls are in the helper's tab, not in a chat. */
   helper: boolean;

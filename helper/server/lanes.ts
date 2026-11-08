@@ -44,15 +44,19 @@ export function readLanes(at: LanesFiles, now = Date.now()): LanesRead {
 }
 
 /**
- * A chat's `history`, the details strip's timeline (round 2), stays on this PC
- * for now, like its notes: J decides (2026-11-03) whether it may reach the
- * Builder's page. The panel draws the timeline as soon as this lets it through.
+ * A chat's `history`, the details strip's timeline: only the lines the
+ * coordinator marked `public: true` reach the Builder (J, 2026-11-08), and of
+ * each only its time and words. An unmarked line, like a note, stays on this
+ * PC: an imported site's scripts share the Builder's page.
  */
-const HISTORY_TO_BUILDER = false;
+export function publicHistory(raw: unknown): { at: unknown; text: unknown }[] {
+  if (!Array.isArray(raw)) return [];
+  return (raw as unknown[]).flatMap((h) => (h && typeof h === "object" && (h as { public?: unknown }).public === true ? [{ at: (h as { at?: unknown }).at, text: (h as { text?: unknown }).text }] : []));
+}
 /** What a chat may show the Builder; anything else the coordinator writes on it (a note, its last line) stays here. */
-const CHAT_KEYS = ["id", "name", "lane", "state", "sentAt", "lastSeen", "helper", ...(HISTORY_TO_BUILDER ? ["history"] : [])];
+const CHAT_KEYS = ["id", "name", "lane", "state", "sentAt", "lastSeen", "helper"];
 
-/** The feed with every coordinator and chat cut down to its name and state; the questions as they are. */
+/** The feed with every coordinator and chat cut down to its name, state and public timeline; the questions as they are. */
 export function namesOnly(raw: unknown): unknown {
   const r = raw as { updated?: unknown; decisions?: unknown; coordinators?: unknown } | null;
   if (!r || typeof r !== "object" || !Array.isArray(r.coordinators)) return null;
@@ -63,7 +67,7 @@ export function namesOnly(raw: unknown): unknown {
     coordinators: (r.coordinators as unknown[]).map((c) => {
       if (!c || typeof c !== "object") return c;
       const k = c as Record<string, unknown>;
-      return { ...pick(k, ["id", "name"]), chats: Array.isArray(k.chats) ? k.chats.map((x) => (x && typeof x === "object" ? pick(x as Record<string, unknown>, CHAT_KEYS) : x)) : k.chats };
+      return { ...pick(k, ["id", "name"]), chats: Array.isArray(k.chats) ? k.chats.map((x) => (x && typeof x === "object" ? { ...pick(x as Record<string, unknown>, CHAT_KEYS), ...("history" in x ? { history: publicHistory((x as { history?: unknown }).history) } : {}) } : x)) : k.chats };
     }),
   };
 }
