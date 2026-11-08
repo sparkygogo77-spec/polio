@@ -33,6 +33,7 @@ import { htmlToJsx, jsxAttr } from "../scaffolding/jsx.ts";
 import { classesOf, declarations, twContext, type TwContext } from "./tailwindOf.ts";
 import { POLIO_HEADER, TOKEN_FILES } from "./tokensOut.ts";
 import type { LibraryName } from "./libraryOut.ts";
+import { BEHAVIOURS_FILE, behavioursTsx, cleanMotionCss, isMotionClass, motionClass, pageScripts } from "./motionOut.ts";
 
 /* ------------------------------------------------------------------ */
 /* Reading the published page                                          */
@@ -48,6 +49,10 @@ export interface ExportedPart {
   content: { classes: string[]; html: string; words: boolean };
   /** The link the whole part is (the page wraps it in a `display: contents` link), as the app's address. */
   link: { href: string; newTab: boolean } | null;
+  /** The classes its motion rules name (`motionOut.ts`), on the box or the look. */
+  motion: string[];
+  /** Its element path, where a motion rule fires on what stands under a path. */
+  at: string | null;
 }
 
 export interface ExportedPage {
@@ -58,6 +63,9 @@ export interface ExportedPage {
 
 /** Classes the published page uses for its own machinery, not for looks: never carried. */
 const MACHINE = /^(sm-|mo$|mo-|ms\d|g-|link-fills-part(-frame)?$|site-root$)/;
+const REPLACED = /^(iframe|video|audio|canvas|embed|object)$/i;
+/** What a behaviour's script reads off the page (`assets/features`): kept where every other `data-` mark of the Builder's goes. */
+const SCRIPT_DATA = /^data-(moving-frames|frame|ms|marquee|crt|until|world-|part-|hook$)/;
 /** The published page's icon label ("icon · 2 strokes") says nothing to a reader: the icon is drawn as decoration, and the link or button around it carries the name. */
 const ICON_LABEL = /^icon(\s*·\s*\d+\s*strokes?)?$/i;
 
@@ -70,14 +78,16 @@ const ICON_LABEL = /^icon(\s*·\s*\d+\s*strokes?)?$/i;
 function classify(root: Element, ctx: TwContext, link: (href: string) => string): void {
   for (const el of [root, ...Array.from(root.querySelectorAll("*"))]) {
     const style = el.getAttribute("style");
-    const had = (el.getAttribute("class") ?? "").split(/\s+/).filter((c) => c && !MACHINE.test(c));
+    const classes = (el.getAttribute("class") ?? "").split(/\s+/).filter(Boolean);
+    /* A look box deeper in (under a clip the capture put round it) keeps the classes its motion rules name. */
+    const had = [...classes.filter((c) => !MACHINE.test(c)), ...classes.filter(isMotionClass).map(motionClass)];
     if (style !== null) {
       el.removeAttribute("style");
       const cls = [...had, ...classesOf(assetsIn(style), ctx)];
       if (cls.length) el.setAttribute("class", cls.join(" ")); else el.removeAttribute("class");
     } else if (had.length) el.setAttribute("class", had.join(" "));
     else el.removeAttribute("class");
-    for (const a of Array.from(el.attributes)) if (a.name.startsWith("data-")) el.removeAttribute(a.name);
+    for (const a of Array.from(el.attributes)) if (a.name.startsWith("data-") && !SCRIPT_DATA.test(a.name)) el.removeAttribute(a.name);
     if (el.getAttribute("role") === "img" && ICON_LABEL.test(el.getAttribute("aria-label") ?? "")) {
       el.removeAttribute("role"); el.removeAttribute("aria-label"); el.setAttribute("aria-hidden", "true");
     }
@@ -114,11 +124,19 @@ export function readExportedPage(doc: Document, ctx: TwContext, link: (href: str
     if (inner) {
       const words = /\S/.test(inner.textContent ?? "");
       const style = inner.getAttribute("style") ?? "";
-      inner.removeAttribute("style");
-      classify(inner, ctx, link);
-      content = { classes: classesOf(assetsIn(style), ctx, dropContent), html: inner.innerHTML, words };
+      /* A frame, a film or a canvas that is the part's whole content is the content: it has nothing inside to carry. */
+      if (REPLACED.test(inner.tagName)) {
+        classify(inner, ctx, link);
+        content = { classes: [], html: inner.outerHTML, words: false };
+      } else {
+        inner.removeAttribute("style");
+        classify(inner, ctx, link);
+        /* The content box's own motion classes (a looping picture's animation is on it, not the look box) ride with its style classes: its inner HTML leaves them behind. */
+        const own = (inner.getAttribute("class") ?? "").split(/\s+/).filter((c) => c.startsWith("motion-"));
+        content = { classes: [...classesOf(assetsIn(style), ctx, dropContent), ...own], html: inner.innerHTML, words };
+      }
     }
-    parts.set(box.id, { place: box.getAttribute("style") ?? "", look: assetsIn(mo?.getAttribute("style") ?? ""), content, link: wrapLink });
+    parts.set(box.id, { place: box.getAttribute("style") ?? "", look: assetsIn(mo?.getAttribute("style") ?? ""), content, link: wrapLink, motion: [...new Set([box, mo].flatMap((e) => Array.from(e?.classList ?? [])).filter(isMotionClass).map(motionClass))], at: box.getAttribute("data-at") });
   }
   return { page: pageEl?.getAttribute("style") ?? "", parts };
 }
@@ -253,6 +271,10 @@ interface Walk {
   heading: (id: string) => number | null;
   /** The words a part's label quotes ('link “Docs”' → "Docs"), for a link's name when the link itself shows no words. */
   words: (id: string) => string;
+  /** Where a part stands in the published page's order: what comes later paints over what comes earlier. */
+  paint: Map<string, number>;
+  /** Parts a press hides or shows again: each keeps its place in the flow when hidden, as on the board. */
+  holes: Set<string>;
 }
 
 /** The capture names the element each heading was (`… > h2.`); the first heading of a page is its h1, and no level is skipped on the way down. */
@@ -300,12 +322,21 @@ function partEl(id: string, flow: Flow | null, layout: [string, string][], w: Wa
   const own = inst ? look.filter(([p]) => !inst.covers.has(p)) : look;
   const content = ex.content;
   const onlyWords = content.classes.length === 0 || (!flow && contentInherits(content.classes));
-  const e = el("div", [...classesOf(layout, w.ctx), ...classesOf([...keep, ...own], w.ctx, (p) => p === "position" && !flow)], [["id", id]]);
+  const e = el("div", [...classesOf(layout, w.ctx), ...classesOf([...keep, ...own], w.ctx, (p) => p === "position" && !flow)], [["id", id], ...(ex.at ? [["data-at", ex.at]] as [string, string][] : [])]);
+  e.cls.push(...ex.motion);
   const level = content.words ? w.heading(id) : null;
+  /*
+   * On the published page a holder's parts stand beside its look box, so its
+   * `overflow: hidden` cuts only its own words or picture, never a part that
+   * reaches past its edge (a dot hung off a card's corner). Here the parts
+   * stand inside it, so the cut moves to the box its own content is in.
+   */
+  const clip = flow ? e.cls.filter((c) => /^overflow-/.test(c)) : [];
+  if (clip.length) e.cls = e.cls.filter((c) => !clip.includes(c));
   /* A holder's own words or picture lie over it, inside its padding, as the board draws them; its parts flow over them. An empty one is nothing. */
   if (flow && content.html.trim()) {
     const pad = declarations(ex.look).filter(([p]) => p.startsWith("padding"));
-    const inner = el("div", ["absolute", "inset-0", ...classesOf(pad, w.ctx), ...content.classes.filter((c) => !POSITIONED.includes(c))]);
+    const inner = el("div", ["absolute", "inset-0", ...clip, ...(clip.length ? e.cls.filter((c) => /^rounded/.test(c)) : []), ...classesOf(pad, w.ctx), ...content.classes.filter((c) => !POSITIONED.includes(c))]);
     inner.kids.push({ raw: htmlToJsx(level ? asHeading(e, inner, content.html, level) : content.html, "") });
     e.kids.push(inner);
     if (!e.cls.some((c) => POSITIONED.includes(c))) e.cls.push("relative");
@@ -374,6 +405,19 @@ function letStick(e: El, sections: Map<string, El>): boolean {
   return holds || e.cls.includes("sticky");
 }
 
+/** The parts held directly inside a holder that clips. */
+function clippedParts(e: El, sections: Map<string, El>, out = new Set<string>()): Set<string> {
+  const clips = e.cls.some((c) => c === "overflow-hidden" || c === "overflow-clip");
+  for (const k of e.kids) {
+    const kid = "tag" in k ? k : "use" in k ? sections.get(k.use) : undefined;
+    if (!kid) continue;
+    const id = kid.attrs.find(([a]) => a === "id")?.[1];
+    if (clips && id) out.add(id);
+    clippedParts(kid, sections, out);
+  }
+  return out;
+}
+
 function fill(e: El, f: Flow, w: Walk, border: Sides = NO_SIDES): void {
   const placedAlready = e.cls.some((c) => POSITIONED.includes(c));
   for (const c of classesOf(flowDecls(f, border), w.ctx)) if (!e.cls.includes(c) && !(c === "relative" && placedAlready)) e.cls.push(c);
@@ -381,13 +425,68 @@ function fill(e: El, f: Flow, w: Walk, border: Sides = NO_SIDES): void {
   const col = f.display !== "grid" && f.direction === "column";
   const over = (side: keyof Sides) => Math.max(0, border[side] - f.pad[side]);
   const [start, end] = f.display === "grid" ? [0, 0] : col ? [over("top"), over("bottom")] : [over("left"), over("right")];
-  f.items.forEach((it, i) => e.kids.push(itemOrSection(it, f, w, { start: i === 0 ? start : 0, end: i === f.items.length - 1 ? end : 0 })));
-  for (const p of f.placed) e.kids.push(placedEl(p, w, border));
+  const items = f.items.map((it, i) => ({ it, at: paintOf(it, w), kid: itemOrSection(it, f, w, { start: i === 0 ? start : 0, end: i === f.items.length - 1 ? end : 0 }) }));
+  /*
+   * A placed part paints over everything in the flow unless the flow's part is
+   * positioned too (a hero's picture over its buttons, which no pointer then
+   * reaches). So each stands where the published page has it, and what comes
+   * after a placed part is lifted to paint over it. A placed part takes no
+   * room, so where it stands among them moves nothing.
+   */
+  const placed = f.placed.map((p) => ({ at: paintOf(p, w), kid: placedEl(p, w, border) as El | { use: string } })).sort((a, b) => a.at - b.at);
+  const first = placed[0]?.at ?? Infinity;
+  for (const it of items) {
+    const kid = "use" in it.kid ? w.out.get(it.kid.use) : it.kid;
+    if (it.at > first && kid && !it.it.flow && it.it.part && !kid.cls.some((c) => POSITIONED.includes(c))) kid.cls.push("relative");
+    while (placed.length && placed[0]!.at < it.at) e.kids.push(placed.shift()!.kid);
+    e.kids.push(it.kid);
+  }
+  for (const p of placed) e.kids.push(p.kid);
+  /*
+   * On the published page a part's box holds only its own look: its parts
+   * stand beside it. Here they stand inside it, so a holder the pointer passes
+   * through (`pointer-events: none`) would take it from them: each part in it
+   * takes the pointer again.
+   */
+  if (e.cls.includes("pointer-events-none")) passPointer(e, w);
+}
+
+/** The first place in the published page's order of a part or of what a holder holds. */
+function paintOf(it: { id: string; part?: string | null; flow: Flow | null }, w: Walk): number {
+  const own = w.paint.get(it.part ?? it.id);
+  if (own !== undefined) return own;
+  const f = it.flow;
+  return f ? Math.min(Infinity, ...f.items.map((k) => paintOf(k, w)), ...f.placed.map((k) => paintOf(k, w))) : Infinity;
+}
+
+/** Each part directly in `e` takes the pointer, where `e` lets it through. */
+function passPointer(e: El, w: Walk): void {
+  for (const k of e.kids) {
+    const kid = "tag" in k ? k : "use" in k ? w.out.get(k.use) : undefined;
+    if (kid && !kid.cls.some((c) => c.startsWith("pointer-events-") || c.startsWith("[pointer-events:"))) kid.cls.push("pointer-events-auto");
+  }
 }
 
 function itemOrSection(it: LayoutItem, parent: Flow, w: Walk, pull?: { start: number; end: number }): El | { use: string } {
   const layout = itemDecls(it, parent, pull);
-  const e = it.part ? partEl(it.part, it.flow, layout, w) : (() => { const g = el("div", classesOf(layout, w.ctx)); if (it.flow) fill(g, it.flow, w); return g; })();
+  /*
+   * On the board a part a press hides leaves a hole: it is placed, so nothing
+   * moves into its place. In a flow, `display: none` would close the hole and
+   * shift every part after it (and the press that follows would land on
+   * another part). So such a part stands in a box of its own that keeps the
+   * flow's place and size, and the part hides inside it.
+   */
+  if (it.part && w.holes.has(it.part)) {
+    const cell = el("div", classesOf([...layout.filter(([p]) => p !== "height"), ...(it.flow ? [["min-height", px(it.box.h)] as [string, string]] : [["height", px(it.box.h)] as [string, string]])], w.ctx));
+    cell.kids.push(partEl(it.part, it.flow, [["width", "100%"], ["height", "100%"]], w));
+    const n = w.sections.get(it.id);
+    if (!n) return cell;
+    cell.tag = SECTION_TAG(n);
+    w.out.set(n, cell);
+    return { use: n };
+  }
+  const e = it.part ? partEl(it.part, it.flow, layout, w) : (() => { /* A group is a box of this file's own, not the board's: its padding stands where its parts are not, so it lets the pointer through to whatever lies under it, and its parts take it back. */
+      const g = el("div", [...classesOf(layout, w.ctx), "pointer-events-none"]); if (it.flow) fill(g, it.flow, w); return g; })();
   const name = w.sections.get(it.id);
   if (!name) return e;
   if (e.tag === "div") e.tag = SECTION_TAG(name);
@@ -430,6 +529,8 @@ export interface PagesInput {
   library?: Map<string, LibraryName>;
   /** The published site's stylesheet (`assets/site.css`): its font faces and keyframes are carried. */
   siteCss?: string;
+  /** A published file's text (`assets/motion/home.css`, `assets/features/reveal.js`): the site's motion and behaviours are carried. */
+  siteFile?: (path: string) => string | undefined;
 }
 
 export interface StillPlaced { page: string; id: string; label: string; why: string }
@@ -441,7 +542,7 @@ export interface PagesReport {
   /** Parts written as a library component (`<Button variant="main">`). */
   instances: number;
   placed: StillPlaced[];
-  /** Parts shown only on a press: not on the page as it opens, not written (listed). */
+  /** Parts shown only on a press: not on the page as it opens; written hidden, in the page's States section, for its press to show. */
   states: { page: string; id: string; label: string }[];
   /** Parts the layout holds that the published page did not draw (hidden, empty). */
   missing: string[];
@@ -477,7 +578,12 @@ export function globalsCss(siteCss = ""): string {
 @import "../${TOKEN_FILES.tailwind}";
 @source "../app";
 @source "../components";
-${keep.length ? `\n${keep.join("\n")}\n` : ""}`;
+${keep.length ? `\n${keep.join("\n")}\n` : ""}
+/* Everything moving, still for a visitor who asks for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  [id^="n_"], [id^="n_"] * { animation: none !important; transition: none !important; }
+}
+`;
 }
 
 export function layoutTsx(name: string, description: string, bodyClasses: string[]): string {
@@ -582,12 +688,57 @@ export function pagesOut(input: PagesInput): PagesOut {
       return level;
     };
     const words = (id: string) => /“([^”]+)”/.exec(byId.get(id)?.label ?? "")?.[1]?.trim() ?? "";
-    const w: Walk = { exported, ctx, sections, out: new Map(), missing: [], instance, heading, words };
+    const scripts = pageScripts(doc);
+    const stateIds = new Set(input.nodes.filter((n) => n.pageId === page.id && n.state).map((n) => n.id));
+    const holes = new Set(scripts.parts.filter((b) => b.feature === "press-shows").flatMap((b) => `${b.inputs?.shows ?? ""},${b.inputs?.hides ?? ""}`.split(",")).map((x) => x.trim()).filter((x) => x && !stateIds.has(x)));
+    const w: Walk = { exported, ctx, sections, out: new Map(), missing: [], instance, heading, words, paint: new Map([...exported.parts.keys()].map((id, i) => [id, i])), holes };
     /* The page's ground and words colour go on the body, said once for the site (the home page's). */
     const pageLook = declarations(exported.page).filter(([p]) => ["background", "background-color", "color", "font-family", "font-size", "line-height"].includes(p));
     if (!bodyClasses.length) bodyClasses = classesOf(pageLook, ctx);
     const main = el("main", ["relative", "w-full", "overflow-x-clip"]);
     fill(main, tree.root, w);
+    /* What a press shows: hidden until then, at the board's place on the page. */
+    const pressStates = input.nodes.filter((n) => n.pageId === page.id && n.state && exported.parts.has(n.id));
+    if (pressStates.length) {
+      const holder = el("div", ["contents"]);
+      const stem = pascal(`${pascal(pageName) || "Page"} states`);
+      let name = stem;
+      for (let k = 2; used.has(name.toLowerCase()); k++) name = `${stem}${k}`;
+      used.add(name.toLowerCase());
+      const still: Walk = { ...w, heading: () => null };
+      for (const n of pressStates) {
+        const fixed = declarations(exported.parts.get(n.id)!.place).some(([p, v]) => p === "position" && v === "fixed");
+        const part = partEl(n.id, null, [["position", fixed ? "fixed" : "absolute"], ["left", px(n.x)], ["top", px(n.y)], ["width", px(n.w)], ["height", px(n.h)]], still);
+        part.cls = [...part.cls.filter((c) => !/^(flex|grid|block|inline|inline-\w+|contents|hidden)$/.test(c)), "hidden"];
+        holder.kids.push(part);
+      }
+      w.out.set(name, holder);
+      main.kids.push({ use: name });
+    }
+    /* Its motion: the sheet the published page loads, and the scripts it runs. */
+    const sheetHref = doc.querySelector('link[href*="assets/motion/"]')?.getAttribute("href")?.replace(/^(\.\.\/|\.\/)*/, "") ?? null;
+    const sheetCss = sheetHref ? input.siteFile?.(sheetHref) : undefined;
+    const sheetName = sheetHref?.split("/").pop();
+    if (sheetCss && sheetName && !files.some((f) => f.path === `styles/motion/${sheetName}`)) files.push({ path: `styles/motion/${sheetName}`, content: `/* ${POLIO_HEADER} */\n${cleanMotionCss(sheetCss)}` });
+    /*
+     * A clean page holds a part inside its holder, and a holder may clip. A
+     * reveal starts its part off by its slide: past the clip, it is never seen
+     * coming into view, so it never shows at all. Such a part fades where it
+     * stands (a holder revealed with it still brings it in).
+     */
+    const clipped = clippedParts(main, w.out);
+    scripts.parts = scripts.parts.map((b) => (b.feature === "reveal" && clipped.has(b.part) ? { ...b, inputs: { ...b.inputs, distance: "0" } } : b));
+    const runs = scripts.scripts.length > 0 && !!input.siteFile;
+    if (runs) {
+      main.kids.push({ raw: "<Behaviours {...behaviours} />" });
+      const routed = routeOf(home, page);
+      files.push({ path: `${routed ? `app/${routed}` : "app"}/behaviours.ts`, content: `${HEADER_TSX}\nimport type { PageBehaviours } from "@/components/Behaviours";\n\n/** What this page's parts do (an entrance, a press that copies or shows a tab), by part id. \`components/Behaviours.tsx\` runs them. */\nexport const behaviours: PageBehaviours = ${JSON.stringify(scripts, null, 1)};\n` });
+      for (const src of scripts.scripts) {
+        const path = `public${src}`, text = input.siteFile!(src.slice(1));
+        if (text !== undefined && !files.some((f) => f.path === path)) files.push({ path, content: text });
+      }
+      if (!files.some((f) => f.path === BEHAVIOURS_FILE)) files.push({ path: BEHAVIOURS_FILE, content: behavioursTsx() });
+    }
     letStick(main, w.out);
     report.missing.push(...w.missing);
     report.sections += w.out.size;
@@ -598,7 +749,7 @@ export function pagesOut(input: PagesInput): PagesOut {
     }
     const route = routeOf(home, page);
     const jsx = printJsx(main, "    ");
-    const imports = [uiImport(jsx), ...[...w.out.keys()].map((n) => `import ${n} from "@/components/sections/${n}";`)].filter(Boolean).join("\n");
+    const imports = [uiImport(jsx), ...[...w.out.keys()].map((n) => `import ${n} from "@/components/sections/${n}";`), ...(runs ? ['import { Behaviours } from "@/components/Behaviours";', 'import { behaviours } from "./behaviours";'] : []), ...(sheetCss && sheetName ? [`import "@/styles/motion/${sheetName}";`] : [])].filter(Boolean).join("\n");
     files.push({
       path: route ? `app/${route}/page.tsx` : "app/page.tsx",
       content: `${HEADER_TSX}\n${imports}${imports ? "\n\n" : ""}export default function Page() {\n  return (\n${jsx}\n  );\n}\n`,
@@ -652,6 +803,6 @@ export function stillPlacedMd(report: PagesReport): string {
     for (const p of report.placed) lines.push(`| ${p.page} | ${p.label.replace(/\|/g, "/")} | \`${p.id}\` | ${p.why.replace(/\|/g, "/")} |`);
     lines.push("");
   }
-  if (report.states.length) lines.push(`${report.states.length} parts show only on a press (a menu opened, a tab chosen) and are not written in the pages yet: ${report.states.slice(0, 12).map((s) => `\`${s.id}\``).join(", ")}${report.states.length > 12 ? "…" : ""}.`, "");
+  if (report.states.length) lines.push(`${report.states.length} parts show only on a press (a menu opened, a tab chosen). They are written hidden in each page's States section, placed by hand, and the press shows them (components/Behaviours.tsx).`, "");
   return lines.join("\n");
 }
