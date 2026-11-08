@@ -25,7 +25,7 @@
  */
 import { flushEdits, lastEdit } from "@/features/builds/edits";
 import * as React from "react";
-import { BookOpen, Camera, Check, Copy, Download, ExternalLink, FileJson, Gauge, GitBranch, Globe, Loader2, Pin, PinOff, Search, Sparkles, Wand2, X } from "lucide-react";
+import { BookOpen, Camera, Check, Copy, Download, ExternalLink, FileJson, GitBranch, Globe, Loader2, Pin, PinOff, Search, Sparkles, Wand2, X } from "lucide-react";
 import { briefPrefix, compileSpec, specToJson, specToMarkdown } from "./spec";
 import { trailToMarkdown, useLanes } from "./PromptTrail";
 import { PinnedThreads, ThreadTree, usePieces } from "./ThreadTree";
@@ -1045,8 +1045,6 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
         <div className="flex flex-wrap items-center gap-2">
           {layout === "dialog" ? pin : null}
           {stats}
-          {/* Polio's own features on one dated line, with what each costs a deployment: about the tool, not this site, so a page of its own (`features/audit`). */}
-          <Button asChild size="xs" variant="ghost" data-audit-door="" className="text-fg-muted"><a href="/builder/audit"><Gauge /> Audit and optimize</a></Button>
         </div>
       </div>
 

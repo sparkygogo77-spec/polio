@@ -25,11 +25,13 @@
  * control that is on. `tests/audit-screen.mjs`.
  */
 import * as React from "react";
-import Link from "next/link";
-import { ArrowLeft, Check, Gauge, Wrench } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Check, Gauge, Maximize2, Wrench } from "lucide-react";
 import { Button } from "@/core/ui/button";
 import { play } from "@/core/audio/engine";
 import type { RouteProps } from "@/core/types";
+import { useStudio } from "@/features/studio/board/store";
+import { openDetailTab } from "@/features/studio/TimelineDetail";
 import { briefFor, defaultTicks, featureOf, mb, saves, totalWith, type Feature, type Finding, type Receipt } from "./receipt";
 
 /* The menu's palette (docs/DESIGN.md §1): the void, its rim, blue, green, red for "on". */
@@ -63,7 +65,18 @@ function keepTicks(r: Receipt, ticks: Record<string, boolean>) {
   try { localStorage.setItem(TICKS, JSON.stringify({ when: r.when, ticks })); } catch { /* private window */ }
 }
 
+/** The route: the same view filling the screen, for going deep; Back opens the timeline's Audit tab. */
 export function AuditPage(_: RouteProps) {
+  return <AuditView full />;
+}
+
+/**
+ * The view. In the band under the timeline (`full` off) it is one more tab
+ * beside the iterations; on /builder/audit (`full` on) it takes the screen,
+ * with a way back to the timeline that opens this same tab there.
+ */
+export function AuditView({ full = false }: { full?: boolean }) {
+  const router = useRouter();
   const [receipt, setReceipt] = React.useState<Receipt | null>(null);
   const [why, setWhy] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
@@ -116,12 +129,21 @@ export function AuditPage(_: RouteProps) {
   const ticked = receipt ? receipt.findings.filter((f) => ticks[f.id]) : [];
   const after = receipt ? totalWith(receipt, ticks) : 0;
 
+  /* The way back from the full screen: the timeline, with this tab open under it. */
+  const back = () => { play("navigate"); useStudio.getState().setMode("book"); openDetailTab("audit"); router.push("/builder"); };
+  const deep = () => { play("navigate"); router.push("/builder/audit"); };
+
   return (
-    <div data-audit-page="" style={{ minHeight: "100%", background: "oklch(0.11 0.03 288)", color: INK, padding: "20px 16px 40px" }}>
+    <div data-audit-page="" data-audit-full={full ? "" : undefined} style={{ minHeight: full ? "100%" : undefined, background: full ? "oklch(0.11 0.03 288)" : undefined, color: INK, padding: full ? "20px 16px 40px" : "14px 16px 28px" }}>
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-          <Link href="/builder" className="inline-flex items-center gap-1 text-plain" style={{ color: DIM }}><ArrowLeft size={14} /> Board</Link>
-          <h1 style={{ fontSize: 22, margin: 0, color: BLUE, fontWeight: 700 }}>Audit and optimize · Polio's features</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
+          {full ? (
+            <Button data-audit-back="" variant="ghost" size="sm" onClick={back} style={{ color: DIM }}><ArrowLeft /> Back to the timeline</Button>
+          ) : null}
+          <h1 style={{ fontSize: full ? 22 : 18, margin: 0, color: BLUE, fontWeight: 700, flex: 1 }}>Audit and optimize · Polio's features</h1>
+          {full ? null : (
+            <Button data-audit-deep="" variant="ghost" size="sm" onClick={deep} style={{ color: DIM }}><Maximize2 /> Fill the screen</Button>
+          )}
         </div>
         <p style={{ color: DIM, margin: "0 0 18px", fontSize: 14 }}>Every feature Polio has, on one dated line. One button checks them all. Each thing it finds is pinned to the feature that brought it in, with the date it came. Nothing changes until a lane makes the piece.</p>
 

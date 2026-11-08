@@ -1,7 +1,6 @@
 import { Gauge } from "lucide-react";
 import dynamic from "next/dynamic";
 import { defineFeature, type RouteProps } from "@/core/types";
-import { AuditDoor } from "./AuditDoor";
 
 /* The page loads with its route, as every Builder page does (`tests/route-split.mjs`). */
 const AuditPage = dynamic<RouteProps>(() => import("./AuditPage").then((m) => m.AuditPage));
@@ -17,11 +16,11 @@ const AuditPage = dynamic<RouteProps>(() => import("./AuditPage").then((m) => m.
  * optimizing/shortcutting on the feature or iteration". The runner
  * (`scripts/audit-runner.mjs`) does the checking; this is its screen.
  *
- * It is about Polio, not about the site on the board, so it is a page of its
- * own at /builder/audit rather than a panel on the board, reached from the
- * book under the timeline (where the other whole-site things are) and from
- * the command palette. No nav tab: like Builds, it is a door you take on
- * purpose.
+ * It lives as the fourth tab of the section the green Finish key opens
+ * (the timeline with its red, green and blue boxes; `TimelineDetail.tsx`),
+ * where J watches work land. /builder/audit is the same view filling the
+ * screen, for going deep into one feature's findings, with a way back to
+ * the timeline; it is not a door of its own. The palette command opens it.
  */
 export const audit = defineFeature({
   id: "audit",
@@ -31,7 +30,6 @@ export const audit = defineFeature({
   hidden: true,
   routes: [{ path: "/builder/audit", component: AuditPage, title: "Audit and optimize" }],
   nav: [],
-  topBarItems: [{ id: "audit.door", order: 6, component: AuditDoor }],
   commands: [
     {
       id: "audit.open",

@@ -80,6 +80,7 @@ const before = execFileSync("git", ["status", "--porcelain", "--", "src", "scrip
 }
 
 let shot = false;
+let shotBook = false;
 for (const name of FIXTURES) {
   const doc = docOf(name);
   if (!doc) { notRun.push(`${name} (no site/document.json under ${SITES.join(" or ")})`); continue; }
@@ -152,10 +153,31 @@ for (const name of FIXTURES) {
   check(`${name}: Write it puts one brief in the handovers folder, the same words, no branch names`, files.length === 1 && /^audit-piece-\d{4}-\d{2}-\d{2}\.md$/.test(files[0]) && text === preview && !/claude\//.test(text) && /Done looks like/.test(text), files.join(","));
   check(`${name}: no page errors`, errors.length === 0, errors.slice(0, 2).join(" | "));
 
-  /* 4. The door. */
+  /* 4. Where it lives: the green Finish key opens the timeline section; Audit and optimize is its fourth tab; Fill the screen is the deep state and Back returns to the tab. */
   await page.goto(`${BASE}/builder`, { waitUntil: "networkidle" });
-  const door = await page.evaluate(() => Boolean(document.querySelector("[data-audit-door]")) || Boolean(document.body.textContent?.includes("Audit and optimize")));
-  check(`${name}: the Builder has a door to the screen`, door);
+  await page.waitForSelector("[data-finish]", { timeout: 20_000 });
+  check(`${name}: the Builder's top bar has no separate Audit door`, !(await page.$("[data-audit-door]")));
+  await page.click("[data-finish]");
+  await page.waitForSelector("[data-detail-tab-audit]", { timeout: 20_000 });
+  await page.click("[data-detail-tab-audit]");
+  await page.waitForSelector("[data-audit-line]", { timeout: 20_000 }).catch(() => {});
+  const inBand = await page.evaluate(() => Boolean(document.querySelector("[data-timeline-detail] [data-audit-line]")) && !document.querySelector("[data-audit-full]"));
+  check(`${name}: the green Finish key's section shows the audit as one more tab, beside the iterations, under the timeline`, inBand);
+  if (!shotBook) {
+    /* The green key lit at the top right, the timeline's boxes above, the Audit tab and its line below. */
+    await page.evaluate(() => { const pane = document.querySelector("[data-studio-pane]"); const band = document.querySelector("[data-timeline-detail]"); if (pane && band) pane.scrollTop += band.getBoundingClientRect().top - 330; });
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: join(SHOTS, "book.png"), fullPage: false });
+
+    shotBook = true;
+  }
+  await page.click("[data-audit-deep]");
+  await page.waitForSelector("[data-audit-full] [data-audit-line]", { timeout: 20_000 }).catch(() => {});
+  check(`${name}: Fill the screen goes deep: the same view takes the screen at /builder/audit`, page.url().endsWith("/builder/audit") && Boolean(await page.$("[data-audit-full] [data-audit-line]")));
+  await page.click("[data-audit-back]");
+  await page.waitForSelector("[data-timeline-detail] [data-audit-line]", { timeout: 20_000 }).catch(() => {});
+  const backHome = await page.evaluate(() => Boolean(document.querySelector("[data-timeline-detail] [data-audit-line]")) && Boolean(document.querySelector("[data-detail-tab-audit][aria-pressed=\"true\"]")));
+  check(`${name}: Back to the timeline returns to the section with the Audit tab still open`, page.url().endsWith("/builder") && backHome, page.url());
   await ctx.close();
 }
 await browser.close();
