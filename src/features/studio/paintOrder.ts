@@ -15,8 +15,8 @@
 interface Pathed { id: string; pageId?: string; from?: { selector?: string } | null; state?: unknown }
 
 const pathOf = (n: Pathed) => (n.from?.selector ?? "").trim();
-/** One step up a path: a pseudo-element or a line is its element's; else the last " > " step goes. */
-function up(path: string): string | null {
+/** One step up a path: a pseudo-element or a line is its element's; else the last " > " step goes. The agents' bridge walks it to say what a part holds (`agents/bridge.ts`). */
+export function holderPath(path: string): string | null {
   const pseudo = /(::?(?:before|after|frames)| ::line\(\d+\))$/.exec(path);
   if (pseudo) return path.slice(0, pseudo.index);
   const i = path.lastIndexOf(" > ");
@@ -35,7 +35,7 @@ export function holdersFirst<T extends Pathed>(nodes: readonly T[]): readonly T[
     /* Its holders first, outermost first, where the document lists them later. */
     const p = pathOf(n);
     const holders: T[] = [];
-    for (let q = p ? up(p) : null; q; q = up(q)) { const h = at.get(`${n.pageId ?? ""}|${q}`); if (h && h !== n && !placed.has(h)) holders.unshift(h); }
+    for (let q = p ? holderPath(p) : null; q; q = holderPath(q)) { const h = at.get(`${n.pageId ?? ""}|${q}`); if (h && h !== n && !placed.has(h)) holders.unshift(h); }
     for (const h of holders) { moved = true; place(h); }
     out.push(n);
   };

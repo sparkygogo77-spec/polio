@@ -43,7 +43,7 @@ const T = await import("../helper/server/tickets.ts");
 const L = await import("../helper/server/bridgeLog.ts").catch((e) => { check("the bridge log module loads", false, String(e?.message ?? e).slice(0, 160)); return null; });
 
 /* 1. Pure. */
-const board = { site: "s1", nodeIds: new Set(["n1"]), pageIds: new Set(["p0"]), tokenIds: new Set(["c1"]), version: "v2", tokenTakes: (_, value) => value !== "not a colour", unchanged: (s) => s.op === "updateNode" && s.patch?.same === true };
+const board = { site: "s1", nodeIds: new Set(["n1"]), pageIds: new Set(["p0"]), tokenIds: new Set(["c1"]), version: "v2", tokenTakes: (_, value) => value !== "not a colour", unchanged: (s) => s.op === "updateNode" && s.patch?.label === "same" };
 const req = (steps, more = {}) => ({ source: "polio-dock", kind: "site", v: 1, id: "r", op: "apply", site: "s1", name: "calmer hero", steps, ...more });
 const good = [{ op: "updateNode", id: "n1", patch: { x: 1 } }];
 check("1. a request with no base still goes (old callers)", B.checkApply(req(good), board).length === 0);
@@ -52,8 +52,8 @@ check("…with an older one it is refused, and says to read again", /older copy/
 check("…a base that is not a version is refused too", B.checkApply(req(good, { base: 7 }), board).length > 0 && B.checkApply(req(good, { base: null }), board).length > 0);
 check("…an empty patch is refused for a page and for the look", B.checkApply(req([{ op: "updatePage", id: "p0", patch: {} }]), board).length > 0 && B.checkApply(req([{ op: "setLook", patch: {} }]), board).length > 0);
 check("…a value the token can't hold is refused before anything runs", /can't hold/.test(B.checkApply(req([{ op: "setToken", id: "c1", value: "not a colour" }]), board).join()));
-check("…a request that changes nothing is refused", /nothing would change/.test(B.checkApply(req([{ op: "updateNode", id: "n1", patch: { same: true } }]), board).join()));
-check("…but one real step among them goes", B.checkApply(req([{ op: "updateNode", id: "n1", patch: { same: true } }, ...good]), board).length === 0);
+check("…a request that changes nothing is refused", /nothing would change/.test(B.checkApply(req([{ op: "updateNode", id: "n1", patch: { label: "same" } }]), board).join()));
+check("…but one real step among them goes", B.checkApply(req([{ op: "updateNode", id: "n1", patch: { label: "same" } }, ...good]), board).length === 0);
 check("the version moves with what the board holds, and comes back with it", B.versionOf({ a: 1 }) === B.versionOf({ a: 1 }) && B.versionOf({ a: 1 }) !== B.versionOf({ a: 2 }));
 const withBase = M.toRequest("site.apply", { site: "s1", name: "x", steps: good, base: "v2" }, "i");
 const noBase = M.toRequest("site.apply", { site: "s1", name: "x", steps: good }, "i");

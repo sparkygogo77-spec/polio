@@ -36,9 +36,9 @@ process.env.POLIO_SITE_NO_MAIN = "1";
 try { M = await import("../helper/mcp/site.ts"); } catch (e) { check("the site MCP module loads", false, String(e?.message ?? e).slice(0, 160)); }
 try { B = await import("../src/features/agents/siteSteps.ts"); } catch (e) { check("the site steps module loads", false, String(e?.message ?? e).slice(0, 160)); }
 if (M) {
-  check("1. three tools: read, shot, apply", JSON.stringify(M.SITE_TOOLS.map((t) => t.name)) === '["site.read","site.shot","site.apply"]');
+  check("1. the tools, read, shot and apply among them", ["site.read", "site.shot", "site.apply"].every((n) => M.SITE_TOOLS.some((t) => t.name === n)));
   const listed = await M.handle({ jsonrpc: "2.0", id: 1, method: "tools/list" }, async () => ({ ok: true, result: null }));
-  check("…listed over JSON-RPC", listed?.result?.tools?.length === 3 && listed.id === 1);
+  check("…listed over JSON-RPC", listed?.result?.tools?.length === M.SITE_TOOLS.length && listed.id === 1);
   const sent = [];
   const call = await M.handle({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "site.apply", arguments: { site: "s1", name: "calmer hero", steps: [{ op: "updateNode", id: "n1", patch: { colour: { bg: "#111" } } }] } } }, async (req) => { sent.push(req); return { ok: true, result: { touched: 1 } }; });
   check("…a call becomes the dock's request, and its answer comes back as text", sent[0]?.source === "polio-dock" && sent[0].kind === "site" && sent[0].op === "apply" && sent[0].site === "s1" && sent[0].steps.length === 1 && /touched/.test(call?.result?.content?.[0]?.text ?? ""), JSON.stringify(sent[0]).slice(0, 200));

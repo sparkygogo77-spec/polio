@@ -58,7 +58,7 @@ export type RunnerLike = {
 export const BUILDER_ORIGIN = "https://polio-two.vercel.app";
 export const HELPER_PORT = 47821;
 const MAX_BODY = 1 << 20;
-const SITE_OPS = ["read", "shot", "apply"];
+const SITE_OPS = ["read", "outline", "picked", "at", "select", "shot", "apply"];
 /** How long a site call waits for the Builder before it says so. */
 export const SITE_WAIT_MS = 60_000;
 const DOCK_PAGE = fileURLToPath(new URL("../dock/index.html", import.meta.url));

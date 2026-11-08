@@ -14,10 +14,7 @@ import { movingParts } from "../../motionInventory";
 import { MoveRowView } from "../MotionPanel";
 import { Field } from "./fields";
 import { HandColour } from "../../HandSlider";
-
-/** The parts whose words are drawn larger than the size they store, and by how much (`shelf/parts/Hero.tsx#ValueProp`). */
-const DRAWN_LARGER = new Set(["value-prop", "gimmick"]);
-const HEADING_DRAWN = 1.6;
+import { DRAWN_LARGER, HEADING_DRAWN } from "../../board/drawnSize";
 
 /** The face and size a part's words are set in, and a way to change both. */
 export function FontField({ node, base }: { node: StudioNode; base: number }) {
@@ -28,7 +25,8 @@ export function FontField({ node, base }: { node: StudioNode; base: number }) {
   const faces = React.useMemo(() => [...new Set([...fontsInPageOrder(nodes, pages.map((p) => p.id)).map((f) => f.key).filter(Boolean), ...(carried ?? []).map((f) => f.family)])], [carried, nodes, pages]);
   if (!wordsOf(node) && !node.font) return null;
   const face = faceOf(node);
-  const size = typeof node.font?.size === "number" ? node.font.size : 1;
+  /* An exact size with no multiplier is drawn at that size (`applyFont`), so it reads as that here too. */
+  const size = typeof node.font?.size === "number" ? node.font.size : typeof node.font?.px === "number" && node.font.px > 0 ? node.font.px / base : 1;
   /* A heading is drawn at 1.6 times the size its part stores (`Hero.tsx#ValueProp`): the box shows and takes the size on the page, so typing 92 draws 92. */
   const drawn = DRAWN_LARGER.has(node.featureId) ? HEADING_DRAWN : 1;
   const set = (font: StudioNode["font"]) => useStudio.getState().updateNode(node.id, { font });

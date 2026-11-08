@@ -3,18 +3,22 @@
  * "Where the work happens", site requests).
  *
  * A small MCP server (the standard way to give Claude Code tools) over
- * stdio, with three tools:
+ * stdio, with these tools:
  *
- *   site.read   the parts, pages, look and System of the site J has open
- *   site.shot   a picture reference of a page or a part (the helper shoots it)
- *   site.apply  a named list of board steps → one undo step on J's board
+ *   site.outline  every part in short: id, kind, box, first words
+ *   site.read     the parts, pages, look and System of the site J has open, or chosen parts in full
+ *   site.picked   what J has picked on the board
+ *   site.at       the parts under a point, topmost first
+ *   site.select   pick parts on the board
+ *   site.shot     a picture reference of a page or a part (the helper shoots it)
+ *   site.apply    a named list of board steps → one undo step on J's board
  *
  * The server holds nothing of the site. Every call is relayed to the helper
  * (`SITE_RELAY`, loopback), which hands it to the paired dock frame, which
  * posts it to the Builder page (`src/features/agents/bridge.ts`) and brings
  * the answer back. The agent sees neither the pairing token nor the dock: it
  * gets a lane ticket in its environment (`POLIO_SITE_TICKET`), good for
- * these three calls and for its own lane only.
+ * these calls and for its own lane only.
  *
  * Hand-rolled JSON-RPC rather than the MCP SDK: the helper has no
  * dependencies of its own, and the protocol here is five methods. Node 24
@@ -26,12 +30,32 @@
 
 export const SITE_RELAY = process.env.POLIO_SITE_RELAY ?? "http://127.0.0.1:47821/site";
 
-/** The three tools, as `tools/list` lists them. */
+/** The tools, as `tools/list` lists them. */
 export const SITE_TOOLS = [
   {
     name: "site.read",
-    description: "The site J has open in the Builder: its pages, every part (id, page, kind, label, words, box, colour, font, System links) and its System, with the board's `version`. Read before you change anything.",
+    description: "The site J has open in the Builder: its pages, every part (id, page, kind, label, words, box, colour, font, System links) and its System, with the board's `version`. A whole site is large: start from site.outline, and send `ids` for the parts you need in full. A part's `drawnPx` is the size its words are drawn at; `font.px` on a captured part is only the size its page set.",
+    inputSchema: { type: "object", properties: { ids: { type: "array", items: { type: "string" }, description: "Only these parts, in full, without the look and the System." } }, additionalProperties: false },
+  },
+  {
+    name: "site.outline",
+    description: "Every part of the open site in short, page by page: id, kind, box [x, y, w, h] and first words, with the groups and the board's `version`. About a tenth of site.read. Read this first.",
+    inputSchema: { type: "object", properties: { page: { type: "string", description: "Only this page." } }, additionalProperties: false },
+  },
+  {
+    name: "site.picked",
+    description: "What J has picked on the board now: each part's id, kind, box, words, name and drawn size.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "site.at",
+    description: "The parts under a point on the open page, topmost first, as they are drawn now. x and y are the page's own pixels, the same as a part's box. `clicks` is false for a part a click passes through.",
+    inputSchema: { type: "object", required: ["x", "y"], properties: { x: { type: "number" }, y: { type: "number" } }, additionalProperties: false },
+  },
+  {
+    name: "site.select",
+    description: "Pick parts on the board, as J's click would, so J sees which ones you mean. It changes nothing on the site and takes no undo step. The parts must be on the open page; an empty list lets go.",
+    inputSchema: { type: "object", required: ["ids"], properties: { ids: { type: "array", items: { type: "string" } } }, additionalProperties: false },
   },
   {
     name: "site.shot",
@@ -40,7 +64,7 @@ export const SITE_TOOLS = [
   },
   {
     name: "site.apply",
-    description: "Change the open site. One call is one undo step on J's board, named after `name` (\"calmer hero\" shows as \"Agent: calmer hero\"). Steps run through the Builder's own actions: updateNode {id, patch}, updatePage {id, patch}, setLook {patch}, removeNodes {ids}, setToken {id, value}. A step on a part that is not on the open site, or on keys, the Account or publishing, refuses the whole call, as does a call that would change nothing. Send `base` so a change written against an older copy of the board is refused; the answer gives the new `version` for the next call. More than 20 parts makes a copy of the site first and offers Compare.",
+    description: "Change the open site. One call is one undo step on J's board, named after `name` (\"calmer hero\" shows as \"Agent: calmer hero\"). Steps run through the Builder's own actions: updateNode {id, patch}, updatePage {id, patch}, setLook {patch}, removeNodes {ids}, setToken {id, value}, addNode {featureId, x, y, patch?, page?, as?} (later steps may use `as` as its id; the answer gives the real `added` ids), group {ids, label?}, ungroup {group}, reorder {id, to} where to is front, back, forward or backward in the stack, or earlier or later down the page, or reorder {id, above} or {id, below} another part, and setFont {id, px?, face?, weight?}, where px is the size the words are drawn at. Change a font with setFont, not patch.font.px. A step on a part that is not on the open site, or on keys, the Account or publishing, refuses the whole call, as does a call that would change nothing. Send `base` so a change written against an older copy of the board is refused; the answer gives the new `version` for the next call. More than 20 parts makes a copy of the site first and offers Compare.",
     inputSchema: {
       type: "object",
       required: ["site", "name", "steps"],
@@ -53,9 +77,13 @@ export const SITE_TOOLS = [
           items: {
             type: "object", required: ["op"],
             properties: {
-              op: { type: "string", enum: ["updateNode", "updatePage", "setLook", "removeNodes", "setToken"] },
+              op: { type: "string", enum: ["updateNode", "updatePage", "setLook", "removeNodes", "setToken", "addNode", "group", "ungroup", "reorder", "setFont"] },
               id: { type: "string" }, ids: { type: "array", items: { type: "string" } },
               patch: { type: "object" }, value: { type: ["string", "number"] },
+              featureId: { type: "string" }, x: { type: "number" }, y: { type: "number" }, page: { type: "string" }, as: { type: "string" },
+              label: { type: "string" }, group: { type: "string" },
+              to: { type: "string", enum: ["front", "back", "forward", "backward", "earlier", "later"] }, above: { type: "string" }, below: { type: "string" },
+              px: { type: "number" }, face: { type: "string" }, weight: { type: "number" },
             },
           },
         },
@@ -72,7 +100,11 @@ export function toRequest(name: string, args: Record<string, unknown> | undefine
   const a = args ?? {};
   const base = { source: "polio-dock", kind: "site", v: 1, id };
   switch (name) {
-    case "site.read": return { ...base, op: "read" };
+    case "site.read": return { ...base, op: "read", ...(a.ids !== undefined ? { ids: a.ids } : {}) };
+    case "site.outline": return { ...base, op: "outline", ...(typeof a.page === "string" ? { page: a.page } : {}) };
+    case "site.picked": return { ...base, op: "picked" };
+    case "site.at": return { ...base, op: "at", x: a.x, y: a.y };
+    case "site.select": return { ...base, op: "select", ids: a.ids };
     case "site.shot": return { ...base, op: "shot", ...(typeof a.page === "string" ? { page: a.page } : {}), ...(typeof a.part === "string" ? { part: a.part } : {}) };
     case "site.apply": return { ...base, op: "apply", site: a.site, name: a.name, steps: a.steps, ...(a.base !== undefined ? { base: a.base } : {}) };
     default: return null;
@@ -84,7 +116,7 @@ type Rpc = { jsonrpc: "2.0"; id?: number | string | null; method?: string; param
 export type Send = (request: Record<string, unknown>) => Promise<{ ok: true; result: unknown } | { ok: false; says: string }>;
 
 let seq = 0;
-const text = (v: unknown) => ({ content: [{ type: "text", text: typeof v === "string" ? v : JSON.stringify(v, null, 1) }] });
+const text = (v: unknown) => ({ content: [{ type: "text", text: typeof v === "string" ? v : JSON.stringify(v) }] });
 
 /** One JSON-RPC message in, zero or one out. Pure but for `send`. */
 export async function handle(msg: Rpc, send: Send): Promise<Rpc | null> {
@@ -93,7 +125,7 @@ export async function handle(msg: Rpc, send: Send): Promise<Rpc | null> {
   const fail = (code: number, message: string): Rpc => ({ jsonrpc: "2.0", id: msg.id ?? null, error: { code, message } });
   switch (msg.method) {
     case "initialize":
-      return reply({ protocolVersion: "2025-06-18", capabilities: { tools: {} }, serverInfo: { name: "polio-site", version: "1" }, instructions: "Three tools for the site J has open in the Builder. Read it first (site.read), then change it in named steps (site.apply); each call is one undo step J can take back with Ctrl+Z." });
+      return reply({ protocolVersion: "2025-06-18", capabilities: { tools: {} }, serverInfo: { name: "polio-site", version: "1" }, instructions: "Tools for the site J has open in the Builder. Read it first (site.outline, then site.read with ids for what you need in full), then change it in named steps (site.apply); each call is one undo step J can take back with Ctrl+Z." });
     case "notifications/initialized": return null;
     case "ping": return reply({});
     case "tools/list": return reply({ tools: SITE_TOOLS });

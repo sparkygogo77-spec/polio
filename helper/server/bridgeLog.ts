@@ -25,16 +25,17 @@ const KEY_SHAPED = /\b(gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|s
 const clean = (v: unknown, max = 400) => String(v).replace(KEY_SHAPED, "[a key]").slice(0, max);
 
 function stepWords(s: unknown): string {
-  const st = (s ?? {}) as { op?: unknown; id?: unknown; ids?: unknown; patch?: unknown };
+  const st = (s ?? {}) as { op?: unknown; id?: unknown; ids?: unknown; patch?: unknown; featureId?: unknown; group?: unknown };
   const fields = st.patch && typeof st.patch === "object" ? `: ${Object.keys(st.patch).join(", ")}` : "";
   const ids = Array.isArray(st.ids) ? ` ${st.ids.slice(0, 5).join(", ")}${st.ids.length > 5 ? ` and ${st.ids.length - 5} more` : ""}` : "";
-  return clean(`${st.op}${st.id !== undefined ? ` ${st.id}` : ""}${ids}${fields}`, 200);
+  return clean(`${st.op}${st.id !== undefined ? ` ${st.id}` : ""}${st.featureId !== undefined ? ` ${st.featureId}` : ""}${st.group !== undefined ? ` ${st.group}` : ""}${ids}${fields}`, 200);
 }
 
 /** A call as the log keeps it. `lane` is null when no good ticket came with it. */
 export function describeCall(lane: string | null, request: unknown, ok: boolean, why?: string, at = Date.now()): BridgeEntry {
-  const b = (request ?? {}) as { op?: unknown; name?: unknown; steps?: unknown };
-  const steps = Array.isArray(b.steps) ? b.steps : null;
+  const b = (request ?? {}) as { op?: unknown; name?: unknown; steps?: unknown; ids?: unknown };
+  /* A pick has no steps; what it picked is still who asked for what. */
+  const steps = Array.isArray(b.steps) ? b.steps : b.op === "select" ? [{ op: "select", ids: b.ids }] : null;
   return {
     at, lane, op: typeof b.op === "string" ? clean(b.op, 40) : null, ok,
     ...(typeof b.name === "string" ? { name: clean(b.name, 120) } : {}),
