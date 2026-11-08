@@ -72,6 +72,13 @@ const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
 const browser = await chromium.launch({ args: ["--no-sandbox", ...(process.env.CHROMIUM_ARGS ?? "").split(" ").filter(Boolean)], ...(existsSync(AT) ? { executablePath: AT } : {}) });
 const before = execFileSync("git", ["status", "--porcelain", "--", "src", "scripts", "kit", "next.config.ts"], { cwd: REPO, encoding: "utf8" });
 
+/* A dev server compiles a page on its first visit and can hand the first browser a half-built chunk: warm the two pages once, then measure. */
+{
+  const warm = await browser.newPage();
+  for (const path of ["/builder", "/builder/audit", "/builder"]) { await warm.goto(`${BASE}${path}`, { waitUntil: "networkidle", timeout: 120_000 }).catch(() => {}); await warm.waitForTimeout(1500); }
+  await warm.close();
+}
+
 let shot = false;
 for (const name of FIXTURES) {
   const doc = docOf(name);
@@ -98,9 +105,16 @@ for (const name of FIXTURES) {
 
   if (!shot) {
     await page.screenshot({ path: join(SHOTS, "line.png"), fullPage: true });
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.screenshot({ path: join(SHOTS, "line-phone.png"), fullPage: true });
-    await page.setViewportSize({ width: 1280, height: 1000 });
+    /* The phone picture from a page of its own at phone size: one column, nothing side by side. */
+    const phone = await ctx.newPage();
+    await phone.setViewportSize({ width: 390, height: 844 });
+    await phone.goto(`${BASE}/builder/audit`, { waitUntil: "networkidle" });
+    await phone.waitForSelector("[data-audit-line]", { timeout: 20_000 }).catch(() => {});
+    /* The page itself, not the shell around it: the Builder's side panels have their own width at phone size. */
+    const wide = await phone.evaluate(() => { const p = document.querySelector("[data-audit-page]"); return p ? p.scrollWidth > window.innerWidth + 1 : true; });
+    check(`${name}: at phone width the page is one column with no sideways scroll of its own`, !wide);
+    await phone.screenshot({ path: join(SHOTS, "line-phone.png"), fullPage: true });
+    await phone.close();
     shot = true;
   }
 

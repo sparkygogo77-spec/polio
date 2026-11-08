@@ -125,7 +125,8 @@ export function AuditPage(_: RouteProps) {
         </div>
         <p style={{ color: DIM, margin: "0 0 18px", fontSize: 14 }}>Every feature Polio has, on one dated line. One button checks them all. Each thing it finds is pinned to the feature that brought it in, with the date it came. Nothing changes until a lane makes the piece.</p>
 
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 330px", gap: 16, alignItems: "start" }}>
+        {/* One column on a phone, the meter and the buttons side by side from a tablet up. */}
+        <div className="grid items-start gap-4 md:grid-cols-[minmax(0,1fr)_330px]">
           <Meter receipt={receipt} after={after} ticked={ticked.length} why={why} />
           <div style={slab}>
             <Button data-audit-run="" variant="primary" size="lg" className="w-full justify-center" loading={busy} onClick={() => void run()} style={{ background: BLUE, color: "oklch(0.18 0.05 240)", boxShadow: `0 0 14px oklch(0.78 0.15 205 / 0.45)`, fontSize: 16, height: 44 }}>
