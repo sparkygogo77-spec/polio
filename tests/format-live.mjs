@@ -60,7 +60,7 @@ const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] }
 const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
 await page.goto(`${URL_BASE}/builder`, { waitUntil: "networkidle" });
 await page.waitForTimeout(1000);
-const tab = page.locator("[data-side-panel] [role=radio]").filter({ hasText: "Format" }).first();
+const tab = page.locator("[data-side-panel] [role=radio]").filter({ hasText: "Site" }).first();
 if (await tab.count()) await tab.click().catch(() => {});
 await page.waitForTimeout(400);
 /*

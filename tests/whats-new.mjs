@@ -138,7 +138,7 @@ const seed = async (state) => {
   await builder.waitForTimeout(2000);
 };
 await seed(seeded);
-await builder.locator("[data-side-panel]").getByRole("radio", { name: "Element" }).first().click({ force: true });
+await builder.locator("[data-side-panel]").getByRole("radio", { name: "Parts" }).first().click({ force: true });
 await builder.waitForTimeout(400);
 const onBoard = builder.locator(`[data-node-id="${CARD}"]`);
 /* Picked the way an owner finds it: by name in the Element list. */
@@ -174,7 +174,7 @@ await builder.keyboard.press("Escape");
 await builder.waitForTimeout(300);
 if (await builder.locator("[data-side-panel]").count() === 0) await builder.keyboard.press("p");
 await builder.waitForTimeout(800);
-await builder.locator("[data-side-panel]").getByRole("radio", { name: "Element" }).first().click({ force: true });
+await builder.locator("[data-side-panel]").getByRole("radio", { name: "Parts" }).first().click({ force: true });
 if (!(await builder.locator(`[data-tour-editor="${CARD}"]`).count())) {
   await builder.locator("[data-element-search]").fill("what's new");
   await builder.waitForTimeout(300);

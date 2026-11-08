@@ -110,7 +110,7 @@ for (const site of ["trumpmorty-fun", "gotchi-gg"]) {
   await page.reload({ waitUntil: "networkidle" });
   await page.waitForTimeout(2500);
   const side = page.locator("[data-side-panel]");
-  await side.getByRole("radio", { name: "Element" }).first().click({ force: true });
+  await side.getByRole("radio", { name: "Parts" }).first().click({ force: true });
   await page.waitForTimeout(700);
   const list = side.locator('[data-element-list="flat"]');
   check(`${site}: the Element tab leads with the flat list`, (await list.count()) === 1 && (await list.locator("[data-list-row]").count()) > 10);
@@ -145,7 +145,7 @@ for (const site of ["trumpmorty-fun", "gotchi-gg"]) {
   /* Back to the list: search, and nesting. */
   /* Escape climbs one holder at a time, then lets go. */
   for (let i = 0; i < 12 && (await page.locator("[data-picked]").count()); i++) { await page.keyboard.press("Escape"); await page.waitForTimeout(400); }
-  await side.getByRole("radio", { name: "Element" }).first().click({ force: true });
+  await side.getByRole("radio", { name: "Parts" }).first().click({ force: true });
   await page.waitForTimeout(500);
   const search = side.locator("[data-element-search]");
   if (await search.count()) {

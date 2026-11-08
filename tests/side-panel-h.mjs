@@ -74,10 +74,10 @@ const stored = () => page.evaluate(() => JSON.parse(localStorage.getItem("builde
 
 /* 1 Generate */
 const names = await side.locator("[role=radio]").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label") ?? e.textContent.trim()));
-check("1 there is a Pictures tab, and no Generate tab", names.length === 7 && names.includes("Pictures") && !names.includes("Generate"), names.join(", "));
-await tab("Pictures");
+check("1 there is a Draw tab (the drawing tool), and no Generate tab", names.length === 6 && names.includes("Draw") && !names.includes("Generate"), names.join(", "));
+await tab("Draw");
 check("1 with nothing picked, the Pictures tab has the drawing tool", (await side.locator("[data-pictures-panel] [data-render-panel]").count()) === 1 && (await side.locator("[data-render-put]").count()) === 0);
-await tab("Element");
+await tab("Parts");
 /* A picture part, picked the way the tree offers it: its holders opened in turn, then its row. */
 const { partTree, ancestors } = await src("partTree.ts");
 const home = doc.nodes.filter((n) => n.pageId === "page_home");

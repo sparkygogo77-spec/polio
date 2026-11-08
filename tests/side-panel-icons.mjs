@@ -29,7 +29,7 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
 };
 /* Generate went into each part's "Make a picture" (tests/side-panel-h.mjs). */
-const WORDS = ["Element", "Format", "Pages", "Look", "System", "Motion", "Pictures"];
+const WORDS = ["Parts", "Look", "Motion", "Pages", "Site", "Draw"];
 
 const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
 const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });
@@ -64,9 +64,10 @@ const read = () => row.evaluate((r) => {
 });
 
 let tabs = await read();
-check("seven tabs (System joined Look, create-system (c))", tabs.length === WORDS.length, tabs.map((t) => t.name).join(", "));
+check("six tabs (Format and System are Site; side-panel lane 2026-11-08)", tabs.length === WORDS.length, tabs.map((t) => t.name).join(", "));
 check("every tab wears an icon", tabs.length === WORDS.length && tabs.every((t) => t.svg), tabs.filter((t) => !t.svg).map((t) => t.name).join(", ") || "all of them");
-check("…each in its panel's own hue, not one colour for all", new Set(tabs.map((t) => t.hue)).size === WORDS.length, tabs.map((t) => t.hue).join(" "));
+/* Design C: every piece is the wheel's blue and the one you are on is the second level's green, so the lit one reads from a step back. */
+check("…the tab you are on is a different colour from the rest", new Set(tabs.map((t) => t.hue)).size === 2 && tabs.filter((t) => !t.on).every((t) => t.hue === tabs.find((x) => !x.on).hue), tabs.map((t) => `${t.name}:${t.hue}`).join(" "));
 check("every tab is named by its word", JSON.stringify(tabs.map((t) => t.name)) === JSON.stringify(WORDS), tabs.map((t) => t.name).join(", "));
 /* THE OWNER'S LATER ASK: tab names always visible, not icons only (tests/side-panel-g.mjs). */
 const on = tabs.filter((t) => t.on);
@@ -75,7 +76,7 @@ check("every tab draws its word, whole", tabs.every((t) => t.wordW > 12 && t.tex
 check("…and carries it as a tooltip", tabs.every((t) => t.title === t.name), tabs.map((t) => `${t.name}:${t.title}`).join(", "));
 check("the row fits its column, nothing run over or clipped", tabs.every((t) => t.inside && !t.clipped), tabs.filter((t) => !t.inside || t.clipped).map((t) => t.name).join(", ") || "all inside");
 
-for (const word of ["Look", "Motion", "Element"]) {
+for (const word of ["Look", "Motion", "Parts"]) {
   await page.getByRole("radio", { name: word }).first().click();
   await page.waitForTimeout(300);
   tabs = await read();

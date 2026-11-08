@@ -4,6 +4,7 @@ export { Crumbs, ElementList, KindIcon, LeadsTo, OPEN_SECTION, PanelSection, Par
 export { FormatPanel, colourWords, useSiteFormat } from "./FormatPanel";
 export { MotionPanel, MoveRowView } from "./MotionPanel";
 export { SystemPanel } from "./SystemPanel";
+export { SitePanel } from "./SitePanel";
 export { AskCodeBox, CodeLine, CodeLink, CodeView, PageSummary, ScriptLines, insideHooks, lineHref } from "./inspector/codeView";
 export { Field, Fold, LABEL_HIDES, OPENED, OptionSet, PictureField, TEXTY, VERSION_ONLY, WordsField, featureName, insideLink, isLookOption } from "./inspector/fields";
 export { FrameField } from "./inspector/frameField";
