@@ -2,10 +2,11 @@
 /**
  * THE AGENTS BUTTON, THE DOCK AND ASK AGENTS (J, 2026-10-25, Q9).
  *
- * The button sits in the top bar. It opens a dock on the right, 380px wide,
- * over the side panel: a frame the helper serves at 127.0.0.1:47821/dock.
- * Everything the dock does (Plan it, Start, Approve, Pause, Stop) is a
- * press inside that frame. This page only hands it context as data
+ * The button sits in the top bar. It opens a dock on the right, over the side
+ * panel. Its first tab is the lanes board (`LanesBoard.tsx`), every chat
+ * working for J. Its second, 380px wide, is a frame the helper serves at
+ * 127.0.0.1:47821/dock. Everything that frame does (Plan it, Start, Approve,
+ * Pause, Stop) is a press inside it. This page only hands it context as data
  * (`context.ts`), each time it opens or the part changes, and only to the
  * helper's origin.
  *
@@ -25,8 +26,9 @@ import { Tooltip } from "@/core/ui/tooltip";
 import { useStudio } from "@/features/studio/board/store";
 import { siteSystem } from "@/features/studio/system/api";
 import { ACTION_WORDS, DOCK_URL, HELPER_ORIGIN, PART_ACTIONS, START_LINK, checkContext, contextFor, type AgentsContext, type PartAction, type PartLike, type SystemLike } from "./context";
-import { closeAsk, closeDock, openDock, reachHelper, useAgents } from "./store";
+import { closeAsk, closeDock, openDock, reachHelper, setDockTab, useAgents } from "./store";
 import { listen } from "./bridge";
+import { LanesBoard } from "./LanesBoard";
 import { startAsked } from "@/features/builds/start";
 
 export const ACTION_ICONS: Record<PartAction, typeof Bot> = { change: Pencil, features: Lightbulb, security: ShieldCheck, backend: Server, explain: Code2 };
@@ -103,7 +105,7 @@ function Setup() {
 }
 
 function Dock() {
-  const { action, partId, reach, seq, compare } = useAgents();
+  const { action, partId, reach, seq, compare, tab } = useAgents();
   const frame = React.useRef<HTMLIFrameElement>(null);
   const [loaded, setLoaded] = React.useState(false);
   /* The picked part, so a new pick hands the frame new chips. */
@@ -117,12 +119,23 @@ function Dock() {
     <aside
       data-agents-dock=""
       aria-label="Agents"
-      className="fixed bottom-0 right-0 top-(--topbar-h) z-[60] flex w-[380px] max-w-full flex-col border-l border-border glass shadow-panel"
+      className={`fixed bottom-0 right-0 top-(--topbar-h) z-[60] flex ${tab === "chats" ? "w-[1040px]" : "w-[380px]"} max-w-full flex-col border-l border-border glass shadow-panel`}
     >
       <header className="flex h-9 shrink-0 items-center justify-between border-b border-border px-3">
-        <span className="text-xs font-semibold tracking-wide">AGENTS{action ? ` · ${ACTION_WORDS[action]}` : ""}</span>
+        <span className="flex items-center gap-3">
+          <span className="text-xs font-semibold tracking-wide">AGENTS{action ? ` · ${ACTION_WORDS[action]}` : ""}</span>
+          <span role="tablist" aria-label="Agents" className="flex gap-1">
+            {(["chats", "helper"] as const).map((t) => (
+              <Button key={t} role="tab" variant={tab === t ? "subtle" : "ghost"} size="xs" aria-selected={tab === t} data-agents-tab={t} onClick={() => setDockTab(t)}>{t === "chats" ? "Chats" : "Helper"}</Button>
+            ))}
+          </span>
+        </span>
         <Button variant="ghost" size="iconXs" aria-label="Close agents" data-agents-close="" onClick={closeDock}><X /></Button>
       </header>
+      {/* The helper's page stays loaded under the board: site calls reach the Builder through it, whichever tab shows. */}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+      {tab === "chats" ? <LanesBoard /> : null}
+      <div inert={tab === "chats"} className="flex min-h-0 flex-1 flex-col">
       {compare ? (
         <p data-agents-compare="" className="flex items-center justify-between gap-2 border-b border-border px-3 py-1.5 text-xs text-fg-muted">
           <span>“{compare.name}” was big, so a copy of the site before it was kept.</span>
@@ -143,6 +156,8 @@ function Dock() {
           className="min-h-0 flex-1 border-0"
         />
       ) : reach === "down" ? <Setup /> : <p className="p-4 text-small text-fg-muted">Looking for the helper…</p>}
+      </div>
+      </div>
     </aside>
   );
 }

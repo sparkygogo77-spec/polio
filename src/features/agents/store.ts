@@ -8,6 +8,7 @@ import { create } from "zustand";
 import { DOCK_URL, type PartAction } from "./context";
 
 export type Reach = "checking" | "up" | "down";
+export type DockTab = "chats" | "helper";
 
 interface AgentsState {
   open: boolean;
@@ -21,13 +22,20 @@ interface AgentsState {
   seq: number;
   /** A big agent change made a Duplicate first (`bridge.ts`): the before, to Compare with. */
   compare: { href: string; name: string } | null;
+  /** The dock's first tab is the lanes board; the helper's own page is the second. */
+  tab: DockTab;
 }
 
-export const useAgents = create<AgentsState>(() => ({ open: false, action: null, partId: null, reach: "checking", ask: null, seq: 0, compare: null }));
+export const useAgents = create<AgentsState>(() => ({ open: false, action: null, partId: null, reach: "checking", ask: null, seq: 0, compare: null, tab: "chats" }));
 
+/** The Agents button opens on the chats; a request about a part goes to the helper, which is what takes it. */
 export function openDock(action: PartAction | null = null, partId: string | null = null) {
-  useAgents.setState((s) => ({ open: true, action, partId, ask: null, seq: s.seq + 1 }));
+  useAgents.setState((s) => ({ open: true, action, partId, ask: null, seq: s.seq + 1, tab: action ? "helper" : "chats" }));
   void reachHelper();
+}
+
+export function setDockTab(tab: DockTab) {
+  useAgents.setState({ tab });
 }
 
 export function closeDock() {
