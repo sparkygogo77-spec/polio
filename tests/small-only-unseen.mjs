@@ -97,6 +97,9 @@ const open = async (width) => {
 const wide = await open(1440);
 const atWide = await wide.evaluate(`(${SEEN})(document, "menu")`);
 check("published at 1440, its words are not seen", atWide.found && atWide.seen === 0, JSON.stringify(atWide));
+/* Not a part on the page either: clipped to its 0 × 0 box it still stood 29px tall from its own padding, a part the board does not show (EDIT-ISSUES #65). */
+const wideBox = await wide.evaluate(() => { const el = document.getElementById("menu") ?? document.querySelector('[data-live-node="menu"]'); if (!el) return null; const r = el.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height), getComputedStyle(el).display]; });
+check("…and it takes no room there: 0 × 0, not drawn", !!wideBox && wideBox[0] === 0 && wideBox[1] === 0, JSON.stringify(wideBox));
 const phone = await open(390);
 const atPhone = await phone.evaluate(`(${SEEN})(document, "menu")`);
 check("control: published at 390, the menu button's words are seen", atPhone.found && atPhone.seen > 0, JSON.stringify(atPhone));

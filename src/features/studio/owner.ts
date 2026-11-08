@@ -47,8 +47,23 @@ export function holds(outer: Boxed, inner: Boxed): boolean {
     && area(inner) < area(outer);
 }
 
-/** A card: a part a visitor reads as one thing, by its kind or by what the capture recorded it as. */
+/**
+ * A CARD FITS IN VIEW. A part called a card, or captured as an `<article>`,
+ * is a card only at a card's size: a visitor reads it as one thing because
+ * it is in front of them whole. trendtrader.pro's tokenomics page is one
+ * 840 × 12544 `<article>` holding the whole page's text, and as a "card" it
+ * owned every press on it: one press on any heading, line, icon or picture
+ * in it picked the article, and a person had to press twice for everything
+ * (the import checkup's census, 2026-11-08: 7 of 36 presses). A part taller
+ * than a window or as wide as the page is a section, drawn across, and a
+ * press inside it picks the part under the hand, as in any section. The
+ * bound is the kit's own line between a card and a panel (`styleKits.ts#roleOf`),
+ * with a screen's height for the card. `tests/tall-card-press.mjs`.
+ */
+const cardSized = (n: Boxed) => n.h <= 900 && n.w < 1200;
+/** A card: a part a visitor reads as one thing, by its kind or by what the capture recorded it as, at a card's size. */
 export function isCard(n: Boxed): boolean {
+  if (!cardSized(n)) return false;
   if (/card/i.test(n.featureId)) return true;
   if (/^\s*(article|card)\b/i.test(n.data ?? "")) return true;
   const last = pathOf(n).split(">").pop() ?? "";
@@ -61,10 +76,25 @@ export const isOwner = (n: Boxed) => isControl(n) || isCard(n);
 /** The words a part draws, as one plain string. */
 export const wordsOf = (n: Pick<StudioNode, "content">) => plain(n.content).trim();
 
-/** The nearest part that holds this one, or null at the top. */
+/**
+ * A HOLDER IS IN THE SAME STATE AS WHAT IT HOLDS. A captured button that
+ * changes under a press comes in twice, the button as the page opens and its
+ * twin as the press shows it (`StudioNode.state`), at the same element path;
+ * so the twin held the words too, and where it was the smaller it was the
+ * owner a press picked (stonkfun's revenue tabs, share's event filters,
+ * parasite's dev buttons). Picking a hidden part switches its state on so it
+ * can be seen (`history.ts#pickedStates`), and nothing switched it off: the
+ * pressed look then stayed on the board (EDIT-ISSUES #66). A part drawn as
+ * the page opens is held by parts drawn as the page opens; a part of a
+ * pressed twin by that twin. `tests/owner-not-twin.mjs`.
+ */
+type Stated = { state?: { group?: string; option?: number } | null };
+const sameState = (a: Stated, b: Stated) => (a.state?.group ?? null) === (b.state?.group ?? null) && (a.state?.option ?? null) === (b.state?.option ?? null);
+
+/** The nearest part that holds this one, in its own state, or null at the top. */
 export function parentOf<N extends Boxed>(nodes: readonly N[], n: Boxed): N | null {
   let best: N | null = null;
-  for (const c of nodes) if (holds(c, n) && (!best || area(c) < area(best))) best = c;
+  for (const c of nodes) if (sameState(c as Stated, n as Stated) && holds(c, n) && (!best || area(c) < area(best))) best = c;
   return best;
 }
 
@@ -90,7 +120,7 @@ export function ownerOf<N extends Boxed>(nodes: readonly N[], n: Boxed, palette?
   if (comp && comp.id !== n.id && GRABBED.has(comp.kind)) return nodes.find((x) => x.id === comp.id) ?? null;
   if (isOwner(n)) return null;
   let best: N | null = null;
-  for (const c of nodes) if (isOwner(c) && holds(c, n) && (!best || area(c) < area(best))) best = c;
+  for (const c of nodes) if (isOwner(c) && sameState(c as Stated, n as Stated) && holds(c, n) && (!best || area(c) < area(best))) best = c;
   /* A shape inside an icon nothing else owns is the icon's (`iconOf`); inside a button, the button still wins. */
   return best ?? iconOf(nodes, n);
 }
