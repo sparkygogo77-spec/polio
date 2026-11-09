@@ -291,8 +291,10 @@ const pause = (ms = 600) => page.waitForTimeout(ms);
 
 /* The System tab, and the System taken (the take itself is tests/system-take.mjs's to check). */
 const side = page.locator("[data-side-panel]");
-const tab = side.locator('[aria-label="Side panel"] [role=radio][aria-label="System"]');
-if (!(await tab.count())) { check("the side panel has a System tab", false); await finish(browser); }
+/* System is a pill inside the Site tab (side-panel lane, 2026-11-08): press Site, then System, as tests/system-panel.mjs does. */
+const siteTab = side.locator('[aria-label="Side panel"] [role=radio][aria-label="Site"]');
+const tab = { count: () => siteTab.count(), click: async (o) => { await siteTab.click(o); await page.waitForTimeout(300); await side.locator('[data-site-tab="system"]').click(o); } };
+if (!(await tab.count())) { check("the side panel has a Site tab, which holds System", false); await finish(browser); }
 await tab.click();
 await pause(800);
 const took = await sys((S) => S.take());
