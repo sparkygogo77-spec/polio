@@ -25,6 +25,10 @@
  *   setVariantState, addVariant, makeComponent    a component's variants
  *   tidyPlanOf(on)          what tidying the System would move: nothing changes
  *   tidySystem(on)          fold its sizes onto a scale, one undo step (`tidy.ts`)
+ *   boardsToTakeFrom()      the owner's other boards ("Like one of my sites")
+ *   readBoardSystem(id)     the System one of them would give; nothing changes
+ *   takeFromBoard(id)       the open site wears it, one undo step; values a
+ *                           token holds point at it, nothing moves
  *
  * The React side: `useSiteSystem()` (the open site's System, live) and
  * `useLibrary()` (every System held).
@@ -47,7 +51,8 @@ import { componentsOf, KIND_WORD, type CompNode } from "../components";
 import { emptySystem, readSystem, type FieldPath, type LookSlot, type StateLook, type StateName, type System, type TokenKind } from "./model";
 import { LOOK_SLOTS, holdOwn, instanceOf, overridesOf, rebind, resetInstance, slotFields, slotKind } from "./bind";
 import { materialise, rolesOf, sameValue } from "./resolve";
-import { linksHold, takeSystem, withSys, type TakeNode, type TakeReport } from "./take";
+import { linkHeld, linksHold, takeSystem, withSys, type TakeNode, type TakeReport } from "./take";
+import { docOfStored, useBuilds, type StudioDoc } from "@/features/builds/store";
 import * as L from "./link";
 import { tidyPlan, type TidyOn, type TidyPlan } from "./tidy";
 import { houseOf, libraryList, markHouse, newer, useSystems } from "./store";
@@ -259,6 +264,67 @@ export function takeFromSite(o: { dry?: boolean; name?: string } = {}): TakeAnsw
   return { ok: true, report: taken.report, system: taken.system };
 }
 
+/* ------------------------------------------------------------------ */
+/* "Like one of my sites": a System read off another board             */
+/* ------------------------------------------------------------------ */
+
+/** One of the owner's other boards, as the picker lists it: never the open one. */
+export interface BoardToTakeFrom { id: string; name: string; updatedAt: number }
+
+export function boardsToTakeFrom(): BoardToTakeFrom[] {
+  const b = useBuilds.getState();
+  return b.projects.filter((p) => p.id !== b.activeId).map((p) => ({ id: p.id, name: p.name, updatedAt: p.updatedAt }));
+}
+
+export interface BoardAnswer extends TakeAnswer {
+  /** The board's document, for the picture the dialog draws. */
+  doc: StudioDoc;
+  /** How many of the open site's values already match a token (and would point at it), and how many keep their own. */
+  here: { linked: number; oneOffs: number };
+}
+
+/**
+ * The System another board would give, read off its saved document the way
+ * "Take from this site" reads the open one; nothing changes. The open
+ * site's own parts are read against it (`linkHeld`) for the dialog's line.
+ * Refused when the board has nothing on it or its document cannot be read
+ * (a site too big for the mirror that was never opened in this browser).
+ */
+export async function readBoardSystem(id: string): Promise<BoardAnswer | Refused> {
+  const project = useBuilds.getState().projects.find((p) => p.id === id);
+  if (!project) return { ok: false, says: "That site is not in your Builds any more." };
+  if (id === useBuilds.getState().activeId) return { ok: false, says: "That is this site. Take from this site reads it." };
+  const doc = await docOfStored(id);
+  if (!doc) return { ok: false, says: `“${project.name}” could not be read here. Open it once from Builds, then come back.` };
+  const nodes = (doc.nodes ?? []) as unknown as TakeNode[];
+  if (!nodes.length) return { ok: false, says: `“${project.name}” has nothing on it yet.` };
+  const look = doc.format ? resolvePalette(doc.format, doc.look) : { ...resolvePalette(useStudio.getState().format, undefined), ...(doc.look?.palette ?? {}) } as Palette;
+  const host = (nodes as unknown as { from?: { host?: string } }[]).find((x) => x.from?.host)?.from?.host ?? null;
+  const taken = takeSystem({ nodes, palette: look, frameWidth: doc.frameWidth, name: doc.brief?.name?.trim() || project.name, host });
+  const st = useStudio.getState();
+  const mine = linkHeld(st.nodes as unknown as TakeNode[], taken.system);
+  return { ok: true, report: taken.report, system: taken.system, doc, here: { linked: mine.linked, oneOffs: mine.oneOffs } };
+}
+
+/**
+ * The open site wears the System read off another board (`readBoardSystem`),
+ * one undo step: the System goes to the library as a new one, named for the
+ * board it came from; every field of this site whose value a token holds
+ * points at it, every other keeps its own; parts that pointed at the old
+ * System let go of it. Its six colour roles are taken, as choosing a
+ * System from the library does. Nothing on the board moves.
+ */
+export async function takeFromBoard(id: string): Promise<BoardAnswer | Refused> {
+  const r = await readBoardSystem(id);
+  if (!r.ok) return r;
+  const keep = useStudio.getState().systemId;
+  step(r.system, (now) => {
+    const letGo = keep ? now.map((n) => (n.sys?.s === keep ? withSys(n, null) : n)) : now;
+    return linkHeld(letGo as unknown as TakeNode[], r.system).nodes as unknown as StudioNode[];
+  }, r.system.id, null);
+  return r;
+}
+
 function edit(fn: (s: System) => System | null, nodes?: (now: readonly StudioNode[]) => readonly StudioNode[]): System | Refused {
   const s = siteSystem();
   if (!s) return { ok: false, says: "This site has no System yet. Take one from the site first." };
@@ -457,6 +523,12 @@ const testHook = {
     return r.ok ? { ok: true, report: r.report, id: r.system.id } : r;
   },
   system: () => siteSystem(),
+  /** The other boards, and a System read off one of them: `dry` reads only. */
+  boards: () => boardsToTakeFrom(),
+  takeBoard: async (id: string, o?: { dry?: boolean }) => {
+    const r = await (o?.dry ? readBoardSystem(id) : takeFromBoard(id));
+    return r.ok ? { ok: true, report: r.report, id: r.system.id, name: r.system.name, here: r.here } : r;
+  },
   doc: () => { const s = useStudio.getState(); return { systemId: s.systemId ?? null, rev: s.system?.rev ?? null }; },
   setToken, renameToken, addToken, removeToken, linkPart, unlinkPart, detachPart, forkSite, pointSiteAt, usedBy,
   newSystem, setVariantState, addVariant, makeComponent, setHouse,

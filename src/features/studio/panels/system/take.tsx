@@ -19,6 +19,8 @@
  * site its own.
  *
  * TIDY (`tidy.tsx`): the System's sizes folded onto a scale, shown first.
+ * LIKE ONE OF MY SITES (`like.tsx`): the System of another board, read off
+ * its saved document, worn by this site; then Tidy is offered.
  */
 import * as React from "react";
 import { Copy, Download, FilePlus2 } from "lucide-react";
@@ -31,6 +33,7 @@ import { forkSite, newSystem, pointSiteAt, setHouse, takeFromSite, useHouse, use
 import type { System } from "../../system/model";
 import { useStudio } from "../../board/store";
 import { TidyButton } from "./tidy";
+import { LikeButton } from "./like";
 
 const n = (x: number) => x.toLocaleString();
 const plural = (x: number, one: string, many = `${one}s`) => `${n(x)} ${x === 1 ? one : many}`;
@@ -100,14 +103,16 @@ export function SystemBar({ system }: { system: System | null }) {
   if (system && !options.some((o) => o.value === system.id)) options.unshift({ value: system.id, label: system.name });
   return (
     <div data-system-bar="" className="space-y-1.5">
-      <div className="flex items-center gap-1">
+      {/* Tidy sits beside Take: it acts on what a take just gave (audit 3a). Like one of my sites is the other way a System arrives. */}
+      <div className="flex flex-wrap items-center gap-1">
         <Button size="xs" variant="primary" data-take-open="" onClick={() => { play("open"); setTaking(true); }}>
           <Download /> Take from this site
         </Button>
+        <TidyButton system={system} />
+        <LikeButton system={system} />
         <Button size="xs" variant="outline" data-system-new="" title="A new, empty System for this site" onClick={() => { play("confirm"); newSystem(); }}>
           <FilePlus2 /> New
         </Button>
-        <TidyButton system={system} />
       </div>
       {options.length ? (
         <div className="flex items-center gap-1">
