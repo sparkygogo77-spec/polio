@@ -79,6 +79,8 @@ async function onBoard(label, doc) {
   if (doc) { await page.evaluate((d) => window.__studioLoadDoc(d), { ...doc, activePageId: doc.pages[0].id }); await page.waitForTimeout(1500); }
   await page.locator("[data-agents-button]").click();
   await page.locator("[data-agents-frame]").waitFor({ timeout: 120_000 });
+  /* The dock opens on its Chats tab, 1040px wide (lanes-board); the shots below are of parts clear of the Helper tab's 380px. */
+  await page.locator('[data-agents-tab="helper"]').click({ timeout: 5000 }).catch(() => {});
   const dock = page.frames().find((f) => f.url().startsWith(HELPER));
   await page.waitForTimeout(1500);
   let n = 0;
