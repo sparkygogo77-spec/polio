@@ -181,9 +181,8 @@ check("the hook lists the first site as a board to take from, and not the open o
 
 const side = page.locator("[data-side-panel]");
 /* System is a pill inside the Site tab (side-panel lane, 2026-11-08): press Site, then System, as tests/system-panel.mjs does. */
-await side.locator('[aria-label="Side panel"] [role=radio][aria-label="Site"]').click();
-await pause(300);
-await side.locator('[data-site-tab="system"]').click();
+const tab = { click: async () => { await side.locator('[aria-label="Side panel"] [role=radio][aria-label="Site"]').click(); await pause(300); await side.locator('[data-site-tab="system"]').click(); } };
+await tab.click();
 await pause(800);
 const panel = page.locator("[data-system-panel]");
 const bar = panel.locator("[data-system-bar]");
