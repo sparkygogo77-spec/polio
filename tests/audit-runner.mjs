@@ -101,6 +101,15 @@ check("one browser function for the routes is a shortcut that says what it gives
 check("a small function with nothing wrong is not a finding", !r?.findings.some((f) => f.functions.includes("api/small")));
 check("the runner applied nothing", readFileSync(join(root, "kit/tools/check.mjs"), "utf8").includes("process.argv[1]") && git("status", "--porcelain").split("\n").every((l) => !l || /^\?\? (\.next|out|node_modules|capture)/.test(l)));
 
+const feats = r?.features ?? [];
+check("the features line has every merged lane, dated and in order, with its findings hung on it",
+  feats.filter((f) => !f.uncertain).map((f) => `${f.name}@${f.date}`).join(",") === "Browser Routes@2026-10-06,Kit Tools@2026-10-14"
+    && feats.find((f) => f.name === "Kit Tools")?.found === 1 && feats.find((f) => f.name === "Kit Tools")?.saves === big.length
+    && feats.find((f) => f.name === "Browser Routes")?.found === 1
+    /* The shortcut pins to the first commit, a root of the pretend history: said as uncertain, never dated as if known. */
+    && feats.find((f) => f.uncertain)?.found === 1,
+  JSON.stringify(feats));
+
 const md = (() => { try { return readFileSync(join(out, "receipt.md"), "utf8"); } catch { return ""; } })();
 check("receipt.md says before → after for J, and what each shortcut gives up", /of 500 MB/.test(md) && /→/.test(md) && /Gives up:/.test(md) && /Came in with: Kit Tools, 2026-10-12/.test(md), md.slice(0, 300));
 check("nothing in J's text names a branch or a commit code", !/claude\//.test(md) && !/\b[0-9a-f]{40}\b/.test(md));

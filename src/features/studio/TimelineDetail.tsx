@@ -20,7 +20,8 @@
  *   iteration.
  */
 import * as React from "react";
-import { ArrowRight, BookOpen, Brush, Check, Copy, Flag, ListChecks, MapPin, MessageSquare, Pin, PinOff, Repeat, Sparkles, Terminal, Wand2 } from "lucide-react";
+import { ArrowRight, BookOpen, Brush, Check, Copy, Flag, Gauge, ListChecks, MapPin, MessageSquare, Pin, PinOff, Repeat, Sparkles, Terminal, Wand2 } from "lucide-react";
+import { AuditView } from "@/features/audit/AuditPage";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { useActions } from "@/core/actions";
@@ -87,11 +88,13 @@ const PURPLE = {
  */
 let onTab: Tabs = "iteration";
 const tabWatchers = new Set<() => void>();
-type Tabs = "iteration" | "book" | "backend";
+type Tabs = "iteration" | "book" | "backend" | "audit";
 function setOnTab(t: Tabs) {
   onTab = t;
   tabWatchers.forEach((w) => w());
 }
+/** Open a tab from outside (the audit page's way back to the timeline opens the Audit tab under it). */
+export const openDetailTab = setOnTab;
 export function useDetailTab(): Tabs {
   return React.useSyncExternalStore(
     (w) => { tabWatchers.add(w); return () => { tabWatchers.delete(w); }; },
@@ -150,6 +153,12 @@ export function TimelineDetail() {
         <Tab on={tab === "backend"} onClick={() => { play("select"); setTab("backend"); }} icon={<Terminal className="size-3.5" />}>
           The backend
         </Tab>
+        {/* The fourth is about Polio itself, not this site: its features on one dated line, what each costs a
+            deployment, and the cuts on offer (`features/audit`). J (8 Nov): a one-button check in the feature
+            timeline. It sits here because this section is where he watches work land. */}
+        <Tab on={tab === "audit"} onClick={() => { play("select"); setTab("audit"); }} icon={<Gauge className="size-3.5" />} data-detail-tab-audit="">
+          Audit and optimize
+        </Tab>
         <span className="flex-1" />
         {open ? (
           <span className="truncate pr-1 text-small" style={{ color: FIELD.dim }}>
@@ -189,6 +198,8 @@ export function TimelineDetail() {
             // Unchanged, and in its own tab: same fields, same screen face,
             // same words. Only where it lives has moved.
             <IterationBook />
+          ) : tab === "audit" ? (
+            <AuditView />
           ) : open ? (
             <Iteration thread={open} />
           ) : (
@@ -202,10 +213,11 @@ export function TimelineDetail() {
   );
 }
 
-function Tab({ on, onClick, icon, children }: { on: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
+function Tab({ on, onClick, icon, children, ...rest }: { on: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode } & Record<`data-${string}`, string>) {
   return (
     <button
       type="button"
+      {...rest}
       onClick={onClick}
       aria-pressed={on}
       className="tactile flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-plain"

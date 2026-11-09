@@ -7,6 +7,7 @@
 import type { FeatureModule } from "@/core/types";
 import { account } from "./account";
 import { agents } from "./agents";
+import { audit } from "./audit";
 import { builds } from "./builds";
 import { keys } from "./keys";
 import { showcase } from "./showcase";
@@ -15,4 +16,4 @@ import { tour } from "./tour";
 import { tweets } from "./tweets";
 import { whatsnew } from "./whatsnew";
 
-export const modules: FeatureModule[] = [builds, studio, showcase, tweets, keys, account, tour, whatsnew, agents];
+export const modules: FeatureModule[] = [builds, studio, showcase, tweets, keys, account, tour, whatsnew, agents, audit];

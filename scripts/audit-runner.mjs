@@ -93,7 +93,8 @@ const sum = (fs) => fs.reduce((s, f) => s + f.size, 0);
 
 /* `--git <checkout>`: pin from another checkout of the same repository when the built one is shallow. */
 const gitRoot = resolve(arg("--git") ?? root);
-const git = (args) => { try { return execFileSync("git", args, { cwd: gitRoot, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch { return ""; } };
+const gitIn = (cwd, args) => { try { return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch { return ""; } };
+const git = (args) => gitIn(gitRoot, args);
 const plainName = (branch) => branch.replace(/^.*\//, "").replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
 /**
@@ -274,17 +275,43 @@ for (const fn of functions) {
 
 const cuts = findings.filter((f) => f.kind === "cut");
 const afterCuts = total - cuts.reduce((s, f) => s + (f.bytes.before - f.bytes.after), 0);
+
+/*
+ * The features on one dated line: every lane merged onto the base line
+ * (first parents, newest 150), plus any commit a finding is pinned to that
+ * is not one of those. Each carries how many findings point at it and the
+ * bytes its cuts would save, so a screen can draw the line with the
+ * findings hanging off the feature that brought them in.
+ */
+const features = git(["log", "--first-parent", "--merges", "--format=%H%x09%ad%x09%s", "--date=short", "-150"]).split("\n").filter(Boolean).map((l) => {
+  const [h, d, s] = l.split("\t");
+  const b = /from \S+\/(claude\/\S+)/.exec(s)?.[1];
+  return { name: b ? plainName(b) : s.slice(0, 60), date: d, commit: h.slice(0, 7) };
+});
+for (const f of findings) {
+  if (!f.pin.commit || features.some((x) => x.name === f.pin.feature)) continue;
+  features.push({ name: f.pin.feature, date: f.pin.date.replace(/^on or before /, ""), commit: f.pin.commit, uncertain: !f.pin.certain });
+}
+for (const x of features) {
+  const mine = findings.filter((f) => f.pin.feature === x.name);
+  x.found = mine.length;
+  x.saves = mine.filter((f) => f.kind === "cut").reduce((s, f) => s + (f.bytes.before - f.bytes.after), 0);
+  x.findings = mine.map((f) => f.id);
+}
+features.sort((a, b) => a.date.localeCompare(b.date));
 const receipt = {
   kind: "polio-audit-receipt",
   version: 1,
   when: new Date().toISOString(),
   root,
-  commit: git(["rev-parse", "--short", "HEAD"]) || null,
-  branch: git(["rev-parse", "--abbrev-ref", "HEAD"]) || null,
+  /* The built checkout's own commit and branch, whichever checkout pinned the history. */
+  commit: gitIn(root, ["rev-parse", "--short", "HEAD"]) || null,
+  branch: gitIn(root, ["rev-parse", "--abbrev-ref", "HEAD"]) || null,
   limit: LIMIT,
   before: { total, functions: functions.length, over: total > LIMIT },
   afterCuts: { total: afterCuts, over: afterCuts > LIMIT },
   functions: sizes.functions.map((f) => ({ fn: f.fn, bytes: f.bytes, heaviest: f.heaviest })),
+  features,
   findings,
 };
 mkdirSync(out, { recursive: true });
