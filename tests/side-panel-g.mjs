@@ -120,10 +120,10 @@ const width = Math.round((await side.boundingBox()).width);
 check("4 the panel starts about 300px wide", Math.abs(width - 300) <= 2, `${width}px`);
 const tabWords = async () => side.locator("[data-tab-word]").evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { w: r.width, cut: e.scrollWidth > e.clientWidth + 1, sr: e.classList.contains("sr-only") }; }));
 let words = await tabWords();
-check("4 every tab says its name at 300px, none cut", words.length === 7 && words.every((w) => w.w > 10 && !w.sr && !w.cut), JSON.stringify(words));
+check("4 every tab says its name at 300px, none cut", words.length === 6 && words.every((w) => w.w > 10 && !w.sr && !w.cut), JSON.stringify(words));
 
 /* 1 Format */
-await tab("Format");
+await tab("Site");
 const fmt = side.locator("[data-format-panel]");
 const order = await fmt.locator("[data-format-section]").evaluateAll((els) => els.map((e) => e.getAttribute("data-format-section")));
 check("1 Format reads: Whole-site features, Brief for a new build (This site is edited in Look on a site brought in)", order.join(",") === "whole-site,brief", order.join(","));
@@ -146,7 +146,7 @@ check("1 opened, the brief holds the generator's options and none of This site's
 await page.screenshot({ path: `${SHOTS}/after-format-brief.png` });
 
 /* 2 the tree */
-await tab("Element");
+await tab("Parts");
 const treeRows = side.locator("[data-parts-tree] [data-tree-row]");
 const topIds = await treeRows.evaluateAll((els) => els.map((e) => ({ id: e.getAttribute("data-tree-row"), d: Number(e.getAttribute("data-tree-depth")) })));
 const shownSections = topIds.filter((r) => r.d === 1).map((r) => r.id).filter((id) => sections.includes(id));
@@ -289,13 +289,13 @@ const lastIsCrates = await side.locator("[data-motion-panel]").evaluate((p) => {
 check("4 Frame interpolation is its own folded section at the foot", (await crates.count()) === 1 && !(await crates.evaluate((d) => d.open)) && lastIsCrates);
 await page.screenshot({ path: `${SHOTS}/after-motion.png` });
 
-/* 4 wider: one row of names */
+/* 4 wider: still three to a row (design C, 2026-11-08: the strip is six pieces in two rows at every width), every word whole */
 await page.evaluate(() => localStorage.setItem("builder.sidePanelWidth", "600"));
 await page.reload({ waitUntil: "networkidle" });
 await wait(1500);
 words = await tabWords();
 const tops = await side.locator("[data-tab-word]").evaluateAll((els) => new Set(els.map((e) => Math.round(e.getBoundingClientRect().top))).size);
-check("4 wider, the names sit on one row", words.every((w) => w.w > 10 && !w.cut) && tops === 1, `${tops} rows`);
+check("4 wider, the names stay three to a row, none cut", words.every((w) => w.w > 10 && !w.cut) && tops === 2, `${tops} rows`);
 
 check("no page errors", errors.length === 0, errors.slice(0, 3).join(" | "));
 await browser.close();

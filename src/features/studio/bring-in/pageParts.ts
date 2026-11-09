@@ -248,7 +248,10 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
     const featureId = FEATURE[p.kind];
     const id = `n_${pageId.replace(/^page_/, "")}_${p.kind}_${i + 1}`;
     const s = clippedCorners(read.parts, i);
-    const font = { stack: s.family, ...(familyOf(s.family) ? { family: familyOf(s.family) } : {}), size: fine(s.px / base), px: s.px, weight: s.weight, leading: fine(s.leading / Math.max(1, s.px)), ...(s.spacing ? { spacing: s.spacing } : {}) };
+    /* A one-line part whose box cannot hold its recorded leading drew its line in the room it had: that room is its line (`docTake.ts#fitLeading`, the same rule for a document taken in). */
+    const room = p.box.h - s.pad[0] - s.pad[2] - (s.border ? 2 * s.border.w : 0);
+    const leading = p.words && s.px > 0 && room > 0 && room < s.leading - 0.5 ? room : s.leading;
+    const font = { stack: s.family, ...(familyOf(s.family) ? { family: familyOf(s.family) } : {}), size: fine(s.px / base), px: s.px, weight: s.weight, leading: fine(leading / Math.max(1, s.px)), ...(s.spacing ? { spacing: s.spacing } : {}) };
     const colour: Record<string, string> = { text: s.colour };
     if (s.bg) colour.bg = s.bg;
     if (s.border && (p.kind === "button" || p.kind === "field")) colour.accent = s.border.colour;

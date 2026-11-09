@@ -21,7 +21,7 @@
 import type { Frag } from "./reassemble.ts";
 
 /** What a part remembers about the element it was read from. */
-export interface Read { from?: { selector?: string; position?: string } | null }
+export interface Read { from?: { selector?: string; position?: string } | null; art?: { overflow?: string | null } | null }
 
 /** The DOM path a part was read from, or nothing for one that was drawn or placed. */
 export const pathOf = (f: Frag & Read): string => (f.from?.selector ?? "").trim();
@@ -180,11 +180,26 @@ export interface Grown {
  * and the page is 101px shorter (`tests/wrapper-heals.mjs`).
  *
  * Nothing his hand touched, and nothing without a recorded path.
+ *
+ * AND NOT A BOX THE PAGE CUTS ITS CONTENTS TO. gotchi.gg's activity card is a
+ * 440px window (`overflow: auto`, carried as `art.overflow`) over a list that
+ * scrolls inside it; the list is 582 tall and the capture records every row,
+ * including the 142px the page never showed. Read as a wrapper adrift, the
+ * window grew to 582 at import and the three sections under it moved down 88
+ * to 142px (the import checkup, 2026-11-01: the same family on share.xyz's
+ * league table, 787 → 1481, stonkfun.xyz's panels and parasiteonsol's cards).
+ * Content a box clips or
+ * scrolls is cut by the page, not fallen out of it, the vertical twin of
+ * `sideways` above: such a box keeps the height the page gave it. Its own
+ * contents still travel with it and still grow to their own words.
+ * `tests/clipped-box-keeps-height.mjs`.
  */
+export const clips = (w: Read): boolean => /hidden|clip|auto|scroll/.test(w.art?.overflow ?? "");
+
 export function grownTo(all: readonly (Frag & Read)[]): Grown[] {
   const out: Grown[] = [];
   for (const w of all) {
-    if (w.byHand) continue;
+    if (w.byHand || clips(w)) continue;
     const box = grown(all, w);
     if (!box) continue;
     /* Out, never in: a rule that could shrink is the rule that strips padding. */

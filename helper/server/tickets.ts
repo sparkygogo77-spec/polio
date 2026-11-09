@@ -2,7 +2,7 @@
  * Lane tickets for the site relay (`POST /site`, helper/mcp/site.ts).
  *
  * A lane's agent gets its ticket in POLIO_SITE_TICKET, so the agent can read
- * it: a ticket is good for site.read, site.shot and site.apply on that one
+ * it: a ticket is good for the site tools on that one
  * lane and nothing else. It is never the pairing token, and never opens a
  * control. Only a SHA-256 of each ticket is kept, as with the pairing token.
  */

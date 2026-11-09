@@ -583,13 +583,13 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
       ) : null}
       {/*
         Hover outline, so an unpicked part still reads as a part, and only
-        then. It is drawn in the part's *category* hue, which on a first-screen
-        button is a red, so leaving it on under the hand put a red dashed box
-        round the picked part on top of the mark: two rings saying the same
-        thing, one of them in the colour this app keeps for Delete.
+        then: never on the picked part, where it would be a second ring
+        saying the same thing as the mark. Lit by the board, not by CSS
+        hover: the part under the hand and, fainter, each part holding it
+        (`hoverOutlines.ts`, globals.css `[data-hover-depth]`).
       */}
       {selected ? null : (
-        <div data-hover-mark="" className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100" style={{ outline: `1px dashed oklch(0.75 0.15 ${hue} / 0.8)`, ...turn }} />
+        <div data-hover-mark="" className="pointer-events-none absolute inset-0" style={turn ?? undefined} />
       )}
       {/* The picked mark of a turned part, turned with it (EDIT-ISSUES #35). */}
       {selected && !hugs && turn ? (
@@ -676,7 +676,10 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
                 style={bar
                   ? ({ "--mark": mark, zIndex: HANDLE_Z } as React.CSSProperties)
                   : { transform: `scale(${chipScale})`, borderColor: mark, zIndex: HANDLE_Z }}
-              />
+              >
+                {/* A square in the middle of each edge, as on the corners: the edge is still the handle, the square says so. */}
+                {bar ? <span data-edge-square="" className="absolute left-1/2 top-1/2 size-2 rounded-[2px] border bg-panel" style={{ transform: `translate(-50%, -50%) scale(${chipScale})`, borderColor: mark }} /> : null}
+              </span>
             ))
         : null}
       {selected && !node.locked && !inHeldGroup ? <FillTab node={node} chipScale={chipScale} /> : null}

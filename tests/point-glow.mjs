@@ -128,7 +128,7 @@ check("…and letting go takes every glow off", off.marks === 0 && off.lit === 0
 
 /* 5. */
 const side = page.locator("[data-side-panel]");
-await side.getByRole("radio", { name: "Element" }).first().click({ force: true });
+await side.getByRole("radio", { name: "Parts" }).first().click({ force: true });
 await page.waitForTimeout(700);
 const row = side.locator('[data-element-list="flat"] [data-list-row]:not([data-list-after])').nth(2);
 const rowId = await row.getAttribute("data-list-row").catch(() => null);

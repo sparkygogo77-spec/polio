@@ -41,7 +41,7 @@ if (!M?.afterGreen || !M?.withMerges) done();
 
 // ---- stand-ins -----------------------------------------------------------------
 const facts = (lane) => ({
-  lane, branch: `claude/${lane}`, commit: "abcdef1234567890", files: ["helper/merge/gate.ts"],
+  lane, branch: `claude/${lane}`, commit: "abcdef1234567890", files: ["src/features/agents/AgentsDock.tsx"],
   p: 2, generality: 5, fixes: "The hero's hover is calmer", before: "hover-calm 6/6, red on base",
   after: "the live check", prTitle: "P2: calmer hover", prBody: "body", after_branch: null,
 });

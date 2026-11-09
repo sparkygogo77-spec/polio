@@ -177,6 +177,7 @@ export function systemMd(o: { mode: ExportMode; tokens: number; components: { na
       "- Every part keeps its board id (`id=\"n_box_12\"`): it is how the Builder, this file and the next export find the same part again. Leave the ids on.",
       "- Layout is flex and grid on the holders; a part says its own width (`max-w-[…]`) and, when it holds nothing, its board height (`h-[…]`). Looks are Tailwind classes, the System's tokens by name (`bg-accent`, `p-space-4`, `text-heading-1`), one-off values as themselves (`text-[13.5px]`).",
       "- Headings are `<h1>`…`<h6>` as the captured page had them, the first on each page an `<h1>`. Icons are decorative (`aria-hidden`); the link or button around one carries its name.",
+      "- Motion: `styles/motion/<page>.css` holds each part's animation, hover and press by its id (keyframes are in `app/globals.css`); `app/<route>/behaviours.ts` lists what a part does by itself or on a press (an entrance, a copy, a tab), run by `components/Behaviours.tsx` from the scripts in `public/assets/features/`. To rewrite one in React, take its line out of behaviours.ts. Parts a press shows are in the page's `…States` section, hidden until then.",
       "- The pages were drawn at the board's width. They shrink (rows centre, parts flex), but there are no breakpoints yet: adding `md:` and `sm:` classes where a row should stack is the first responsive edit to make.",
       "",
     );

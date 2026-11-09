@@ -48,7 +48,7 @@ page.on("pageerror", (e) => errors.push(e.message));
 await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
 await page.waitForTimeout(2500);
 const side = page.locator("[data-side-panel]");
-await side.getByRole("radio", { name: "Element" }).first().click({ force: true });
+await side.getByRole("radio", { name: "Parts" }).first().click({ force: true });
 await page.waitForTimeout(700);
 
 const row = (id) => side.locator(`[data-list-row="${id}"]`).first();

@@ -111,10 +111,10 @@ export async function buildExport(choice: ExportChoice): Promise<Exported> {
   } else {
     const lib = choice.library ? libraryOut(system, { gallery: choice.gallery }) : null;
     components = lib ? system.components.length : 0;
-    const out = pagesOut({ name, description: s.brief.description ?? "", pages: s.pages, nodes: nodes as never, frameWidth: s.frameWidth, system, palette, published, siteCss, library: lib?.names });
+    const out = pagesOut({ name, description: s.brief.description ?? "", pages: s.pages, nodes: nodes as never, frameWidth: s.frameWidth, system, palette, published, siteCss, library: lib?.names, siteFile: (path) => { const f = byPath.get(path); return f && !isBinary(f) ? f.content : undefined; } });
     report = out.report;
     files.push(...(lib?.files ?? []), ...out.files);
-    for (const f of site) if (f.path.replace(/^\/+/, "").startsWith("assets/pictures/")) files.push({ path: `public/${f.path.replace(/^\/+/, "")}`, content: isBinary(f) ? Uint8Array.from(atob(f.content), (c) => c.charCodeAt(0)) : f.content });
+    for (const f of site) if (f.path.replace(/^\/+/, "").match(/^assets\/(pictures|crates)\//)) files.push({ path: `public/${f.path.replace(/^\/+/, "")}`, content: isBinary(f) ? Uint8Array.from(atob(f.content), (c) => c.charCodeAt(0)) : f.content });
   }
   /* What both carry: the app's setup, POLIO.md with the System, the design record. */
   files.push(...appSetup(appFiles({ name, parts: [] } as unknown as ScaffoldInput)));

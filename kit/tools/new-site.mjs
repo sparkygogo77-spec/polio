@@ -10,7 +10,7 @@
 // builder.json, the checker, the starter site, the tests and the GitHub workflow.
 import { cpSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { check } from './kit-check.mjs';
 
 const KIT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -32,7 +32,7 @@ export function newSite(target, { name } = {}) {
   return check(join(to, 'builder.json'));
 }
 
-if (import.meta.url === new URL(`file://${resolve(process.argv[1] ?? '')}`).href) {
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const args = process.argv.slice(2);
   const at = args.indexOf('--name');
   const name = at >= 0 ? args[at + 1] : undefined;

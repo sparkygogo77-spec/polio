@@ -45,7 +45,8 @@ import { fileURLToPath } from "node:url";
 import { CONTRACT_VERSION as v, STEPS, type Control, type Lane, type MergeLine, type Message } from "../contract.ts";
 import { cloudAdapter } from "../agents/cloud.ts";
 import { pcPlanAdapter } from "../agents/pc.ts";
-import { SpendBook } from "../agents/spend.ts";
+import { DEFAULT_TOKENS_PER_DAY, SpendBook, goodCap, readCapsFile, writeCapsFile, type Caps } from "../agents/spend.ts";
+import { findClaude } from "../agents/find-claude.ts";
 import { addWorktree } from "../agents/worktree.ts";
 import { branchPushed } from "../agents/pushed.ts";
 import { claudeAsk } from "../coordinator/ask.ts";
@@ -236,8 +237,11 @@ export function realBrowser(shotsDir: string) {
 
 // ---- the tray's commands on stdin --------------------------------------------
 
-/** Pause all pauses every working lane and remembers them; Resume all resumes those. */
-export function trayCommands(runner: RunnerLike, quit: () => void) {
+/**
+ * Pause all pauses every working lane and remembers them; Resume all resumes
+ * those. `deny` is the code window's Deny: the waiting pairing code ends.
+ */
+export function trayCommands(runner: RunnerLike, quit: () => void, pairing?: Pick<Pairing, "deny">) {
   const pausedByTray = new Set<string>();
   const control = (lane: string, d: "pause" | "resume") => runner.control({ v, kind: "control", lane, do: d, by: "j" } as Control);
   return async (line: string) => {
@@ -250,7 +254,8 @@ export function trayCommands(runner: RunnerLike, quit: () => void) {
     } else if (cmd === "resume-all") {
       for (const lane of pausedByTray) await control(lane, "resume");
       pausedByTray.clear();
-    } else if (cmd === "quit") quit();
+    } else if (cmd === "deny") pairing?.deny();
+    else if (cmd === "quit") quit();
   };
 }
 
@@ -261,7 +266,7 @@ if (import.meta.main) {
     repo: { type: "string", default: process.cwd() },
     handovers: { type: "string" },
     agents: { type: "string" },
-    claude: { type: "string", default: join(homedir(), ".local", "bin", process.platform === "win32" ? "claude.exe" : "claude") },
+    claude: { type: "string" },
     base: { type: "string", default: `origin/${BASE}` },
     "at-once": { type: "string", default: "3" },
     "tokens-per-day": { type: "string" },
@@ -277,16 +282,29 @@ if (import.meta.main) {
   const agentsDir = resolve(values.agents ?? join(dirname(repo), "agents"));
   const stateDir = resolve(values.state ?? join(process.env.LOCALAPPDATA ?? join(homedir(), ".local", "share"), "PolioHelper"));
   const port = values.port ? Number(values.port) : HELPER_PORT;
-  const command = { file: values.claude! };
+  // helper.json's path first; if the desktop app moved its copy, look again (find-claude.ts).
+  const found = findClaude({ given: values.claude, home: homedir(), path: process.env.PATH, appData: process.env.APPDATA });
+  const claudeFile = found.file ?? values.claude ?? join(homedir(), ".local", "bin", process.platform === "win32" ? "claude.exe" : "claude");
+  console.log(found.file ? `Claude Code: ${found.file} (${found.from})` : found.from);
+  const command = { file: claudeFile };
   const tickets = new SiteTickets();
-  const pcCommand = { file: values.claude!, args: ["--mcp-config", siteMcpConfig(stateDir)] };
+  const pcCommand = { file: claudeFile, args: ["--mcp-config", siteMcpConfig(stateDir)] };
+  // The daily cap: the dock's last change (<state>/caps.json), else the tray's --tokens-per-day (helper.json), else the default. Never none.
+  const capsFile = join(stateDir, "caps.json");
+  const kept = readCapsFile(capsFile);
+  const given = count(values["tokens-per-day"]);
+  const caps: Caps = {
+    tokensPerDay: kept.tokensPerDay ?? (goodCap(given) ? given : DEFAULT_TOKENS_PER_DAY),
+    tokensPerRequest: kept.tokensPerRequest ?? count(values["tokens-per-request"]),
+  };
+  const spend = new SpendBook({ caps });
   const baseName = values.base!.replace(/^origin\//, "");
 
   const coordinator = new Coordinator({
     runner: {
       adapters: { pc: withSiteTickets(pcPlanAdapter({ command: pcCommand }), tickets, `http://127.0.0.1:${port}/site`), cloud: cloudAdapter({ command }) },
       stateDir,
-      spend: new SpendBook({ caps: { tokensPerDay: count(values["tokens-per-day"]), tokensPerRequest: count(values["tokens-per-request"]) } }),
+      spend,
       pushed: branchPushed,
       workspace: (lane, where, from) => where === "pc" ? addWorktree({ repo, root: agentsDir, lane, base: from }) : repo,
     },
@@ -322,15 +340,40 @@ if (import.meta.main) {
     landed: gitLanded(repo, baseName),
   });
 
-  const pairing = new Pairing({ show: (code) => console.log(`\n  Pair with polio-two.vercel.app?  Code: ${code.slice(0, 3)} ${code.slice(3)}\n@pair ${code}`) });
-  const helper = await startHelperServer({ runner, pairing, tickets, port, siteLog: new BridgeLog(stateDir) });
-  console.log(`Polio Helper on http://127.0.0.1:${helper.port} (on your plan, ${coordinator.atOnce} lanes at once)\n@ready ${helper.port}`);
+  // Under the tray only the @pair line carries the code: the tray shows it and never logs it.
+  // From a terminal the code is printed for a person to read.
+  const pairing = new Pairing({
+    file: join(stateDir, "pairing.json"),
+    show: (code) => console.log(values.tray ? `@pair ${code}` : `\n  Pair with polio-two.vercel.app?  Code: ${code.slice(0, 3)} ${code.slice(3)}\n@pair ${code}`),
+  });
+  // The PC reader starts on the dock's first look at the tab, not before (one hidden PowerShell while it is open).
+  let watch: Awaited<ReturnType<typeof import("../pc/watch.ts")["pcWatch"]>> | null = null;
+  const pcWatchNow = async () => (watch ??= (await import("../pc/watch.ts")).pcWatch({ labelsDir: join(agentsDir, "running") }));
+  const helper = await startHelperServer({
+    runner, pairing, tickets, port, siteLog: new BridgeLog(stateDir),
+    lanes: { file: join(handoversDir, "lanes.json"), beats: join(agentsDir, "lanes") },
+    caps: {
+      get: () => ({ tokensPerDay: spend.opts.caps?.tokensPerDay ?? null, tokensPerRequest: spend.opts.caps?.tokensPerRequest ?? null, today: spend.today() }),
+      set: ({ tokensPerDay }) => {
+        const next = { ...spend.opts.caps, tokensPerDay };
+        coordinator.runner.setCaps(next);
+        try { writeCapsFile(capsFile, next); } catch (e) { console.log(`the cap wasn't kept for the next start: ${(e as Error).message}`); }
+        console.log(`Daily cap set to ${tokensPerDay} tokens by J`);
+      },
+    },
+    pc: {
+      read: async () => (await pcWatchNow()).read(),
+      stop: async (pid, created, confirm) => (await pcWatchNow()).stop(pid, created, confirm),
+      stopIdle: async (minutes) => (await pcWatchNow()).stopIdle(minutes),
+    },
+  });
+  console.log(`Polio Helper on http://127.0.0.1:${helper.port} (on your plan, ${coordinator.atOnce} lanes at once, at most ${caps.tokensPerDay} tokens a day)\n@ready ${helper.port}`);
 
-  const quit = async () => { clearInterval(every); await coordinator.stopAll(); await helper.close(); process.exit(0); };
+  const quit = async () => { clearInterval(every); await coordinator.stopAll(); await helper.close(); watch?.close(); process.exit(0); };
   process.on("SIGINT", quit);
   process.on("SIGTERM", quit);
   // The tray pipes stdin; from a terminal these lines can be typed too.
-  const tray = trayCommands(runner, () => void quit());
+  const tray = trayCommands(runner, () => void quit(), pairing);
   const lines = createInterface({ input: process.stdin }).on("line", (l) => void tray(l));
   // Started by the tray: when the tray goes, so does the helper (and its lanes).
   if (values.tray) lines.on("close", () => void quit());

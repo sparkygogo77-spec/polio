@@ -21,6 +21,10 @@ import { Input } from "@/core/ui/input";
 import { Textarea } from "@/core/ui/textarea";
 import { Dialog } from "@/core/ui/dialog";
 import { VariationsLink } from "../ThemePanel";
+import { useBuilds } from "@/features/builds/store";
+import { ReferenceNote } from "../reference/ReferenceNote";
+import { referenceFor } from "../reference/run";
+import { summaryOf } from "../reference/model";
 import { acceptOffer, askVersions, buildPicked, offerOpen, styleFor, type Asked, type Built, type Style } from "./versionsRun";
 import { VersionsPicker } from "./VersionsPicker";
 import type { Picks } from "./versions";
@@ -34,6 +38,7 @@ type Step = { at: "ask" } | { at: "pick"; asked: Asked; style: Style } | { at: "
 
 export function IdeaDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const ids = React.useId();
+  const project = useBuilds((s) => s.activeId);
   const [text, setText] = React.useState("");
   const [sections, setSections] = React.useState("");
   const [ref, setRef] = React.useState("");
@@ -45,8 +50,11 @@ export function IdeaDialog({ open, onOpenChange }: { open: boolean; onOpenChange
   const go = async (claude: boolean) => {
     setBusy(claude ? "claude" : "local");
     try {
-      const idea = { text: text.trim(), sections: sectionsOf(sections), ref: ref.trim() || null };
-      const asked = await askVersions(idea, { claude });
+      /* A page that cannot be read says why under the box, and the name goes on alone. */
+      const read = ref.trim() ? await referenceFor(project, ref) : null;
+      const record = read?.ok ? read.record : null;
+      const idea = { text: text.trim(), sections: sectionsOf(sections), ref: ref.trim() || null, reference: record ? summaryOf(record) : null };
+      const asked = await askVersions(idea, { claude, referenceShot: record?.shot ?? null });
       setPicks({});
       setStep({ at: "pick", asked, style: styleFor(idea, asked.versions.name) });
     } finally {
@@ -91,7 +99,7 @@ export function IdeaDialog({ open, onOpenChange }: { open: boolean; onOpenChange
           {step.asked.plain ? <p data-idea-plain="" className="text-warning">{step.asked.plain}</p> : null}
           <VersionsPicker versions={step.asked.versions} system={step.style.system} picks={picks} onPicks={setPicks} />
           <p className="text-fg-muted">
-            {step.asked.versions.by === "claude" ? "Made by Claude in one call" : "Made here from the catalogue, free"}, drawn in {FROM_WORDS[step.style.from]}.
+            {step.asked.versions.by === "claude" ? "Made by Claude in one call" : "Made here from the catalogue, free"}, drawn in {FROM_WORDS[step.style.from]}{step.style.coloursOf ? `, in the colours of ${step.style.coloursOf}` : ""}.
             {step.asked.spend?.dollars ? ` The call cost $${step.asked.spend.dollars.toFixed(3)}.` : ""}
             {step.asked.versions.missing.length ? ` Placeholders for what no part does yet: ${step.asked.versions.missing.map((m) => m.name).join(", ")}.` : ""}
           </p>
@@ -107,8 +115,9 @@ export function IdeaDialog({ open, onOpenChange }: { open: boolean; onOpenChange
             <Input id={`${ids}-sections`} value={sections} onChange={(e) => setSections(e.target.value)} placeholder="Classes, Shop, Gallery, About" autoComplete="off" data-idea-sections="" />
           </div>
           <div className="flex flex-col gap-1 text-xs text-fg-muted">
-            <label htmlFor={`${ids}-ref`}>A site you like <span className="text-fg-subtle">— optional; Claude is told its address, nothing is fetched</span></label>
+            <label htmlFor={`${ids}-ref`}>A site you like <span className="text-fg-subtle">— optional; type its address and its layout and colours guide the versions</span></label>
             <Input id={`${ids}-ref`} value={ref} onChange={(e) => setRef(e.target.value)} placeholder="https://example.com" autoComplete="off" spellCheck={false} data-idea-ref="" />
+            <ReferenceNote project={project} text={ref} className="mt-1" />
           </div>
         </div>
       )}

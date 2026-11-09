@@ -110,6 +110,7 @@ const live = liveHelper({
     $("[data-pair]").hidden = s !== "pair";
     $("[data-helper]").textContent = s === "live" ? "on your PC, paired" : s === "pair" ? "pair with your PC first" : `helper not reachable${why ? ` (${why})` : ""}, trying again`;
     document.body.dataset.helperState = s;
+    if (s === "live") readCaps(true);
   },
 }, {});
 
@@ -271,6 +272,7 @@ function take(m: Lane | MergeLine | Spend | { kind: string }) {
   } else if (m.kind === "spend") {
     const s = m as Spend;
     spends.set(s.requestId, s);
+    readCaps();
     drawSpend();
   }
 }
@@ -441,7 +443,8 @@ function drawSpend() {
       <div class="name"><b>Your Claude plan</b> <span class="right">${planSaid}</span></div>${bar}
     </div>
     <div class="meter" data-spend-pc><div class="name"><b>PC lanes</b> <span class="right">${pcRows.length ? `${k(pcTokens)} tokens${pcCached ? ` <span class="quiet" title="The conversation re-read from Claude Code's cache each turn. Not counted toward caps.">+ ${k(pcCached)} read from cache</span>` : ""}` : "none yet"}</span></div></div>
-    <div class="meter" data-spend-cloud><div class="name"><b>Cloud lanes</b> <span class="right">${cloudRows.length ? NOT_MEASURED : "none yet"}</span></div></div>`;
+    <div class="meter" data-spend-cloud><div class="name"><b>Cloud lanes</b> <span class="right">${cloudRows.length ? NOT_MEASURED : "none yet"}</span></div></div>
+    ${capMeter()}`;
   $("[data-compare]").innerHTML = rows.map((r) => {
     const t = tokensOf(r);
     return `<tr data-spend-row="${esc(r.lane)}"><td>${esc(r.lane)}</td><td><span class="tag ${r.pays === "plan" ? "pc" : "cloud"}">${r.pays === "plan" ? "PC" : "cloud"}</span></td>
@@ -458,6 +461,54 @@ function drawSpend() {
       : cloud.length ? "Nothing to compare: cloud tokens aren't measured." : "";
     return `<li data-compare-request="${esc(s.requestId)}">${[pcSaid, cloudSaid].filter(Boolean).join(" ")} ${verdict ? `<span class="quiet">${verdict}</span>` : ""}</li>`;
   }).join("");
+}
+
+// ---- the daily token cap (audit helper-install.md, risk 3) -----------------
+// The helper is never uncapped: 2,000,000 counted tokens a day unless J
+// changes it here. At the cap the runner pauses every PC lane; Resume works
+// once the cap is raised or the day turns.
+
+type CapView = { tokensPerDay: number | null; today: number; editing: boolean; said: string };
+const cap: CapView = { tokensPerDay: FAKE ? 2_000_000 : null, today: 0, editing: false, said: "" };
+(window as unknown as { __dock: Record<string, unknown> }).__dock.cap = cap;
+const full = (n: number) => n.toLocaleString("en-GB");
+
+function capMeter() {
+  const set = cap.tokensPerDay;
+  const used = set ? `${k(cap.today)} of ${k(set)} today` : "reading…";
+  const fill = set ? `<div class="bar-track"><div class="bar-fill ${cap.today >= set * 0.8 ? "warn" : ""}" style="width:${Math.min(100, (cap.today / set) * 100).toFixed(1)}%"></div></div>` : "";
+  const edit = cap.editing
+    ? `<div class="cap-edit"><label>Tokens a day <input type="number" min="10000" step="100000" data-cap-input value="${set ?? ""}"></label>
+        <button class="small" data-cap-save>Set</button><button class="small" data-cap-cancel>Keep it</button></div>`
+    : `<button class="small" data-cap-change>Change</button>`;
+  return `<div class="meter" data-cap data-cap-value="${set ?? ""}">
+      <div class="name"><b>Daily cap</b> <span class="right">${used}</span></div>${fill}
+      <p class="quiet">Lanes pause at ${set ? `${full(set)} tokens` : "the cap"} a day. ${edit}</p>${cap.said ? `<p class="quiet" data-cap-said>${esc(cap.said)}</p>` : ""}</div>`;
+}
+
+let capTimer: ReturnType<typeof setTimeout> | null = null;
+/** Reads the caps from the helper (soon after a spend line; never more than once in 2 s). */
+function readCaps(now = false) {
+  if (FAKE) { cap.today = [...spends.values()].flatMap((s) => s.lanes).reduce((a, l) => a + (tokensOf(l) ?? 0), 0); return; }
+  if (capTimer) return;
+  capTimer = setTimeout(() => {
+    capTimer = null;
+    void live.caps().then((r) => {
+      if (r.status !== 200) return;
+      cap.tokensPerDay = r.tokensPerDay ?? null; cap.today = r.today ?? 0;
+      drawSpend();
+    }).catch(() => {});
+  }, now ? 0 : 2000);
+}
+
+async function saveCap() {
+  const n = Number($<HTMLInputElement>("[data-cap-input]")?.value);
+  if (!Number.isInteger(n) || n < 10_000) { cap.said = "The cap is a whole number of tokens, 10,000 or more."; drawSpend(); return; }
+  if (FAKE) { cap.tokensPerDay = n; cap.editing = false; cap.said = `Set to ${full(n)} tokens a day.`; drawSpend(); return; }
+  const r = await live.setDailyCap(n);
+  if (r.ok) { cap.tokensPerDay = r.tokensPerDay ?? n; cap.today = r.today ?? cap.today; cap.editing = false; cap.said = `Set to ${full(cap.tokensPerDay!)} tokens a day. Lanes the cap paused go on when you press Resume.`; }
+  else cap.said = `The helper said no: ${r.error ?? r.status}`;
+  drawSpend();
 }
 
 // ---- on your PC now -------------------------------------------------------
@@ -480,8 +531,14 @@ function showTab(tab: string) {
   document.querySelectorAll<HTMLElement>("[data-tab-body]").forEach((b) => { b.hidden = b.dataset.tabBody !== tab; });
   document.querySelectorAll<HTMLElement>("nav [data-tab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === tab)));
   if (tab === "pc" && !pcView) {
-    const live = qs.get("pc") === "live";
-    pcView = mountPcView($("[data-pcview]"), live ? liveSource() : fakeSource(), { sent: pcSent, everyMs: live ? 5000 : 0 });
+    // Under the real helper (no ?fake=1) the tab reads this PC through the
+    // helper's token-gated /api/pc/* (audit risk 8). ?pc=live is the
+    // preview server's reader (serve.mjs --pc); ?pc=fake or ?fake=1 the fake tree.
+    const mode = qs.get("pc") ?? (FAKE ? "fake" : "helper");
+    const real = mode === "live" || mode === "helper";
+    const source = mode === "live" ? liveSource() : mode === "helper" ? live.pc : fakeSource();
+    document.body.dataset.pcSource = real ? mode : "fake";
+    pcView = mountPcView($("[data-pcview]"), source, { sent: pcSent, everyMs: real ? 5000 : 0 });
     void pcView.refresh().then(() => document.body.setAttribute("data-pcview-ready", ""));
   }
 }
@@ -496,6 +553,9 @@ document.addEventListener("click", (e) => {
   if (chip) { chips = chips.filter((_, i) => i !== Number(chip.dataset.chip)); drawChips(); return; }
   if (t.closest("[data-plan-it]")) return planIt();
   if (t.closest("[data-pair-start]")) { void pairStart(); return; }
+  if (t.closest("[data-cap-change]")) { cap.editing = true; cap.said = ""; drawSpend(); $<HTMLInputElement>("[data-cap-input]")?.focus(); return; }
+  if (t.closest("[data-cap-cancel]")) { cap.editing = false; cap.said = ""; drawSpend(); return; }
+  if (t.closest("[data-cap-save]")) { void saveCap(); return; }
   if (t.closest("[data-pair-send]")) { void pairSend(); return; }
   if (t.closest("[data-start]")) {
     t.closest<HTMLElement>(".go")!.outerHTML = `<p class="quiet">Started.</p>`;

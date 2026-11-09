@@ -15,14 +15,17 @@
  */
 import { FEATURES, getFeature, type FeatureDef } from "../shelf/index.ts";
 import { statusOf } from "../shelfFacts.ts";
+import type { ReferenceSummary } from "../reference/model.ts";
 
 /** What J typed in the dialog. */
 export interface Idea {
   text: string;
   /** The sections J named, in order; none lets Claude choose. */
   sections: string[];
-  /** A site J likes, as typed. Named to Claude; never fetched. */
+  /** A site J likes, as typed. */
   ref: string | null;
+  /** That site as read, when it was an address that could be (`reference/`): what Claude is given in place of the name. */
+  reference?: ReferenceSummary | null;
 }
 
 /** One thing in a section. The words are the site's own; the look is the house style's. */

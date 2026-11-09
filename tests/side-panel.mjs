@@ -124,10 +124,10 @@ await page.reload({ waitUntil: "networkidle" });
 await page.waitForTimeout(1500);
 check("the width is kept in this browser", Math.abs((await width()) - 480) <= 4, `${await width()}px after a reload`);
 const words = await side.locator("[data-tab-word]").evaluateAll((els) => els.filter((e) => !e.classList.contains("sr-only")).length);
-check("every tab says its name", words === 7, `${words} of 7 named`);
+check("every tab says its name", words === 6, `${words} of 6 named`);
 
 /* ------------------------------------------------ Element, nothing picked */
-await tab("Element");
+await tab("Parts");
 check("with nothing picked, a page summary leads", (await side.locator("[data-page-summary]").count()) === 1);
 const stat = async (k) => (await side.locator(`[data-summary="${k}"]`).innerText()).replace(/\s+/g, " ");
 check("…it counts the parts, the pages and the links", /^7 parts/.test(await stat("parts")) && /^2 pages/.test(await stat("pages")) && /^1 link/.test(await stat("links")), `${await stat("parts")} | ${await stat("pages")} | ${await stat("links")}`);
@@ -176,7 +176,7 @@ await side.locator('[data-part-section="prompt"] [data-section-head]').click();
 /* A fresh visit has nothing picked: the summary's list is there again. */
 await page.reload({ waitUntil: "networkidle" });
 await page.waitForTimeout(1500);
-await tab("Element");
+await tab("Parts");
 await pickRow("Buy the comic");
 check("words inside a link are a label", /Label on a link/.test(await side.locator("[data-element-kind]").innerText()), await side.locator("[data-element-kind]").innerText());
 check("…with no measure and no \"long-form text\"", !(await side.getByLabel("Measure").count()) && !/Long-form/i.test(await side.innerText()));
@@ -186,7 +186,7 @@ await page.screenshot({ path: `${SHOTS}/side-panel-label.png` });
 
 /* ------------------------------------------------ Format */
 /* On a site brought in Format is Whole-site features and a folded brief: its fonts, size, corners and colours are edited in Look, from the preview (J, 2026-10-09). */
-await tab("Format");
+await tab("Site");
 check("a site brought in has no This site block in Format", (await side.locator('[data-format-section="site"]').count()) === 0);
 check("…and no Page transition switch (it comes from the Motion shelf)", (await side.locator('[data-format-switch="pages.transition"]').count()) === 0);
 check("the stack is folded away with the brief, and the fold says it changes nothing here", (await side.locator('[data-format-field="build.stack"]').count()) === 0 && /changes the captured page/.test(await side.locator("[data-brief-fold]").innerText()));

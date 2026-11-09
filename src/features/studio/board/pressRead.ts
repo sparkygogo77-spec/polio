@@ -120,16 +120,30 @@ export function readPress(e: PressEvent, p: Point, tool: Tool, st: StudioState, 
   };
 }
 
-/** The smallest part shown under the hand inside a click-through part's box, as the page's own click would have reached it: a part at the point, smaller than the inert one and not the site's wrapper. */
+/**
+ * The smallest part shown under the hand inside a click-through part's box, as the page's own click would have reached
+ * it: a part at the point, smaller than the inert one and not the site's wrapper.
+ *
+ * A CLICK-THROUGH LAYER PINNED TO THE WINDOW GIVES WAY TO ANYTHING UNDER THE HAND (EDIT-ISSUES #60). Sol face's
+ * pointer glow is a 450px `position: fixed` box the page made `pointer-events: none` and moves with the pointer; on
+ * the board it rides with the view, so it lies over a different stretch of the page at every scroll, and a press on
+ * a part bigger than it there (a 660px hero tile, the 1440px marquee picture) picked the glow: 16 content parts no
+ * press could reach (the import checkup, 2026-11-01). On the page nothing is ever "under" such a layer: a click
+ * there reaches whatever is drawn below, whatever its size. So for a pinned inert layer the press lands on the
+ * smallest part under the hand of any size; a layer in the page's flow (trumpmorty's planet, placed absolutely)
+ * keeps the size rule, so a press on it where only its section lies under still picks it. Words keep theirs too
+ * (`NodeView.tsx`: a heading made click-through is still what a person presses to edit it).
+ */
 function underInert(st: StudioState, inert: StudioNode, p: Point): StudioNode | null {
   const shown = shownOnBoard(st), places = placedOnBoard(st);
   const box = (n: StudioNode) => places.get(n.id) ?? n;
   const o = box(inert);
+  const anySize = inert.from?.position === "fixed" && !wordsOf(inert);
   let best: StudioNode | null = null;
   for (const n of st.nodes) {
     if (n.id === inert.id || n.pageId !== inert.pageId || !shown(n) || isWrapper(st.nodes, n)) continue;
     const b = box(n);
-    if (!(p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) || b.w * b.h >= o.w * o.h) continue;
+    if (!(p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) || (!anySize && b.w * b.h >= o.w * o.h)) continue;
     if (!best || b.w * b.h < box(best).w * box(best).h) best = n;
   }
   return best;

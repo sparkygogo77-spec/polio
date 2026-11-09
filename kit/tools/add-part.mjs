@@ -7,7 +7,7 @@
 //   npm run kit:part -- scoreboard ../my-site
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const KIT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const readJson = (f) => JSON.parse(readFileSync(f, 'utf8'));
@@ -75,7 +75,7 @@ export function addPart(name, site) {
   return { done, snippet, links, use: part.use, states: part.states, js: part.js };
 }
 
-if (import.meta.url === new URL(`file://${resolve(process.argv[1] ?? '')}`).href) {
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const [name, site] = process.argv.slice(2);
   if (!name || !site) {
     console.log('usage: npm run kit:part -- <part> <site folder>');

@@ -1,0 +1,8 @@
+<!doctype html><meta charset="utf-8"><title>Card</title>
+<style>body{margin:0;background:#140a24;color:#fff;font:48px system-ui;display:grid;place-items:center;height:100vh}</style>
+<body>Card
+<script>
+  // Shown live: this runs, sandboxed, and reaches nothing of the page that frames it.
+  document.body.dataset.live = "yes";
+  try { document.body.dataset.parent = parent.document ? "reached" : "none"; } catch { document.body.dataset.parent = "blocked"; }
+</script>

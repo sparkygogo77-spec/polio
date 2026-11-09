@@ -4,12 +4,14 @@ import { keyFor } from "@/app/api/keyFor";
 import { answerCeiling } from "../budget";
 import { DRAFT_MODEL, PLAN_SCHEMA, VERSIONS_SCHEMA, askForPlan, askForVersions, type Sent } from "@/features/studio/idea/ask";
 import type { Idea } from "@/features/studio/idea/plan";
+import { readSummary } from "@/features/studio/reference/model";
 
 /**
  * A new idea's page plan (create system (b), "Start from a new idea").
  *
  * The Builder sends what J typed: the site in a sentence or more, the
- * sections wanted, and a site liked for reference. One Claude call answers
+ * sections wanted, and a site liked for reference, read off its page when it
+ * could be (`reference/`), with its photograph. One Claude call answers
  * with a plan made only of catalogue parts, with a labelled placeholder
  * wherever nothing fits (`idea/ask.ts`, `idea/plan.ts`). The Builder lays it
  * out in the house style (`idea/planToBoard.ts`); nothing here places a part.
@@ -38,15 +40,19 @@ interface Body {
   name?: string;
   /** Several versions in the one call, rather than one page. */
   versions?: boolean;
-  idea?: { text?: unknown; sections?: unknown; ref?: unknown };
+  idea?: { text?: unknown; sections?: unknown; ref?: unknown; reference?: unknown };
+  /** The photograph of the reference, a JPEG as base64. */
+  referenceShot?: unknown;
 }
+
+const MAX_SHOT_CHARS = 1_500_000;
 
 /** What J typed, read strictly. */
 function ideaOf(v: Body["idea"]): Idea {
   const text = typeof v?.text === "string" ? v.text.trim().slice(0, 4000) : "";
   const sections = Array.isArray(v?.sections) ? v.sections.filter((s): s is string => typeof s === "string" && !!s.trim()).map((s) => s.trim().slice(0, 60)).slice(0, 12) : [];
   const ref = typeof v?.ref === "string" && v.ref.trim() ? v.ref.trim().slice(0, 300) : null;
-  return { text, sections, ref };
+  return { text, sections, ref, reference: readSummary(v?.reference) };
 }
 
 export async function POST(request: Request) {
@@ -75,7 +81,12 @@ export async function POST(request: Request) {
   const deadline = new AbortController();
   const ran = setTimeout(() => deadline.abort(), ANSWER_BUDGET_MS);
 
+  /* Before the words that say what it is. Only with the measurements: a picture alone is not a reference. */
+  const shot = idea.reference && typeof body.referenceShot === "string" && body.referenceShot && body.referenceShot.length <= MAX_SHOT_CHARS ? body.referenceShot : null;
+
   const send = async (system: string, blocks: { text: string; cache?: true }[]): Promise<Sent> => {
+    const content: Anthropic.Beta.BetaContentBlockParam[] = blocks.map((b) => ({ type: "text" as const, text: b.text, ...(b.cache ? { cache_control: { type: "ephemeral" as const } } : {}) }));
+    if (shot) content.splice(content.length - 1, 0, { type: "text", text: "A picture of the REFERENCE, for its layout only:" }, { type: "image", source: { type: "base64", media_type: "image/jpeg", data: shot } });
     const stream = client.beta.messages.stream({
       model: DRAFT_MODEL,
       // Thinking counts toward this; a plan is a page of JSON, versions several pages each.
@@ -85,7 +96,7 @@ export async function POST(request: Request) {
       thinking: { type: "adaptive" },
       output_config: { effort, format: { type: "json_schema", schema: body.versions ? VERSIONS_SCHEMA : PLAN_SCHEMA } },
       system,
-      messages: [{ role: "user", content: blocks.map((b) => ({ type: "text" as const, text: b.text, ...(b.cache ? { cache_control: { type: "ephemeral" as const } } : {}) })) }],
+      messages: [{ role: "user", content }],
     }, { signal: deadline.signal });
     const message = await stream.finalMessage();
     return {

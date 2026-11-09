@@ -7,14 +7,25 @@
  *   still send that site's name as Host.
  * - Two origins, and what each may do:
  *     https://polio-two.vercel.app   the Builder page: only GET /health, to
- *                                    see that a helper is there (CORS allows
- *                                    exactly this origin, nothing else)
+ *                                    see that a helper is there, GET /lanes,
+ *                                    the lanes board's read-only feed, and
+ *                                    POST /lanes/answer, J's press on one of
+ *                                    the coordinator's questions, which sets
+ *                                    that question's answer and answeredAt
+ *                                    and nothing else, and POST /lanes/ask,
+ *                                    J asking for new options on one, which
+ *                                    sets its ask and askedAt and nothing
+ *                                    else (CORS allows exactly
+ *                                    this origin, nothing else)
  *     http://127.0.0.1:<port>        the dock: the frame this server draws
  *                                    inside the Builder (GET /dock). Pairing,
  *                                    requests, the stream and every control
  *   A request with any other Origin, or none, is refused (GET /dock alone
  *   is a page load, which carries no Origin; the page's frame-ancestors
- *   lets only the Builder frame it).
+ *   lets only the Builder frame it). GET /lanes/file/<path> is the other
+ *   exception: the decisions panel's pictures, files under handovers/ that
+ *   an <img> or a frame loads with no Origin. Read-only, pictures and what
+ *   an html design pulls in only, and an html page always sandboxed.
  * - Everything after pairing needs the token, which lives in the dock frame
  *   and never in a URL. A script on the Builder page (a captured site's,
  *   say) can't read the frame or send its Origin, so it can't drive this.
@@ -39,11 +50,12 @@
 import { createServer, type IncomingMessage, type ServerResponse, type Server } from "node:http";
 import { existsSync, readFileSync } from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
-import { extname } from "node:path";
+import { dirname, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { problems, type Message, type Plan } from "../contract.ts";
 import type { ControlResult } from "../agents/runner.ts";
 import { describeCall, type BridgeLog } from "./bridgeLog.ts";
+import { answerLanes, askLanes, lanesFileAt, lanesFileHeaders, readLanes, type LanesFiles } from "./lanes.ts";
 import type { Pairing } from "./pairing.ts";
 import type { SiteTickets } from "./tickets.ts";
 
@@ -58,7 +70,7 @@ export type RunnerLike = {
 export const BUILDER_ORIGIN = "https://polio-two.vercel.app";
 export const HELPER_PORT = 47821;
 const MAX_BODY = 1 << 20;
-const SITE_OPS = ["read", "shot", "apply"];
+const SITE_OPS = ["read", "outline", "picked", "at", "select", "shot", "apply"];
 /** How long a site call waits for the Builder before it says so. */
 export const SITE_WAIT_MS = 60_000;
 const DOCK_PAGE = fileURLToPath(new URL("../dock/index.html", import.meta.url));
@@ -70,6 +82,14 @@ const TYPES: Record<string, string> = { ".html": "text/html", ".css": "text/css"
 
 export type HelperServer = { server: Server; port: number; close(): Promise<void> };
 
+/** What the dock shows of the caps: null is "no cap of that kind". */
+export type CapsView = { tokensPerDay: number | null; tokensPerRequest: number | null; today: number };
+export type PcReader = {
+  read(): Promise<unknown>;
+  stop(pid: number, created: number, confirmSession: boolean): Promise<unknown>;
+  stopIdle(minutes: number): Promise<unknown>;
+};
+
 type Who = "builder" | "dock" | "none";
 
 export async function startHelperServer(opts: {
@@ -78,6 +98,12 @@ export async function startHelperServer(opts: {
   tickets?: SiteTickets; siteWaitMs?: number;
   /** Where every site call is kept; without one, refusals still reach an open dock. */
   siteLog?: BridgeLog;
+  /** The lanes board's files; without them GET /lanes answers with no feed. */
+  lanes?: LanesFiles;
+  /** The token caps: GET /caps shows them, POST /caps {by: "j", tokensPerDay} changes the daily one. */
+  caps?: { get(): CapsView; set(c: { tokensPerDay: number }): void };
+  /** The PC reader behind "Everything Claude is doing" (helper/pc/watch.ts); without it /api/pc/* says so. */
+  pc?: PcReader;
 }): Promise<HelperServer> {
   const builder = opts.builderOrigin ?? BUILDER_ORIGIN;
   let port = opts.port ?? HELPER_PORT;
@@ -130,14 +156,36 @@ export async function startHelperServer(opts: {
     const path = new URL(req.url ?? "/", `http://127.0.0.1:${port}`).pathname;
     const method = req.method ?? "GET";
 
-    // The Builder page may only ask whether a helper is here.
+    // A decision's picture: read-only, for whoever may load it (an <img> or a frame sends no Origin).
+    if (method === "GET" && path.startsWith("/lanes/file/")) {
+      let rel = "";
+      try { rel = path.slice("/lanes/file/".length).split("/").map(decodeURIComponent).join("/"); } catch { /* a broken escape: no such file */ }
+      const at = opts.lanes ? lanesFileAt(dirname(opts.lanes.file), rel) : null;
+      if (!at) return refuse(res, 404, "no such picture");
+      res.writeHead(200, { ...lanesFileHeaders(at.type, builder), ...(who === "builder" ? { "access-control-allow-origin": builder, vary: "Origin" } : {}) });
+      return res.end(readFileSync(at.path));
+    }
+
+    // The Builder page may only ask whether a helper is here, read the lanes, and answer a question or ask for new options on it.
     if (who === "builder") {
       const cors = { "access-control-allow-origin": builder, vary: "Origin" };
-      if (path === "/health" && method === "OPTIONS") {
+      if ((path === "/health" || path === "/lanes") && method === "OPTIONS") {
         res.writeHead(204, { ...cors, "access-control-allow-methods": "GET", "access-control-max-age": "600" });
         return res.end();
       }
+      if ((path === "/lanes/answer" || path === "/lanes/ask") && method === "OPTIONS") {
+        res.writeHead(204, { ...cors, "access-control-allow-methods": "POST", "access-control-allow-headers": "content-type", "access-control-max-age": "600" });
+        return res.end();
+      }
+      if ((path === "/lanes/answer" || path === "/lanes/ask") && method === "POST") {
+        if (!opts.lanes) return send(res, 404, { ok: false, error: "this helper has no lanes.json" }, cors);
+        let b: unknown;
+        try { b = await body(req); } catch (e) { return send(res, 400, { ok: false, error: String((e as Error).message) }, cors); }
+        const r = path === "/lanes/ask" ? askLanes(opts.lanes.file, b) : answerLanes(opts.lanes.file, b);
+        return send(res, r.ok ? 200 : r.status, r, cors);
+      }
       if (path === "/health" && method === "GET") return send(res, 200, { helper: true, paired: opts.pairing.paired }, cors);
+      if (path === "/lanes" && method === "GET") return send(res, 200, opts.lanes ? readLanes(opts.lanes) : { feed: null, beats: [], now: Date.now() }, cors);
       return refuse(res, 403, "the Builder page can't drive the helper: the dock does");
     }
 
@@ -228,6 +276,33 @@ export async function startHelperServer(opts: {
       if (b.source !== "polio-builder" || b.kind !== "site" || typeof b.ok !== "boolean") return refuse(res, 400, "not a site reply");
       wait.answer(b.ok ? { ok: true, result: b.result } : { ok: false, says: String(b.says ?? "the Builder refused the call") });
       return send(res, 200, { ok: true });
+    }
+    // The daily token cap (audit risk 3): see it, and J changes it.
+    if (path === "/caps" && method === "GET") {
+      if (!opts.caps) return refuse(res, 404, "this helper has no caps to show");
+      return send(res, 200, { ok: true, ...opts.caps.get() });
+    }
+    if (path === "/caps" && method === "POST") {
+      if (!opts.caps) return refuse(res, 404, "this helper has no caps to change");
+      const b = (await body(req)) as Record<string, unknown>;
+      if (b?.by !== "j") return refuse(res, 403, "caps are J's to change");
+      const n = b.tokensPerDay;
+      if (typeof n !== "number" || !Number.isInteger(n) || n < 10_000 || n > 1_000_000_000) return refuse(res, 400, "the daily cap is a whole number of tokens from 10,000 to 1,000,000,000");
+      opts.caps.set({ tokensPerDay: n });
+      return send(res, 200, { ok: true, ...opts.caps.get() });
+    }
+    // "Everything Claude is doing" on the real PC (audit risk 8): the dock's
+    // second tab, behind the same token as every control.
+    if (path.startsWith("/api/pc/")) {
+      if (!opts.pc) return refuse(res, 404, "this helper doesn't read the PC");
+      if (method === "GET" && path === "/api/pc/now") return send(res, 200, await opts.pc.read());
+      if (method !== "POST") return refuse(res, 405, "POST only");
+      const m = (await body(req)) as Record<string, unknown>;
+      const p = problems(m);
+      if (p.length) return refuse(res, 400, p.join("; "));
+      if (path === "/api/pc/stop" && m.kind === "pc-stop") return send(res, 200, await opts.pc.stop(m.pid as number, m.created as number, m.confirmSession === true));
+      if (path === "/api/pc/stop-idle" && m.kind === "pc-stop-idle") return send(res, 200, await opts.pc.stopIdle(m.minutes as number));
+      return refuse(res, 400, "wrong message for this path");
     }
     if (method === "POST" && path === "/control") {
       const b = (await body(req)) as Record<string, unknown>;

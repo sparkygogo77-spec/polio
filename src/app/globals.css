@@ -384,6 +384,24 @@
 }
 
 /*
+ * The part under the pointer and what holds it (`board/hoverOutlines.ts`):
+ * the part itself a faint first-level blue line, each holder up toward the
+ * page a fainter one, so nesting can be seen before a click (J, 2026-11-03,
+ * the design canvas's selection). One screen pixel at any zoom, inside the
+ * edge so neighbours' lines do not touch. Only with Select in hand and no
+ * drag running: a pen stroke or a move is not the moment to read nesting.
+ */
+[data-hover-mark] {
+  opacity: 0;
+  outline: calc(1px * var(--chip-scale, 1)) solid oklch(0.8 0.16 205);
+  outline-offset: calc(-1px * var(--chip-scale, 1));
+}
+[data-board-tool="select"]:not([data-board-drag]) [data-hover-depth="0"] > [data-hover-mark] { opacity: 0.85; }
+[data-board-tool="select"]:not([data-board-drag]) [data-hover-depth="1"] > [data-hover-mark] { opacity: 0.45; }
+[data-board-tool="select"]:not([data-board-drag]) [data-hover-depth="2"] > [data-hover-mark] { opacity: 0.3; }
+[data-board-tool="select"]:not([data-board-drag]) [data-hover-depth="3"] > [data-hover-mark] { opacity: 0.2; }
+
+/*
  * A tour thread arriving.
  *
  * The board's own idiom for a line that has just been made: it draws itself

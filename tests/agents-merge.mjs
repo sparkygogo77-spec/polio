@@ -51,7 +51,8 @@ for (const [f, word] of [
   ["capture/site/capture/capture-site.mjs", "capture"],
   ["src/features/studio/send-out/pagesOut.ts", "export"],
 ]) check(`touching ${f} waits for J`, (G.waitsForJ({ ...plain, files: [f] }) ?? "").includes(word), G.waitsForJ({ ...plain, files: [f] }) ?? "null");
-check("a helper/ file alone goes on its own", G.waitsForJ({ ...plain, files: ["helper/merge/gate.ts"] }) === null);
+check("a helper/ file waits for J (helper-install-fixes: an agent's merge can't change the helper unseen)", (G.waitsForJ({ ...plain, files: ["helper/merge/gate.ts"] }) ?? "").includes("changes the helper"));
+check("a Builder file alone goes on its own", G.waitsForJ({ ...plain, files: ["src/features/agents/AgentsDock.tsx"] }) === null);
 
 // ---- the way ---------------------------------------------------------------
 check("no token: the project chat", R.wayFor(null) === "chat");

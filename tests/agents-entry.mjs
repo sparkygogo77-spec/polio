@@ -115,7 +115,7 @@ const leaks = (msgs) => { const out = []; const walk = (v, at) => { if (Array.is
 
 /* 2 and 4. The small site, helper up. */
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-await ctx.addInitScript((d) => { if (!sessionStorage.getItem("seeded")) { localStorage.setItem("builder.studio", d); sessionStorage.setItem("seeded", "1"); } }, doc);
+await ctx.addInitScript((d) => { try { if (!sessionStorage.getItem("seeded")) { localStorage.setItem("builder.studio", d); sessionStorage.setItem("seeded", "1"); } } catch { /* a sandboxed frame (a decision's live picture) has no storage: nothing to seed there */ } }, doc);
 await helperUp(ctx);
 const page = await ctx.newPage();
 const errors = [];
@@ -128,7 +128,9 @@ const b0 = await board(page);
 const button = page.locator("[data-agents-button]");
 check("the top bar has an Agents button", (await button.count()) === 1);
 if (await button.count()) { await button.click(); await page.waitForTimeout(1200); }
-const frame = await page.evaluate(() => { const f = document.querySelector("[data-agents-dock] iframe[data-agents-frame]"); const d = document.querySelector("[data-agents-dock]")?.getBoundingClientRect(); return f ? { src: f.getAttribute("src"), w: Math.round(d.width), right: Math.round(d.right) } : null; });
+/* The first tab is the lanes board (tests/lanes-board.mjs); the helper's frame is under it, the second tab. */
+await page.locator('[data-agents-tab="helper"]').click().catch(() => {}); await page.waitForTimeout(200);
+const frame =await page.evaluate(() => { const f = document.querySelector("[data-agents-dock] iframe[data-agents-frame]"); const d = document.querySelector("[data-agents-dock]")?.getBoundingClientRect(); return f ? { src: f.getAttribute("src"), w: Math.round(d.width), right: Math.round(d.right) } : null; });
 check("the button opens the dock: a frame at the helper's /dock, 380px on the right", frame?.src === `${HELPER}/dock` && frame.w === 380 && frame.right === 1440, JSON.stringify(frame));
 const first = (await frameMsgs(page)) ?? [];
 check("the open dock is handed context only, with no action yet", first.length >= 1 && first.every((m) => m.data?.kind === "context") && first[0].data.action === null, JSON.stringify(first.map((m) => m.data?.action)));
@@ -152,7 +154,7 @@ await ctx.close();
 
 /* 3. The helper can't be reached. */
 const c3 = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-await c3.addInitScript((d) => { if (!sessionStorage.getItem("seeded")) { localStorage.setItem("builder.studio", d); sessionStorage.setItem("seeded", "1"); } }, doc);
+await c3.addInitScript((d) => { try { if (!sessionStorage.getItem("seeded")) { localStorage.setItem("builder.studio", d); sessionStorage.setItem("seeded", "1"); } } catch { /* a sandboxed frame (a decision's live picture) has no storage: nothing to seed there */ } }, doc);
 await helperDown(c3);
 const p3 = await c3.newPage();
 p3.on("pageerror", (e) => errors.push(e.message));

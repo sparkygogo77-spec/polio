@@ -30,9 +30,8 @@ import { useShelfLowered } from "../cardCarry";
 import { Inspector } from "../panels/ui";
 import { LookPanel } from "../look/ui";
 import { MotionPanel } from "../panels/ui";
-import { SystemPanel } from "../panels/ui";
+import { SitePanel } from "../panels/ui";
 import { PicturesPanel } from "../pictures/ui";
-import { FormatPanel } from "../panels/ui";
 import { PagesPanel } from "../PagesPanel";
 import { BriefDialog } from "../BriefDialog";
 import { exportSite } from "../send-out/run";
@@ -48,7 +47,6 @@ import { mountNebula } from "../nebulaTile";
 import { LightPlacer } from "../LightPlacer";
 import { EmbedBox } from "../EmbedBox";
 import { cn } from "@/core/lib/cn";
-import { Segmented } from "@/core/ui/segmented";
 import { useActions } from "@/core/actions";
 import { publish, studioDoc } from "../loop/run";
 import "../shelf/ui";
@@ -59,7 +57,7 @@ import { giveWork, putSiteVersion } from "../ShelfCards";
 import { BAND_H, SHELF_OPEN_H, SHELF_STRIP_H, WORK_H, useNarrow, useViewportDevice } from "./sizes";
 import { WRITE_HOOKS, testHooksOpen } from "../testHooks";
 import { Toolbar } from "./toolbar";
-import { SIDE_TABS, SHEET, useSideWidth, SideEdge, SheetHandle } from "./side";
+import { SHEET, SideTabs, useSideWidth, SideEdge, SheetHandle } from "./side";
 
 export function StudioPage() {
   useStudioHydration();
@@ -79,7 +77,6 @@ export function StudioPage() {
   const [sideWidth, setSideWidth] = useSideWidth();
   const sideStyle = narrow ? undefined : { width: sideWidth };
   /* Room for every tab's name, not only the open one's. */
-  const tabWords = !narrow && sideWidth >= 440;
   const viewportDevice = useViewportDevice();
   // A sheet is asked for, never left lying over the board: on a narrow
   // window it starts closed and the toggle, the tour and a pick open it.
@@ -370,37 +367,9 @@ export function StudioPage() {
           <aside data-side-panel={design ? "" : undefined} hidden={!design} data-side-sheet={narrow ? "" : undefined} className={SHEET} style={sideStyle}>
             <SheetHandle narrow={narrow} onClose={() => setLibraryOpen(false)} />
             {narrow ? null : <SideEdge width={sideWidth} onWidth={setSideWidth} />}
-            <div className="flex shrink-0 items-center gap-1 border-b border-border px-1.5 py-1">
-              <Segmented
-                /* Every tab says its name, always: six words on one row when
-                   there is room for them, three to a row when there is not.
-                   An icon row with one word lit was a row of pictures to
-                   learn; the owner asked for the names back. */
-                className={cn(
-                  "min-w-0 flex-1 gap-0.5 [&>*]:min-w-0 [&>*]:justify-center [&>*]:px-1",
-                  tabWords ? "[&>*]:flex-1" : "grid h-auto grid-cols-3 [&>*]:h-6",
-                )}
-                size="xs"
-                value={sideTab}
-                onChange={setLeftPanel}
-                options={SIDE_TABS.map((t) => ({
-                  value: t.value,
-                  title: t.label,
-                  /* The mark wears the panel's colour at both states: the hue
-                     says which panel this is, so it never goes away. */
-                  icon: (
-                    <span className="contents" style={{ color: `oklch(0.82 0.15 ${t.hue})`, opacity: sideTab === t.value ? 1 : 0.72 }}>
-                      {t.icon}
-                    </span>
-                  ),
-                  label: (
-                    <span data-tab-word="" className="truncate whitespace-nowrap text-small">
-                      {t.label}
-                    </span>
-                  ),
-                }))}
-                aria-label="Side panel"
-              />
+            <div className="shrink-0 px-2 pb-1 pt-2">
+              {/* Six pieces in the wheel's blue, the one you are on green, every one saying its word (page/side.tsx). */}
+              <SideTabs value={sideTab} onChange={setLeftPanel} />
               {/* The panel used to carry its own hide button here, beside the
                   bar's. Two controls for one panel, and only one of them
                   could bring it back — so the one that could only hide it is
@@ -408,10 +377,9 @@ export function StudioPage() {
             </div>
             <div className="no-bars min-h-0 flex-1 overflow-y-auto">
               {sideTab === "inspector" ? <Inspector />
-                : sideTab === "format" ? <FormatPanel />
+                : sideTab === "format" || sideTab === "system" ? <SitePanel tab={sideTab} onTab={setLeftPanel} />
                 : sideTab === "pages" ? <PagesPanel />
                 : sideTab === "motion" ? <MotionPanel />
-                : sideTab === "system" ? <SystemPanel />
                 : sideTab === "pictures" ? <PicturesPanel />
                 : <LookPanel />}
             </div>

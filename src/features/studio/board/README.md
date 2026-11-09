@@ -26,6 +26,9 @@ import cycle loads a door before the file behind it.
 | `geometry.ts` | Hit tests and lines: `midOf`, `edgePoint`, `hitNode`, `hitShape`, `hitAlong`, `segsCross`, `penPath` |
 | `ShapeView.tsx` | Ink, frames and wires: `Chain`, `isChain`, `ShapeView`, and the resize handle tables |
 | `NodeView.tsx` | One part on the board: `FillTab`, `BoardSurface`, `BoardPartCopy`, `useUnshown`, `NodeView`, `DecideBadge` |
+| `selectTools.ts` | The selection's walks on what holds what: `holdersOf` (up to the page), `oneLevelIn`, `stepOutOf`, and the click spot a slow second click goes in from |
+| `hoverOutlines.ts` | `useHoverOutlines`: the part under the pointer and its holders, outlined fainter by depth (`data-hover-depth`) |
+| `PickBar.tsx` | The picked part's floating toolbar: Looks, Duplicate, Step out, Delete |
 
 `DesktopCanvas` is one component, so it stays in one file: splitting its body
 would be a rewrite, not a move.

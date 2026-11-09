@@ -236,7 +236,7 @@ if (!up) {
     const nb = await page.locator("[data-node-id]").first().boundingBox();
     await page.mouse.click(nb.x + nb.width / 2, nb.y + nb.height / 2);
     await page.waitForTimeout(500);
-    await page.getByRole("radio", { name: "Element" }).first().click({ force: true });
+    await page.getByRole("radio", { name: "Parts" }).first().click({ force: true });
     await page.waitForTimeout(800);
 
     /* The picture settings sit under a closed "Make a picture" on every part; opened to be read. */

@@ -212,6 +212,33 @@ same boxes as everywhere else, in the screen's colours.
   trades places in its holder and column, as Alt+↑/↓ does) and a part's Hover
   (what it does under the pointer, opening its editor) hang there too, so the
   wheel reaches what the panel does (J, 2026-10-24; `tests/wheel-move-hover.mjs`).
+- **Edge is a pop-up beside the wheel, not three slabs** (J, 2026-11-03,
+  design A, "the icons and simplicity of the buttons but in MY existing menu
+  design"). Looks → Edge opens a tag: rounded, a lit border in the green of
+  the level that opened it, scanlines over the void, a mono title, a row of
+  icon keys (Corners, Border, Shadow, Spacing) and the one control the lit
+  key is about. Per corner and per side open a smaller tag in blue beside
+  it. It goes to the side of the wheel its slab leans to, clear of the
+  wheel, its top level with the green menu's top ("the panes to the left
+  ... stay at least on the same y axis as the original green menu"), and
+  flips to the other side only when that side has no room. Esc closes the
+  small one, then the tag; a press away closes it; a drag is one undo. The
+  border is one width and one colour round the whole part (J: no border per
+  side). Where and what frame live in `radial/popupPlace.ts` alone, so J's
+  placement drawing or a ring-shaped frame for the round wheel is one file.
+  `tests/wheel-popups.mjs`.
+- **The tag on both wheels; the ring is built and waiting** (J, 2026-11-08).
+  J asked for the ring too ("build the ring too", design C): on the round
+  wheel the pop-up as a void slab of an outer ring cut to the wheel's own
+  curve, out past the wheel at the angle of the slab that opened it, with a
+  lit rim, the smaller one continuing round the same ring, turning round it
+  until it is inside the window. Shown both, he picked the tag, so the round
+  wheel wears the tag too and the ring waits behind `RING_ON_ROUND`. Which one
+  shows is `popupShape` in `radial/popupPlace.ts`, nothing else. Texture, Aura and Hue are pop-ups too, on both shapes, with the
+  slabs' own values: Texture picks the site's layer, no texture, or a picture
+  of the part's own, with Reiterate and Drift; Aura its colour, style and
+  size; Hue the part's colour one role at a time, as hue, lightness and
+  strength. The page's own wheel keeps its slabs. `tests/wheel-ring.mjs`.
 - **Never an empty slab.** An editor that would leave a slab bare is folded
   into its neighbour: the page's colour, fill and veil are one Color editor;
   its width comes with Fit in view and the wires beside it. A slab with only
@@ -266,8 +293,21 @@ same boxes as everywhere else, in the screen's colours.
   changes nothing on it (`siteFormat.ts`). Picture settings live under a
   closed "Make a picture"; a status line is short, with the ids in its
   details. The panel starts at 300px and its edge drags from 228px to half
-  the window; every tab says its name, three to a row when narrow.
+  the window; every tab says its name, three to a row at every width.
   `tests/side-panel.mjs` and `tests/side-panel-reads.mjs` hold this.
+- **The side panel has six titles, in J's words, and wears the wheel's
+  colours.** Parts (the page's parts and the picked one), Look, Motion,
+  Pages, Site (the whole-site features and the brief, and the System, as
+  two pills) and Draw. The strip is six rounded pieces in the first level's
+  blue inside a void ring, the one you are on in the second level's green,
+  each with its icon and word at every width; the panel behind is the void,
+  and every section in it is a rounded slab with a lit rim, a green bead
+  when open. The panel ids (`inspector`, `format`, `system`, …) never
+  changed, so anything that asks for a panel by id lands where it did; a
+  tab that holds two panels lights for both (`page/side.tsx`,
+  `panels/SitePanel.tsx`; J picked design C of three, 2026-11-08).
+  `tests/side-panel-reach.mjs` holds every panel reachable, on the six
+  fixtures.
 - **Format is a short page, in three parts.** "This site" (heading and
   body fonts, base size, corners, page colour, accent), each read once off
   the parts with a Change that changes it where the site has it; "Whole-site
