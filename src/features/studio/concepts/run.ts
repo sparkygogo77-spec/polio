@@ -32,7 +32,9 @@ import { askVersions, type Asked } from "../idea/versionsRun";
 import type { Versions } from "../idea/versions";
 import { draftable } from "../idea/plan";
 import { conceptVersions } from "./copy";
-import { draftOne, FRAME, type Drafted } from "./draft";
+import { draftOne, redraftSection, FRAME, type Drafted } from "./draft";
+import { directionOf, DIRECTIONS } from "./copy";
+import { takesOf, type GridRow, type Ticks } from "./grid";
 import { rolesOf } from "../system/resolve";
 import { conceptName, mixName, mixNodes, sectionOfPart, withTake, withoutTake, type Concept, type Group, type PartLike, type Take } from "./model";
 import { useConcepts } from "./store";
@@ -251,4 +253,51 @@ export function openConcept(): { id: string; group: string } | null {
   const id = useBuilds.getState().activeId;
   const c = id ? useConcepts.getState().byId[id] : null;
   return id && c ? { id, group: c.group } : null;
+}
+
+/* ------------------------------------------------------------------ */
+/* The grid                                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Again this row: one section of every concept in the group written again
+ * (new words, same direction, same System), each over its own site. A
+ * concept with no such section is left as it is. The ids of those changed.
+ */
+export async function againRow(groupId: string, section: string, seed = newSeed()): Promise<{ ok: true; ids: string[]; skipped: string[] } | { ok: false; says: string }> {
+  const g = useConcepts.getState().groups[groupId];
+  if (!g) return { ok: false, says: "That is not a group this browser made." };
+  const allowed = new Set(draftable().map((f) => f.id));
+  const ids: string[] = [];
+  const skipped: string[] = [];
+  let k = 0;
+  for (const id of g.ids) {
+    const c = useConcepts.getState().byId[id];
+    if (!c || c.mix) continue;
+    const env = await readEnvelope(id);
+    const voice = directionOf(c.name)?.id ?? DIRECTIONS[c.index % DIRECTIONS.length]!.id;
+    const made = env && redraftSection(env.state as unknown as Parameters<typeof redraftSection>[0], voice, g.prompt, section, seed + k++ * 7919, allowed);
+    if (!env || !made) { skipped.push(id); continue; }
+    const name = useBuilds.getState().projects.find((p) => p.id === id)?.name ?? c.name;
+    await writeSite({ ...env.state, nodes: made.nodes }, name, id);
+    ids.push(id);
+  }
+  if (g.takes.some((t) => t.section.toLowerCase() === section.toLowerCase())) await rebuildMix(groupId);
+  return { ok: true, ids, skipped };
+}
+
+/** Build the ticked page: the ticks become the group's takes, the Mix is built from them and promoted to a site of its own, open in the Builder. */
+export async function buildTicked(groupId: string, rows: readonly GridRow[], ticks: Ticks): Promise<{ ok: true; id: string } | { ok: false; says: string }> {
+  const takes = takesOf(rows, ticks);
+  if (!takes.length) return { ok: false, says: "Tick a section first." };
+  const id = await setTakes(groupId, takes);
+  if (!id) return { ok: false, says: "The page could not be built. The browser's storage may be full." };
+  await promote(id);
+  return { ok: true, id };
+}
+
+/** Open a concept in the Builder with one part picked: the hash names it, and the bar's Concepts link picks it once the board has it (`ConceptsPage.tsx#ConceptsBack`). */
+export async function openAt(id: string, partId: string | null): Promise<void> {
+  await edit(id);
+  window.location.assign(partId ? `/builder#pick=${encodeURIComponent(partId)}` : "/builder");
 }

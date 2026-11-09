@@ -24,6 +24,8 @@ import { SitePreview, type PreviewDoc } from "../SitePreview";
 import { conceptsOf, conceptsHref, readGroup, sectionsOf, type Section, type Take } from "./model";
 import { groupList, useConcepts } from "./store";
 import { again, discard, edit, makeConcepts, promote, setTakes, take, untake } from "./run";
+import { GridView } from "./GridView";
+import { jumpTo } from "../ShelfCards";
 
 const ZOOMS = [{ w: 300, label: "Small" }, { w: 420, label: "Medium" }, { w: 620, label: "Large" }] as const;
 const COLOURS = ["bg-[#e9dcc3] text-[#2a2410]", "bg-[#ff3fb4] text-white", "bg-[#e2793f] text-white", "bg-[#5ef2ff] text-[#06303a]"];
@@ -37,6 +39,8 @@ export function ConceptsPage() {
   const [prompt, setPrompt] = React.useState("");
   const [count, setCount] = React.useState(3);
   const [zoom, setZoom] = React.useState(1);
+  /* The grid (design C, J's pick) is how the canvas opens; Boards is design A, kept behind the switch. */
+  const [view, setView] = React.useState<"grid" | "boards">("grid");
   const [busy, setBusy] = React.useState<string | null>(null);
   const [said, setSaid] = React.useState<string | null>(null);
   const [rev, setRev] = React.useState(0);
@@ -106,6 +110,8 @@ export function ConceptsPage() {
           <Sparkles className="size-4" /> {busy === "claude" ? "Asking Claude…" : "Ask Claude"}
         </button>
         <span className="ml-auto flex items-center gap-1 text-plain text-fg-muted">
+          <button type="button" data-concepts-view="grid" aria-pressed={view === "grid"} onClick={() => setView("grid")} className={cn("tactile rounded-sm border px-1.5 py-0.5", view === "grid" ? "border-accent bg-accent-soft text-fg" : "border-border")}>Grid</button>
+          <button type="button" data-concepts-view="boards" aria-pressed={view === "boards"} onClick={() => setView("boards")} className={cn("tactile mr-3 rounded-sm border px-1.5 py-0.5", view === "boards" ? "border-accent bg-accent-soft text-fg" : "border-border")}>Boards</button>
           Zoom
           {ZOOMS.map((z, i) => (
             <button key={z.label} type="button" data-concepts-zoom={i} aria-pressed={i === zoom} onClick={() => setZoom(i)} className={cn("tactile rounded-sm border px-1.5 py-0.5", i === zoom ? "border-accent bg-accent-soft text-fg" : "border-border")}>{z.label}</button>
@@ -119,7 +125,9 @@ export function ConceptsPage() {
         {said ? <p data-concepts-said="" className="w-full text-plain text-fg-muted">{said}</p> : null}
       </div>
 
-      {group && row.length ? (
+      {group && row.length && view === "grid" ? (
+        <GridView group={group.id} row={row} nameOf={name} rev={rev} busy={busy} run={run} colWidth={width} />
+      ) : group && row.length ? (
         <div data-concepts-canvas="" className="flex flex-1 items-start gap-6 overflow-auto px-6 py-5">
           {row.map(({ id, c }, i) => (
             <Board key={id} id={id} index={i} title={c.name} pitch={c.pitch} siteName={name(id)} width={width} rev={rev} busy={busy}
@@ -240,11 +248,28 @@ function MixBoard({ id, takes, width, rev, busy, nameOf, onUntake, onMove, onPro
   );
 }
 
+/** A part to pick once the Builder has drawn it (`openAt`), kept across a double mount. */
+let pendingPick: string | null = null;
+
 /** The Builder's way back to the canvas, shown in its bar while the open site is a concept. */
 export function ConceptsBack() {
   const activeId = useBuilds((s) => s.activeId);
   const byId = useConcepts((s) => s.byId);
   React.useEffect(() => { void useConcepts.persist.rehydrate(); }, []);
+  /* Opened from the grid with a part named (`run.ts#openAt`): picked once the board has it, as the shelf picks a part. The id is kept outside React: a development double-mount would otherwise read a hash the first mount had already cleared. */
+  React.useEffect(() => {
+    const m = /#pick=([^&]+)/.exec(window.location.hash);
+    if (m) { pendingPick = decodeURIComponent(m[1]!); window.history.replaceState(window.history.state, "", `${window.location.pathname}${window.location.search}`); }
+    if (!pendingPick) return;
+    let tries = 0;
+    const t = window.setInterval(() => {
+      const id = pendingPick;
+      if (!id) { window.clearInterval(t); return; }
+      if (document.querySelector(`[data-node-id="${CSS.escape(id)}"]`)) { pendingPick = null; window.clearInterval(t); jumpTo([id]); }
+      else if (++tries > 120) { pendingPick = null; window.clearInterval(t); }
+    }, 250);
+    return () => window.clearInterval(t);
+  }, []);
   const c = activeId ? byId[activeId] : null;
   if (!c) return null;
   return (
