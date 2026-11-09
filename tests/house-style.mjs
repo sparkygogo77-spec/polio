@@ -231,7 +231,8 @@ const doc = (page) => page.evaluate(() => window.__polioSystem.site?.() ?? (() =
 /** The board's document as the import left it: every part and the look, as text (the System's fields left out: they are what is being checked). */
 const siteText = (page) => page.evaluate(() => { const d = window.__studioHistory.doc(); return JSON.stringify({ nodes: d.nodes.map(({ sys: _s, ...n }) => n), look: d.look }); });
 const sys = (page, fn, arg) => page.evaluate(([f, a]) => new Function("S", "a", `return (${f})(S, a);`)(window.__polioSystem, a), [fn.toString(), arg]);
-const systemTab = async (page) => { await page.locator('[data-side-panel] [aria-label="Side panel"] [role=radio][aria-label="System"]').click(); await pause(page, 700); };
+/* System is a pill inside the Site tab (side-panel lane, 2026-11-08). */
+const systemTab = async (page) => { await page.locator('[data-side-panel] [aria-label="Side panel"] [role=radio][aria-label="Site"]').click(); await pause(page, 300); await page.locator('[data-side-panel] [data-site-tab="system"]').click(); await pause(page, 700); };
 /** Parts of the board drawing a colour, anywhere in what they paint. */
 const wearing = (page, v) => page.evaluate((v) => [...document.querySelectorAll("[data-studio-scroll] [data-node-id]")].filter((el) => [el, ...el.querySelectorAll("*")].some((e) => { const cs = getComputedStyle(e); return [cs.color, cs.backgroundColor, cs.borderTopColor, cs.backgroundImage].some((c) => c.includes(v)); })).map((el) => el.getAttribute("data-node-id")), v);
 

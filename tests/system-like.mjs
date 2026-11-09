@@ -180,8 +180,10 @@ const boards = await sys((S) => S.boards());
 check("the hook lists the first site as a board to take from, and not the open one", boards.length === 1 && boards[0].id === "first" && boards[0].name === firstName, J(boards));
 
 const side = page.locator("[data-side-panel]");
-const tab = side.locator('[aria-label="Side panel"] [role=radio][aria-label="System"]');
-await tab.click();
+/* System is a pill inside the Site tab (side-panel lane, 2026-11-08): press Site, then System, as tests/system-panel.mjs does. */
+await side.locator('[aria-label="Side panel"] [role=radio][aria-label="Site"]').click();
+await pause(300);
+await side.locator('[data-site-tab="system"]').click();
 await pause(800);
 const panel = page.locator("[data-system-panel]");
 const bar = panel.locator("[data-system-bar]");
