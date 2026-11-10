@@ -71,7 +71,7 @@ import { StartRow } from "./StartRow";
 import { siteStatus } from "./status";
 import { agentsOn } from "./agentsOnSite";
 import { houseOf, useSystems } from "@/features/studio/system/store";
-import { Bot, Palette, Upload as ExportIcon } from "lucide-react";
+import { Bot, Box as ModelIcon, Palette, Upload as ExportIcon } from "lucide-react";
 import { useActions } from "@/core/actions";
 import { PublishLinks } from "@/features/studio/PublishLinks";
 import { downloadBackup, pickAndLoadBackup } from "@/features/studio/backup";
@@ -737,6 +737,13 @@ export function BuildsPage() {
           <Button size="md" variant="outline" onClick={() => useTour.getState().start()}>
             <Compass />
             Take the tour
+          </Button>
+          {/* A 3D model from Blender, looked at from every side and marked up for the modeller (`features/models`). */}
+          <Button size="md" variant="outline" asChild data-builds-models="">
+            <Link href="/models">
+              <ModelIcon />
+              Models
+            </Link>
           </Button>
           {/* What every imported site taught the Builder (`studio/LearnedPanel.tsx`). */}
           <LearnedButton />
