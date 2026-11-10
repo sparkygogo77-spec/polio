@@ -54,6 +54,27 @@ export function drawnShift<A extends { transform?: string; translate?: string }>
   return { tx, ty, art: rest };
 }
 
+/** What a part's own lasting motions rewrite ("transform translate"), read off the site's keyframes: a shift they own is theirs (`drawnShift`). */
+export function movesOf(node: { motion?: { animation?: { name: string; iterations?: string | number; fill?: string }[] } | null }, look: unknown): string {
+  /* Only a motion that lasts: a one-off rise (mochi's "rise", to `none`) hands the part back to its own shift when it ends. */
+  const names = new Set((node.motion?.animation ?? []).filter((a) => a.iterations === "infinite" || /forwards|both/.test(a.fill ?? "")).map((a) => a.name));
+  if (!names.size) return "";
+  const kf = ((look as { keyframes?: { name: string; frames: { style?: Record<string, string> }[] }[] } | null)?.keyframes ?? []).filter((k) => names.has(k.name));
+  const props = new Set(kf.flatMap((k) => k.frames.flatMap((f) => Object.keys(f.style ?? {}))));
+  return ["transform", "translate"].filter((p) => props.has(p)).join(" ");
+}
+
+/**
+ * THE BOX YOU SEE (EDIT-ISSUES #36). The board stands a part at its stored box plus its own shift (#35), and the snap
+ * guides, the marquee and a held group's frame read the stored box: sol face's frog, stored at x 1049 and drawn 345px to
+ * the left, snapped, was caught and was framed by edges nobody could see. Those three read this instead.
+ */
+export function seenBox<N extends { x: number; y: number; w: number; h: number; art?: { transform?: string; translate?: string } | null; motion?: { animation?: { name: string; iterations?: string | number; fill?: string }[] } | null }>(n: N, look: unknown): { x: number; y: number; w: number; h: number } {
+  const moves = movesOf(n, look);
+  const { tx, ty } = drawnShift(n.art, (p) => moves.includes(p));
+  return { x: n.x + tx, y: n.y + ty, w: n.w, h: n.h };
+}
+
 /** How far a part's own transform and translate move it, when that is all they do; a turn or a scale is not read. */
 function shiftOf(art: { transform?: string; translate?: string } | null | undefined): { tx: number; ty: number } {
   let tx = 0, ty = 0;
