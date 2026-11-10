@@ -97,6 +97,29 @@ export function innerBlock(block: BlockBox, part: { x: number; y: number; w: num
 }
 
 /**
+ * A SHARE THE PAGE CLAMPED IS SAID AS THE SHARE IT DREW (EDIT-ISSUES #5). Sol face's section splash is written
+ * `width: 115%` with `max-width: 100%`: the capture measured it 1440 wide in its 1440 section, and the board draws
+ * 1440, but the published page took the written 115% and drew it 1656 wide (and, its height following its width,
+ * 20px lower). A max- or min-width the capture does not carry is in the measured box all the same, so a written
+ * share that does not give back the box measured in the block it was measured in is replaced by the share that
+ * does: the part keeps its place as the window changes, at the size the page drew. Only a plain share (`115%`) of a
+ * block; anything else (`min(62vw, 860px)`, px, the window's units) is the page's own and stands. `tests/layer-units-clamped.mjs`.
+ */
+export function drawnShares(u: Units, w: number, h: number, box: readonly number[] | null | undefined): Units {
+  /* A share of a block only: a pop-up placed in the window's units (gotchi's dialogs, `width: 100%` with a max-width of
+     its own) is the window's, and the export places it on its own path. */
+  if (!box || box.length < 4 || u.of?.by !== "block") return u;
+  const bw = box[2]!, bh = box[3]!;
+  const held = (v: string | undefined, own: number, of: number): string | undefined => {
+    const m = /^\s*(-?\d*\.?\d+)%\s*$/.exec(v ?? "");
+    if (!v || !m || !(of > 0) || !(own > 0)) return v;
+    return Math.abs((Number(m[1]) / 100) * of - own) <= 1.5 ? v : `${+((own / of) * 100).toFixed(4)}%`;
+  };
+  const width = held(u.width, w, bw), height = held(u.height, h, bh);
+  return width === u.width && height === u.height ? u : { ...u, ...(width !== undefined ? { width } : {}), ...(height !== undefined ? { height } : {}) };
+}
+
+/**
  * The style a part placed in units takes on the frame, or null when it has
  * nothing to say. `w`/`h` are its measured size, kept where no unit sets one;
  * a picture with no height of its own keeps its shape (`ratio`, h / w) as
@@ -113,9 +136,16 @@ export function layerStyle(u: Units | null | undefined, block: BlockBox, w: numb
    * A width with no share in it (a block of a fixed size) gives a plain length, written as a height as before.
    */
   const shaped = !u.height && !(u.top && u.bottom) && x.size && ratio ? calc(bare(x.size), "*", String(+ratio.toFixed(6))) : null;
-  /* Anchored at its foot it is placed from its height, so there it keeps the height it had (its place reads it). */
-  const asShape = !!shaped && /%/.test(shaped) && !(u.bottom && !u.top);
-  const y = axis(u.top, u.bottom, u.height ?? (asShape ? undefined : shaped ?? undefined), block.top, block.height, shaped ?? `${h}px`, off?.y ?? null);
+  /*
+   * Anchored at its foot it is placed from its height, so there it keeps the height it had (its place reads it): the
+   * px measured, never the width's expression, whose `100%` read as a height is a share of the block's height. Sol
+   * face's section splash (`bottom: -10%`, `width: 115%` of a 1103-tall section) stood 126 tall in place of 165 and
+   * its top 39px low (EDIT-ISSUES #5, `tests/layer-units-clamped.mjs`).
+   */
+  const shares = !!shaped && /%/.test(shaped);
+  const foot = !!(u.bottom && !u.top);
+  const asShape = shares && !foot;
+  const y = axis(u.top, u.bottom, u.height ?? (shares ? undefined : shaped ?? undefined), block.top, block.height, shares && foot ? `${h}px` : shaped ?? `${h}px`, off?.y ?? null);
   const out: LayerStyle = {};
   if (x.at) out.left = x.at;
   if (x.size) out.width = x.size;
