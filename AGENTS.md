@@ -3453,6 +3453,37 @@ is actually there.
 
 ---
 
+## 2b-iv. Models (`src/features/models`)
+
+A Blender-like 360° look at a 3D model, at `/models` (the Builds page's
+**Models** button, the palette's "Models (3D viewer)", `g m`). It stands in
+until the console drives Blender itself.
+
+- **three.js loads with the page only.** `index.ts` loads `ModelsPage`
+  with `next/dynamic`, and the page imports `viewer.ts` (three, OrbitControls,
+  GLTFLoader) in an effect, so no other route carries it (`tests/models-view.mjs`
+  checks the Builds page's scripts).
+- **Blender's ways:** drag orbits, wheel zooms, Shift + wheel (or Turntable)
+  turns, right-drag pans, double-click frames a part; Front / Right / Top and
+  their far sides are numpad 1 / 3 / 7 (Ctrl for the far side, top row digits
+  too); Home resets to the review site's 35° / 75°. Blender Z-up arrives as
+  glTF Y-up, so Blender front (from -Y) is +Z. Material shows the file's own
+  colours; Solid is Workbench's flat grey under a light that rides with the
+  camera. **Frame** lists the model's top groups (a pass's takes and shelves).
+- **Drawn only when something moved** (`dirty` plus OrbitControls' update):
+  a pass of two thousand meshes held the page every frame otherwise.
+- **Files stay in the browser**: a dropped or picked .glb (or .gltf with its
+  .bin and pictures) is read through blob URLs; nothing is uploaded. The one
+  sample is `public/models/dark_lantern.glb` (1.7 MB, static, outside every function).
+- **Mark up**: Pick part (the object's name), Draw, Arrow, Circle on a screen
+  canvas (the model holds still while marks exist); "Copy for the modeller"
+  downloads the view with the marks as a PNG and copies the model, the view
+  angle, the parts, the marks and the note as text.
+- **From Blender**: `node tools/blender/export-glb.mjs <pass.blend>` exports a
+  pass with its current Scene sliders (`-- set=nose=0.4`, `take=<collection>`)
+  to a .glb beside it, hidden, under `Pleo/agents/heavy.lock`. Draco crashed
+  Blender 5.2.2 on a dense pass, so it is off unless asked.
+
 ## 2c. The tweet console (`src/features/tweets`)
 
 A drawer, not a page: `T` (or the palette, or the status-bar count) opens it
