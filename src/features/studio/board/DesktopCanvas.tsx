@@ -1,5 +1,6 @@
 "use client";
 import { pageGround } from "../pageGround";
+import { seenBox } from "../pageClip";
 import { holdersFirst } from "../paintOrder";
 import { partUnder } from "../states";
 import { clampMove,frameRiders,inside,keepInFrame,stateFrames } from "../states";
@@ -191,11 +192,14 @@ export function DesktopCanvas() {
   /* Where the last resize of a locked group met the text clamp, said on its frame. */
   const [ceiling, setCeiling] = React.useState<{ groupId: string; which: "largest" | "smallest" } | null>(null);
   /* The locked groups that are picked whole: each is framed and sized as one thing. */
+  /* The box you see, for the snap guides, the marquee and a group's frame (`pageClip.ts#seenBox`, EDIT-ISSUES #36). */
+  const lookSeen = useStudio((s) => s.look);
+  const seen = React.useCallback((n: StudioNode) => seenBox(n, lookSeen), [lookSeen]);
   const held = React.useMemo(() => groups.flatMap((g) => {
     if (!g.locked) return [];
-    const b = groupBounds(nodes, g.id);
+    const b = groupBounds(nodes, g.id, seen);
     return b && b.members.every((m) => selection.includes(m.id)) ? [{ g, b }] : [];
-  }), [groups, nodes, selection]);
+  }), [groups, nodes, selection, seen]);
   const heldIds = React.useMemo(() => new Set(held.flatMap(({ b }) => b.members.map((m) => m.id))), [held]);
   /* The parts inside an app area (kit rule 34) are sized by the area, not by handles of their own. */
   const appHeld = React.useMemo(() => inAppAreaIds(nodes), [nodes]);
@@ -922,8 +926,9 @@ export function DesktopCanvas() {
       const ys = [0, settledH / 2, settledH];
       for (const n of nodes) {
         if (ids.has(n.id)) continue;
-        xs.push(n.x, n.x + n.w / 2, n.x + n.w);
-        ys.push(n.y, n.y + n.h / 2, n.y + n.h);
+        const b = seen(n);
+        xs.push(b.x, b.x + b.w / 2, b.x + b.w);
+        ys.push(b.y, b.y + b.h / 2, b.y + b.h);
       }
       let dx = 0;
       let dy = 0;
@@ -955,7 +960,7 @@ export function DesktopCanvas() {
       }
       return { dx, dy, guides: { x: gx, y: gy }, snapped: gx.length > 0 || gy.length > 0 };
     },
-    [nodes, zoom, frameWidth, settledH],
+    [nodes, zoom, frameWidth, settledH, seen],
   );
 
   /**
@@ -969,7 +974,9 @@ export function DesktopCanvas() {
     const d = dragRef.current;
     if (!d || d.kind !== "node" || !d.ids?.length || !d.origin) return;
     const ids = new Set(d.ids);
-    const rects = d.ids.map((id) => ({ ...d.origin![id]!, x: d.origin![id]!.x + dx, y: d.origin![id]!.y + dy }));
+    /* Its own edges as drawn: a part its own translate shifts snaps by the edges you see (EDIT-ISSUES #36); the shift is fixed, so the hand's dx, dy still go onto the stored box below. */
+    const byId = new Map(useStudio.getState().nodes.map((n) => [n.id, n]));
+    const rects = d.ids.map((id) => { const o = d.origin![id]!, n = byId.get(id); const b = n ? seen({ ...n, ...o }) : o; return { ...b, x: b.x + dx, y: b.y + dy }; });
     const snap = snapSelection(rects, ids);
     /* A state stops at its frame's edge, and what moves with it stops there too (`stateFrames.ts#clampMove`). */
     const by = clampMove(useStudio.getState().nodes, d.ids, d.origin, dx + snap.dx, dy + snap.dy, d.frames);
@@ -978,7 +985,7 @@ export function DesktopCanvas() {
     useStudio.getState().setPositions(positions);
     setGuides(snap.guides);
     setDrag({ ...d, moved: true, snapped: snap.snapped });
-  }, [snapSelection]);
+  }, [snapSelection, seen]);
 
   carryRef.current = (clientX: number, clientY: number) => {
     const d = dragRef.current;
@@ -1546,7 +1553,7 @@ export function DesktopCanvas() {
       const inside = (b: { x: number; y: number; w: number; h: number }) =>
         b.x >= marquee.x && b.y >= marquee.y && b.x + b.w <= marquee.x + marquee.w && b.y + b.h <= marquee.y + marquee.h;
       const hits = [
-        ...nodes.filter((n) => inside(n) && !isWrapper(nodes, n)).map((n) => n.id),
+        ...nodes.filter((n) => inside(seen(n)) && !isWrapper(nodes, n)).map((n) => n.id),
         ...shapes.filter((sh) => inside(shapeBounds(sh))).map((sh) => sh.id),
       ];
       if (hits.length) {
@@ -2020,7 +2027,7 @@ export function DesktopCanvas() {
             </marker>
           </defs>
           {groups.map((g) => {
-            const b = groupBounds(nodes, g.id);
+            const b = groupBounds(nodes, g.id, seen);
             if (!b) return null;
             return <rect key={g.id} x={b.x - 14} y={b.y - 22} width={b.w + 28} height={b.h + 36} rx={12} fill={`oklch(0.7 0.15 ${g.hue} / 0.07)`} stroke={`oklch(0.7 0.15 ${g.hue} / 0.5)`} strokeDasharray="6 4" />;
           })}
@@ -2052,7 +2059,7 @@ export function DesktopCanvas() {
         </svg>
 
         {groups.map((g) => {
-          const b = groupBounds(nodes, g.id);
+          const b = groupBounds(nodes, g.id, seen);
           if (!b) return null;
           return (
             <div

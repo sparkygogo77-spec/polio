@@ -241,13 +241,15 @@ export const pageSpaces = (s: StudioState) => s.spaces.filter((sp) => sp.pageId 
 export const pageGroups = (s: StudioState) => s.groups.filter((g) => g.pageId === s.activePageId);
 export const activePage = (s: StudioState) => s.pages.find((p) => p.id === s.activePageId) ?? s.pages[0]!;
 
-export function groupBounds(nodes: StudioNode[], groupId: string) {
+/** A group's box round its members; `box` reads each member (the board passes the box you see, `pageClip.ts#seenBox`). */
+export function groupBounds(nodes: StudioNode[], groupId: string, box: (n: StudioNode) => { x: number; y: number; w: number; h: number } = (n) => n) {
   const members = nodes.filter((n) => n.groupId === groupId);
   if (!members.length) return null;
-  const x = Math.min(...members.map((n) => n.x));
-  const y = Math.min(...members.map((n) => n.y));
-  const x2 = Math.max(...members.map((n) => n.x + n.w));
-  const y2 = Math.max(...members.map((n) => n.y + n.h));
+  const bs = members.map(box);
+  const x = Math.min(...bs.map((b) => b.x));
+  const y = Math.min(...bs.map((b) => b.y));
+  const x2 = Math.max(...bs.map((b) => b.x + b.w));
+  const y2 = Math.max(...bs.map((b) => b.y + b.h));
   return { x, y, w: x2 - x, h: y2 - y, members };
 }
 
