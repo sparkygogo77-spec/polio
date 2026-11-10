@@ -58,7 +58,10 @@ export function readPress(e: PressEvent, p: Point, tool: Tool, st: StudioState, 
    * the inert part is still picked and moved. Not once it is picked: a press on a picked part takes it
    * (`tests/press-through-inert.mjs`).
    */
-  const through = domHit && (domHit as { inert?: boolean }).inert && !st.selection.includes(domHit.id) ? underInert(st, domHit, p) : null;
+  /* Not words: a heading the page made click-through is still what a person presses to edit it, as `NodeView#isSheet`
+     keeps it pressable; a smaller part under its words (mochi's creatures under its hero heading) took the press, and two
+     presses never opened them (EDIT-ISSUES #12, `tests/inert-words-press.mjs`). */
+  const through = domHit && (domHit as { inert?: boolean }).inert && !wordsOf(domHit) && !st.selection.includes(domHit.id) ? underInert(st, domHit, p) : null;
   const hit = through ?? domHit;
   const hitId = hit?.id ?? null;
   const twice = !!prior && !!hitId && prior.id === hitId && e.timeStamp - prior.at < DOUBLE_MS && Math.hypot(p.x - prior.x, p.y - prior.y) < DOUBLE_SLOP;
@@ -71,7 +74,8 @@ export function readPress(e: PressEvent, p: Point, tool: Tool, st: StudioState, 
       handsOn: HANDS_ON.has(n.featureId),
       control: isControl(n),
       whole: !!whole && GRABBED.has(whole.kind),
-      holds: ownsOthers(st.nodes, n),
+      /* Click-through words hold nothing a press goes in to: what lies under them is the page's, and the second press opens them (EDIT-ISSUES #12). */
+      holds: !((n as { inert?: boolean }).inert && !!wordsOf(n)) && ownsOthers(st.nodes, n),
       inner: deep && !!partUnder(st.nodes, n, p, shownOnBoard(st), ((places) => (m: StudioNode) => places.get(m.id))(placedOnBoard(st))),
       words: !!wordsOf(n) || (n.id === st.selection[0] && st.selection.length === 1 && !!getFeature(n.featureId)?.content),
       link: !!n.link && isLinkable(n.featureId),

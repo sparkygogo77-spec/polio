@@ -9,8 +9,10 @@
  * heading picked the canvas, and two presses never opened its words (the
  * hand-edit pass on a fresh import, 2026-10-22).
  *
- * Held here, on a canvas picture with an inert heading over it and an inert
- * grain box over both:
+ * Held here, on a canvas picture with an inert heading over it, a small
+ * picture under the heading's words (mochi's creatures: a part smaller than
+ * the heading under the hand, which a press through an inert part reaches
+ * first, EDIT-ISSUES #12), and an inert grain box over all:
  *   · a press on the heading picks the heading;
  *   · two presses open its words;
  *   · a press on bare canvas still picks the canvas (the grain lets it through).
@@ -35,6 +37,7 @@ const doc = JSON.stringify({ state: {
   pages: [{ id: "p0", name: "Home", path: "/", prompt: "", scroll: "inherit" }],
   nodes: [
     node("canvas", "picture", "", 100, 100, 1000, 600, { colour: { bg: "#203040" } }),
+    node("sprite", "picture", "", 300, 305, 280, 70, { colour: { bg: "#405060" } }),
     node("hero", "value-prop", "Create your own agent.", 300, 300, 600, 80, { inert: true, colour: { text: "rgb(245, 245, 246)" } }),
     node("grain", "box", "", 0, 0, 1440, 900, { inert: true, opacity: 0.05, colour: { bg: "#ffffff" } }),
   ],
