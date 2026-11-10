@@ -75,7 +75,7 @@ import { siteLogo } from "../siteMark";
 import { headPictures, heldHead, pageHead, type SiteIcons } from "../siteHead";
 import { bandMoves, captureHeight, css as lenCss, heroHeight, fluidClip, fluidParts, fluidStyle, isCaptured, pageUnits, snapPlace, SNAP_CSS, stickyFlow, stickyHolds, typeShifts, windowTallBands, fromRailFoot, vhShift, vhStretch, type FluidPart } from "../fluidSite";
 import { activeProject } from "@/features/builds/store";
-import { innerBlock, layerStyle, type Units } from "../layerUnits";
+import { drawnShares, innerBlock, layerStyle, type Units } from "../layerUnits";
 import { DEFAULT_OFFSITE, isOffsite, linkAllowed, offsiteRules, type OffsiteRules } from "../shelf";
 import { featureFiles, onUsesOf, pageFeatureTags, type WorkUse } from "../shelf";
 import { PARTS_JS, SITE_MOTION_JS, pageTransitionCss, partKeyframesFor, partsTags, siteMotionTags } from "../shelf";
@@ -644,7 +644,8 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
     const ofBox = (u.of as { box?: number[] } | undefined)?.box ?? null;
     const inner = innerBlock({ left: lenCss(bk.left, W), top, width: lenCss(bk.width, W), height: isHero ? heroH : `${block.h}px` }, block, ofBox, (u.of as { inset?: number[] } | undefined)?.inset ?? null);
     const at0 = ofBox ? { x: ofBox[0]!, y: ofBox[1]! } : { x: block.x, y: block.y };
-    const st = layerStyle(u, inner, node.w, node.h, pic && node.w > 0 ? node.h / node.w : null, { x: (node.x ?? 0) - at0.x, y: (node.y ?? 0) - at0.y });
+    /* A share the page clamped (a max-width the capture does not carry) is said as the share it drew (`layerUnits.ts#drawnShares`). */
+    const st = layerStyle(drawnShares(u, node.w, node.h, ofBox), inner, node.w, node.h, pic && node.w > 0 ? node.h / node.w : null, { x: (node.x ?? 0) - at0.x, y: (node.y ?? 0) - at0.y });
     if (!st) continue;
     if (st.left) el.style.left = st.left;
     if (st.top) el.style.top = st.top;
