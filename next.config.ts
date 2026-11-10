@@ -20,6 +20,12 @@ const BROWSER_ROUTES = ["/api/studio/element", "/api/studio/preview-video", "/ap
  */
 const PLAYWRIGHT_CORE_FILES = ["*.*", "bin/**", "lib/*.*", "lib/entry/**", "lib/server/**", "lib/tools/**"].map((p) => `./node_modules/playwright-core/${p}`);
 
+/** The build's one stamp: set once, in the first process that loads this file, and inherited by the rest. */
+function buildStamp(): string {
+  process.env.BUILD_TIME ||= new Date().toISOString();
+  return process.env.BUILD_TIME;
+}
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   /*
@@ -34,8 +40,16 @@ const nextConfig: NextConfig = {
    * `/api/version` answers which commit is being served; this is the other
    * half of the same question. Read at build, frozen into the bundle, and
    * public — it is a timestamp.
+   *
+   * One build, one stamp. `next build` reads this file in more than one
+   * process (the server's compiler and the pages' each load it), and a
+   * `new Date()` per load stamped a local webpack build's pages and server
+   * seconds apart: BuildGuard then called every page "an older build than
+   * the server" and refused every press. So the first load writes the stamp
+   * into its own environment, which every process it starts inherits, and
+   * every later load reads it back. A stamp set from outside wins.
    */
-  env: { BUILD_TIME: new Date().toISOString() },
+  env: { BUILD_TIME: buildStamp() },
   /*
    * The headless browser, kept out of the bundle.
    *
