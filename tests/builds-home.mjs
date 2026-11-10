@@ -6,7 +6,7 @@
  *   1. pure: `builds/status.ts` reads a site's record, its document's System,
  *      the library's house style, the agents record and the other sites,
  *      and says live, export, style, agents and copies in words;
- *   2. the Start row shows five entries, and each opens the right flow:
+ *   2. the Start row shows six entries (Concepts joined in Merges 71), and each opens the right flow:
  *      Import a site â†’ the capture dialog; Start from an idea â†’ a blank site
  *      with the idea dialog; Make variations â†’ a site picked, its Variations
  *      page; Blank site â†’ a blank site in the Builder; Agents â†’ the dock;
@@ -108,7 +108,7 @@ const projectsIn = (page) => page.evaluate(() => JSON.parse(localStorage.getItem
   const row = page.locator("[data-start-row]");
   check("the Start row is on the page", (await row.count()) === 1);
   const ids = await row.locator("[data-start]").evaluateAll((els) => els.map((e) => e.getAttribute("data-start")));
-  check("â€¦with the five entries, in order", JSON.stringify(ids) === JSON.stringify(["capture", "idea", "variations", "blank", "agents"]), ids.join(", "));
+  check("â€¦with the six entries, in order (Concepts since Merges 71)", JSON.stringify(ids) === JSON.stringify(["capture", "idea", "concepts", "variations", "blank", "agents"]), ids.join(", "));
   check("the agents entry says Open the agents dock when the dock has paired lately", /Open the agents dock/.test(await row.locator('[data-start="agents"]').innerText()));
 
   /* Import a site â†’ the capture dialog. */
