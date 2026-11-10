@@ -412,6 +412,29 @@ export function onBoardEdit(fn: () => void): () => void {
   editListeners.add(fn);
   return () => { editListeners.delete(fn); };
 }
+/*
+ * WHAT THE HISTORY PUT BACK, THE WORD FITTER LEAVES AS IT WAS (EDIT-ISSUES #55). An undo of a text-size change put
+ * every part back exactly, and then the fitter (`textFit.ts#useSettleToWords`) measured the words again and wrote
+ * a new w or h on a few prose parts (sol face n_prose_342: w 1440 → 1681), measured mid-change against fonts and
+ * spacing the board had not finished putting back. The box a checkpoint holds is the box the board had settled to
+ * when it was taken, so it is the answer. Parts undo, redo or a trip through the history put in place are kept here,
+ * by id and box, until the next edit (`push`): the fitter skips them, and the first edit after lets it fit everything again
+ * (`tests/undo-exact.mjs`).
+ */
+type Boxed = { id: string; x: number; y: number; w: number; h: number };
+const boxKey = (n: Boxed) => `${n.x},${n.y},${n.w},${n.h}`;
+/* By id and box, not by object: the store hands the parts on as copies after an undo. */
+let putBack = new Map<string, string>();
+/** Undo, redo and travel: these parts are as their checkpoint holds them. */
+export function asPutBack<T extends Boxed>(nodes: T[]): T[] {
+  putBack = new Map(nodes.map((n) => [n.id, boxKey(n)]));
+  return nodes;
+}
+/** An edit: the fitter may move anything again. */
+export const editMade = () => { if (putBack.size) putBack = new Map(); };
+/** Is this part where the history put it back, with no edit since? */
+export const wasPutBack = (n: Boxed) => putBack.get(n.id) === boxKey(n);
+
 export const edited = () => { for (const fn of editListeners) { try { fn(); } catch { /* a listener's trouble is its own */ } } };
 
 

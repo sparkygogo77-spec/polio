@@ -439,13 +439,13 @@ const store3 = await storeOf();
 const storeBack = Object.keys(store0).filter((id) => store0[id] !== store3[id]);
 if (process.env.DIAG) for (const id of storeBack.slice(0, 4)) console.log(`       ${id} after undo: ${keysDiff(store0, store3, id).join("; ")}`);
 /*
- * KNOWN, NOT THIS LANE'S (handovers/EDIT-ISSUES.md, 2026-11-01): after an
- * undo of a text-size change, the word fitter measures the words again and
- * writes a new w or h on a few prose parts (sol face: 4 of 671), so their
- * box is not the captured one. Every other field comes back. Counted apart.
+ * EDIT-ISSUES #55 (fixed, polish batch 1): the word fitter used to write a
+ * new w or h on a few prose parts after the undo (sol face: 4 of 671). What
+ * the history puts back now stays put, so nothing is counted apart: `refit`
+ * must be empty (tests/undo-exact.mjs holds it on its own).
  */
 const refit = storeBack.filter((id) => keysOf(store0, store3, id).every((k) => k === "w" || k === "h"));
-check("one undo puts every field of every part back, but for the word fitter's own w/h on prose parts", storeBack.length === refit.length, `${storeBack.length} differ in the document, ${refit.length} only in w/h: ${storeBack.filter((id) => !refit.includes(id)).slice(0, 4).join(", ")}`);
+check("one undo puts every field of every part back, the word fitter's w/h included", storeBack.length === 0, `${storeBack.length} differ in the document, ${refit.length} only in w/h: ${storeBack.filter((id) => !refit.includes(id)).slice(0, 4).join(", ")}`);
 const d3own = d3.filter((id) => !refit.includes(id) && where(board0, board3, id) !== "inside only");
 check("…and every part on the board is back, but for those (and what they draw inside another)", d3own.length === 0, `${d3.length} differ on the board (${refit.length} refit by the word fitter): ${d3own.slice(0, 4).map((id) => `${id}: ${where(board0, board3, id)}`).join(", ")}`);
 console.log(`       undo: ${refit.length} parts kept a w/h the word fitter wrote (${refit.slice(0, 5).join(", ")})`);
