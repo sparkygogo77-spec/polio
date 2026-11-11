@@ -33,6 +33,8 @@ export interface LaneChat {
   /** Its badge (lane-rules, J 2026-11-10): one code word and an emoji; what a private screen shows in place of its name. */
   code?: string;
   emoji?: string;
+  /** Piece Q: every question about it is answered, so it no longer waits on J (drawn working until the coordinator says otherwise). */
+  answered?: boolean;
   /** Its name as written, kept for matching a question's `about` while the drawn name is its badge. */
   realName?: string;
 }
@@ -81,7 +83,7 @@ export function readFeed(raw: unknown): LanesFeed | null {
   /* The questions themselves, or (as the feed began) only their count, or else the red chats. */
   const questions = readDecisions(r.decisions);
   const decisions = Array.isArray(r.decisions) ? questions.filter(isOpen).length : typeof r.decisions === "number" ? r.decisions : need;
-  return { coordinators, decisions, questions };
+  return settleAnswered({ coordinators, decisions, questions });
 }
 
 /** The questions as the coordinator wrote them, by `order`. One without an id, a question or options to press is left out. */
@@ -512,4 +514,23 @@ export function leftovers(feed: LanesFeed | null): Set<string> {
   if (!feed) return out;
   for (const d of feed.questions) if (isOpen(d)) for (const x of chatsAbout(feed, d.about)) if (x.state === "done") out.add(x.id);
   return out;
+}
+
+/**
+ * Piece Q (J, 2026-11-10: "I answered the Blender question … the orb stayed red"): a chat is red because a
+ * question waits on J. Once every question about it is answered it no longer waits on J, whatever the feed's
+ * `state` still says until the coordinator's next turn: it is drawn working. A chat marked "need" with no question
+ * about it at all keeps its red (the coordinator has another reason). The count already follows the answers.
+ */
+export function settleAnswered(feed: LanesFeed): LanesFeed {
+  if (!feed.questions.length) return feed;
+  let changed = false;
+  const coordinators = feed.coordinators.map((c) => ({ ...c, chats: c.chats.map((x) => {
+    if (x.state !== "need") return x;
+    const about = feed.questions.filter((d) => chatsAbout(feed, d.about).some((y) => y.id === x.id));
+    if (!about.length || about.some(isOpen)) return x;
+    changed = true;
+    return { ...x, state: "work" as const, answered: true };
+  }) }));
+  return changed ? { ...feed, coordinators } : feed;
 }

@@ -25,7 +25,7 @@ import * as React from "react";
 import { Archive, ChevronDown, ChevronUp, Sliders } from "lucide-react";
 import { openQuestion, setDockTab, useAgents } from "./store";
 import { Decisions } from "./Decisions";
-import { boardShown, useLive, usePrivate } from "./feed";
+import { boardShown, readLanes, useLive, usePrivate } from "./feed";
 import { badgeOf, scrub } from "./privacy";
 import { BOARD_TUNE, type BoardLook } from "./boardTune";
 import { stripUrl } from "./orbArt";
@@ -476,6 +476,8 @@ export function LanesBoard() {
   function answered(d: Decision) {
     if (!feed) return;
     for (const x of chatsAbout(feed, d.about)) pulses.current.set(x.id, sim.t);
+    /* Piece Q: read the feed again at once, so the orb and the count follow the answer in a second or two. */
+    setTimeout(() => void readLanes(), 400);
   }
   function tumble(key: string) {
     setPicked(key);

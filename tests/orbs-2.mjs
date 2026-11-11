@@ -144,6 +144,11 @@ if (L?.pieOf) {
   check("K: a ring is 96 curved pieces, each through the circle's own midpoint", L.SEGMENTS === 96 && sg.length === 96 && sg.every((x) => /^M[-\d. ]+Q[-\d. ]+$/.test(x.d)));
   check("F: a question carries What, How, background, asked, askedBy and carried", (() => { const d = feed.questions.find((x) => x.id === "q-merge"); return !!(d.what && d.how && d.context && d.asked && d.askedBy === "lane-a3" && d.carried); })());
 }
+if (L?.settleAnswered) {
+  const q = (about, answer) => ({ id: about + answer, about, question: "q", options: [{ key: "a" }], answer });
+  const one = (qs) => L.readFeed({ coordinators: [{ id: "c", chats: [{ id: "x12345678", name: "Bridge integration", lane: "bridge-integration", state: "need" }] }], decisions: qs }).coordinators[0].chats[0].state;
+  check("Q: a red chat whose questions are all answered is red no more", one([q("bridge-integration", "a")]) === "work" && one([q("bridge-integration", "a"), q("bridge-integration", "")]) === "need" && one([]) === "need" && one([q("other-lane", "a")]) === "need");
+}
 if (HL?.forBuilder) {
   /* A made key-shaped value, built here so no key-like text sits in the file. */
   const fakeKey = ["s", "k-", "ant-api03-", "q".repeat(26)].join("");
@@ -415,6 +420,18 @@ try {
   check("P: answered, the small sun ends in a quick supernova (under a second)", burst && gone && Date.now() - tBurst < 1500 && (await page.locator(`[data-lanes-orb="${leftover.id}"]`).count()) === 0);
   check("P: …and becomes a plain finished bead", (await page.locator(`[data-lanes-bead="${leftover.id}"]`).count()) === 1);
   FEED.decisions.find((d) => d.id === "q-left").answer = "";
+
+  /* Q: answering the red chat's question turns its orb from red within a few seconds, and the count drops. */
+  await page.locator(`[data-lanes-hit="${asker.id}"]`).dispatchEvent("pointerdown", { button: 0, clientX: 0, clientY: 0, pointerId: 1, isPrimary: true });
+  await page.evaluate(() => window.dispatchEvent(new PointerEvent("pointerup", { button: 0, clientX: 0, clientY: 0, pointerId: 1 })));
+  await waitFor(page, () => document.querySelectorAll('[data-decision="q-orbit"] button[data-decision-press]').length === 2, null, 4000);
+  const redBefore = await page.locator(`[data-lanes-orb="${asker.id}"]`).getAttribute("data-state");
+  const tq = Date.now();
+  await page.locator('[data-decision="q-orbit"] button[data-decision-press="b"]').click();
+  const turned = await waitFor(page, (id) => document.querySelector(`[data-lanes-orb="${id}"]`)?.getAttribute("data-state") === "work", asker.id, 8000);
+  check("Q: an answered question's orb stops being red within a few seconds", redBefore === "need" && turned && Date.now() - tq < 6000, `${redBefore} → ${await page.locator(`[data-lanes-orb="${asker.id}"]`).getAttribute("data-state")} in ${((Date.now() - tq) / 1000).toFixed(1)} s`);
+  check("Q: …and the count drops with it", (await page.locator("[data-agents-waiting]").getAttribute("data-agents-waiting")) === String(OPEN.length - 1) && /2 decisions wait/.test(await page.locator("[data-decisions-count]").textContent()));
+  FEED.decisions.find((d) => d.id === "q-orbit").answer = "";
   await page.evaluate(() => localStorage.removeItem("polio.tune.agents-board"));
 
   /* D. */
