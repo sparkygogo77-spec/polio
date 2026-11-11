@@ -16,6 +16,12 @@ import {
 import { fakeInput } from "../pc/fake.ts";
 import { planStop, planStopIdle } from "../pc/plan.ts";
 import { buildPc } from "../pc/tree.ts";
+import { HIDDEN, PRIVATE_KEY, readPrivate, scrub, veil } from "./privacy.ts";
+
+/* Privacy (Pleo/handovers/open/privacy-rules.md): each row's head is its kind, a plain label and what it costs the
+   job; its pid, per-process memory, command line and folder sit in one "Details" fold, closed by default. While
+   Private is on (the default, kept in this page's storage) those values read "hidden", even with the fold open. */
+const keptPrivate = () => { try { return readPrivate(localStorage.getItem(PRIVATE_KEY)); } catch { return true; } };
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const MB = 1024 * 1024;
@@ -73,17 +79,24 @@ export function mountPcView(root: HTMLElement, source: PcSource, opts: { everyMs
   let ask: Ask = null;
   let result = "";
   const closed = new Set<string>();
+  /* Rows whose Details J opened, by pid, kept across redraws. */
+  const shown = new Set<number>();
+  let priv = keptPrivate();
+  const dim = (on: boolean, v: string) => (on ? `<span class="quiet" data-hidden>${HIDDEN}</span>` : esc(v));
 
   const itemRow = (g: PcGroup, i: PcItem) => {
     const asking = ask?.pid === i.pid;
     const stop = !i.stoppable ? "" : asking
-      ? `<span class="ask">Ends the whole session "${esc(g.title)}" and what it is doing. Stop it?</span><button class="danger" data-pc-yes>Yes, stop</button><button data-pc-no>Keep it</button>`
+      ? `<span class="ask">Ends the whole session "${esc(scrub(priv, g.title))}" and what it is doing. Stop it?</span><button class="danger" data-pc-yes>Yes, stop</button><button data-pc-no>Keep it</button>`
       : `<button class="small" data-pc-stop title="End this and what it started">Stop</button>`;
     return `
       <li class="pc-item" data-pc-item="${i.pid}" data-kind="${i.kind}" style="--depth:${Math.min(i.depth, 6)}">
-        <div class="what"><span class="kind">${esc(i.kind)}</span> <b>${esc(i.label)}</b> ${i.kind === "app" ? "" : idle(i.idleMinutes)}${asking ? "" : stop}</div>
-        <div class="nums quiet"><span>${cpu(i.cpu)}</span><span>${mem(i.memBytes)}</span><span>${age(pc!.at - i.created)}</span><span>pid ${i.pid}</span></div>
-        <div class="detail quiet" title="${esc(i.detail)}">${esc(i.detail)}</div>
+        <div class="what"><span class="kind">${esc(i.kind)}</span> <b>${esc(scrub(priv, i.label))}</b> ${i.kind === "app" ? "" : idle(i.idleMinutes)}${asking ? "" : stop}</div>
+        <div class="nums quiet"><span>${cpu(i.cpu)}</span><span>${age(pc!.at - i.created)}</span></div>
+        <details class="pc-more" data-pc-more="${i.pid}"${shown.has(i.pid) ? " open" : ""}><summary>Details</summary>
+          <div class="nums quiet"><span>pid ${dim(priv, String(i.pid))}</span><span>memory ${dim(priv, mem(i.memBytes))}</span></div>
+          <div class="detail quiet" data-pc-detail>${priv ? dim(true, "") : `<span title="${esc(i.detail)}">${esc(i.detail)}</span>`}</div>
+        </details>
         ${asking ? `<div class="row-buttons">${stop}</div>` : ""}
       </li>`;
   };
@@ -97,11 +110,11 @@ export function mountPcView(root: HTMLElement, source: PcSource, opts: { everyMs
     return `
       <details class="pc-group" data-pc-group="${esc(g.id)}" data-kind="${g.kind}"${closed.has(g.id) ? "" : " open"}>
         <summary>
-          <span class="title" data-group-title>${esc(g.title)}</span>
+          <span class="title" data-group-title>${esc(scrub(priv, g.title))}</span>
           ${tag ? `<span class="tag">${tag}</span>` : ""} ${g.kind === "app" ? "" : idle(g.idleMinutes)}
           <span class="right quiet">${g.items.length} · ${mem(g.memBytes)} · ${cpu(g.cpu)}</span>
         </summary>
-        <div class="group-head quiet">${g.folder ? `${esc(g.folder)} · ` : ""}since ${new Date(g.startedAt).toTimeString().slice(0, 5)} ${stopGroup}</div>
+        <div class="group-head quiet">${g.folder ? `<span data-pc-folder>folder ${dim(priv, g.folder)}</span> · ` : ""}since ${new Date(g.startedAt).toTimeString().slice(0, 5)} ${stopGroup}</div>
         ${note}
         <ul class="pc-items">${g.items.map((i) => itemRow(g, i)).join("")}</ul>
       </details>`;
@@ -122,7 +135,7 @@ export function mountPcView(root: HTMLElement, source: PcSource, opts: { everyMs
         <b>${t.processes} processes</b> · ${t.sessions} sessions · ${mem(t.memBytes)} · ${cpu(t.cpu)}
         <div class="quiet">PC memory ${mem(pc.memory.usedBytes)} of ${mem(pc.memory.totalBytes)} · read ${new Date(pc.at).toTimeString().slice(0, 8)}</div>
       </div>
-      <div class="go">${stopIdle}</div>
+      <div class="go">${stopIdle}<button class="small" data-pc-private="${priv ? "on" : "off"}" aria-pressed="${priv}">${priv ? "🫥 Private" : "Private off"}</button></div>
       <p class="hint" data-pc-result${result ? "" : " hidden"}>${esc(result)}</p>
       ${pc.groups.map(groupHtml).join("")}
       <section class="pc-cloud" data-pc-cloud><h2>Cloud sessions</h2><ul>${cloud}</ul></section>`;
@@ -142,7 +155,7 @@ export function mountPcView(root: HTMLElement, source: PcSource, opts: { everyMs
     if (p.length) { console.warn("pcview: not sent", p); return; }
     opts.sent.push(m);
     const r = await source.send(m);
-    result = r.refused ?? `Ended ${r.ended.length} process${r.ended.length === 1 ? "" : "es"}${r.ended.length ? ` (pid ${r.ended.join(", ")})` : ""}.`;
+    result = r.refused ? scrub(priv, r.refused) : `Ended ${r.ended.length} process${r.ended.length === 1 ? "" : "es"}${r.ended.length ? ` (pid ${veil(priv, r.ended.join(", "))})` : ""}.`;
     ask = null;
     await refresh();
   }
@@ -160,6 +173,7 @@ export function mountPcView(root: HTMLElement, source: PcSource, opts: { everyMs
     } else if (t.closest("[data-pc-yes]") && it) void stopOne(it, true);
     else if (t.closest("[data-pc-no], [data-stop-idle-no]")) { ask = null; draw(); }
     else if (t.closest("[data-stop-idle]")) { ask = { idle: true }; draw(); }
+    else if (t.closest("[data-pc-private]")) { priv = !priv; try { localStorage.setItem(PRIVATE_KEY, priv ? "on" : "off"); } catch { /* not kept */ } draw(); }
     else if (t.closest("[data-stop-idle-yes]")) void send({ v, kind: "pc-stop-idle", by: "j", minutes: PC_IDLE_MINUTES });
   });
   // Keep what J folded across redraws.
@@ -167,6 +181,8 @@ export function mountPcView(root: HTMLElement, source: PcSource, opts: { everyMs
     const d = e.target as HTMLDetailsElement;
     const id = d.dataset?.pcGroup;
     if (id) { if (d.open) closed.delete(id); else closed.add(id); }
+    const more = Number(d.dataset?.pcMore);
+    if (more) { if (d.open) shown.add(more); else shown.delete(more); }
   }, true);
 
   const timer = opts.everyMs ? setInterval(() => { if (!ask) void refresh(); }, opts.everyMs) : null;

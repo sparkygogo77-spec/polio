@@ -60,7 +60,11 @@ try {
   const rows = await page.$$eval("[data-pc-item]", (els) => els.map((e) => Number(e.dataset.pcItem)));
   check("every process has a row", rows.length === pc.totals.processes, `${rows.length} of ${pc.totals.processes}`);
   const devRow = page.locator(`[data-pc-item="${P.devServer}"]`);
-  check("the dev server's row says what it is for", (await devRow.textContent()).includes("Builder copy for lane export, port 3091"));
+  /* Private is on by default (privacy-rules.md): the port reads "hidden" until it is switched off. */
+  check("the dev server's row says what it is for, its port hidden while Private", (await devRow.textContent()).includes("Builder copy for lane export, hidden") && !(await devRow.textContent()).includes("3091"));
+  await page.locator("[data-pc-private]").click();
+  check("…and with Private off, the port too", (await devRow.textContent()).includes("Builder copy for lane export, port 3091"));
+  await page.locator("[data-pc-private]").click();
   check("and that it is idle 40 min", await devRow.locator("[data-idle]").textContent().then((t) => t.includes("idle 40 min"), () => false));
   const appStops = await page.locator('[data-pc-group="app"] [data-pc-stop], [data-pc-group="app"] [data-stop-group]').count();
   check("the desktop app has no Stop anywhere", appStops === 0, `${appStops}`);

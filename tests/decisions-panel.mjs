@@ -205,6 +205,8 @@ const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
 const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });
 const errors = [];
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+/* These checks read chat names: Private (on by default since Orbs 2) draws badges instead. */
+await ctx.addInitScript(() => { try { localStorage.setItem("polio.private", "off"); } catch {} });
 /* The feed is our handovers folder's, so an answer written there comes back on the next read. */
 await ctx.route("**/api/lanes", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ feed: served(), beats: [], now: Date.now() }) }));
 await ctx.route(`${HELPER}/**`, forward);
@@ -320,6 +322,8 @@ await ctx.close();
 writeLanes();
 const before = readFileSync(LANES, "utf8");
 const c2 = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+/* These checks read chat names: Private (on by default since Orbs 2) draws badges instead. */
+await c2.addInitScript(() => { try { localStorage.setItem("polio.private", "off"); } catch {} });
 let feedUp = true;
 await c2.route("**/api/lanes", (r) => (feedUp ? r.fallback() : r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ feed: null, beats: [], now: Date.now() }) })));
 await c2.route(`${HELPER}/**`, (r) => r.abort("connectionrefused"));

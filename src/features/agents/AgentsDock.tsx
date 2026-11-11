@@ -30,6 +30,8 @@ import { ACTION_WORDS, DOCK_URL, HELPER_ORIGIN, PART_ACTIONS, START_LINK, checkC
 import { closeAsk, closeDock, openDock, reachHelper, setDockTab, useAgents } from "./store";
 import { listen } from "./bridge";
 import { LanesBoard } from "./LanesBoard";
+import { dockShown, setPrivate, startLive, useLive, usePrivate } from "./feed";
+import { HELPER_COLOUR, STATE_COLOUR, helperWords } from "./lanes";
 import { startAsked } from "@/features/builds/start";
 
 export const ACTION_ICONS: Record<PartAction, typeof Bot> = { change: Pencil, features: Lightbulb, security: ShieldCheck, backend: Server, explain: Code2 };
@@ -56,22 +58,72 @@ function hand(frame: HTMLIFrameElement | null, ctx: AgentsContext) {
   frame.contentWindow.postMessage(ctx, HELPER_ORIGIN);
 }
 
+/** How many questions wait on J, from the last feed read (the dock open or shut). */
+function useWaiting(): number {
+  return useLive((s) => s.lanes.feed?.decisions ?? 0);
+}
+
+/** "12 s ago", ticking while it shows. */
+function useNow(ms = 1000): number {
+  const [now, setNow] = React.useState(() => Date.now());
+  React.useEffect(() => { const t = setInterval(() => setNow(Date.now()), ms); return () => clearInterval(t); }, [ms]);
+  return now;
+}
+const heardWords = (at: number | null, now: number) => {
+  if (!at) return "never heard from in this browser";
+  const s = Math.max(0, Math.round((now - at) / 1000));
+  return `last heard from ${s < 60 ? `${s} s` : s < 3600 ? `${Math.floor(s / 60)} min` : s < 86400 ? `${Math.floor(s / 3600)} h` : `${Math.floor(s / 86400)} d`} ago`;
+};
+
 export function AgentsButton() {
   const open = useAgents((s) => s.open);
+  const helper = useLive((s) => s.helper);
+  const waiting = useWaiting();
+  const words = helperWords(helper.state, helper.paired);
+  const asks = waiting ? `${waiting} ${waiting === 1 ? "question waits" : "questions wait"} on you. ` : "";
   return (
-    <Tooltip content={open ? "Close the agents dock" : "Agents: ask for a change, see what the agents are doing"}>
+    <Tooltip content={`${asks}${words}. ${open ? "Close the agents dock" : "Agents: ask for a change, see what the agents are doing"}`}>
       <Button
         variant={open ? "subtle" : "ghost"}
         size="sm"
-        aria-label="Agents"
+        aria-label={`Agents. ${asks}${words}`}
         aria-pressed={open}
         data-agents-button=""
+        className="relative"
         onClick={() => (open ? closeDock() : openDock())}
       >
         <Bot />
         Agents
+        {/* The helper's state, always: green paired, amber answering, red not answering. */}
+        <span data-agents-helper-mark={helper.state} aria-hidden className="inline-block size-2 shrink-0 rounded-full" style={{ background: HELPER_COLOUR[helper.state], boxShadow: helper.state === "off" ? "none" : `0 0 6px ${HELPER_COLOUR[helper.state]}` }} />
+        {waiting ? (
+          <span data-agents-waiting={waiting} aria-hidden className="ml-0.5 inline-grid h-4 min-w-4 place-items-center rounded-full px-1 text-[10px] font-bold leading-none text-white" style={{ background: STATE_COLOUR.need }}>{waiting}</span>
+        ) : null}
       </Button>
     </Tooltip>
+  );
+}
+
+/** One switch (privacy-rules.md §3): on, chats are drawn by their badge and sensitive values say "hidden". */
+function PrivateSwitch() {
+  const on = usePrivate((s) => s.on);
+  return (
+    <Button variant={on ? "subtle" : "ghost"} size="xs" data-agents-private={on ? "on" : "off"} aria-pressed={on} title={on ? "Private: names are badges and pids, ports and paths say hidden. Press to show them." : "Private is off: press to hide names, pids, ports and paths for a screenshot."} onClick={() => setPrivate(!on)}>
+      {on ? "🫥 Private" : "Private off"}
+    </Button>
+  );
+}
+
+/** The top of the dock: the helper's state in words, and when it was last heard from. */
+function HelperLine() {
+  const helper = useLive((s) => s.helper);
+  const now = useNow();
+  return (
+    <p data-agents-helper={helper.state} role="status" className="m-0 flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5 text-[11px]">
+      <span aria-hidden className="inline-block size-2 shrink-0 rounded-full" style={{ background: HELPER_COLOUR[helper.state] }} />
+      <span className="font-medium">{helperWords(helper.state, helper.paired)}</span>
+      <span data-agents-helper-heard="" className="ml-auto shrink-0 text-fg-muted">{helper.state === "off" || helper.state === "checking" ? heardWords(helper.lastHeard, now) : "answering now"}</span>
+    </p>
   );
 }
 
@@ -135,6 +187,14 @@ function Dock() {
   }, [loaded, action, partId, picked, seq]);
   /* The site bridge hears this frame, and only it, while it shows (`bridge.ts`). */
   React.useEffect(() => (loaded && frame.current ? listen(frame.current) : undefined), [loaded]);
+  React.useEffect(() => dockShown(), []);
+  /* The helper came back or went away while the dock shows: the frame or the setup follows it, without a reload. */
+  const live = useLive((s) => s.helper.state);
+  React.useEffect(() => {
+    if (live === "checking") return;
+    const want = live === "off" ? "down" : "up";
+    if (reach !== "checking" && reach !== want) useAgents.setState({ reach: want });
+  }, [live, reach]);
   return (
     <aside
       data-agents-dock=""
@@ -150,8 +210,12 @@ function Dock() {
             ))}
           </span>
         </span>
-        <Button variant="ghost" size="iconXs" aria-label="Close agents" data-agents-close="" onClick={closeDock}><X /></Button>
+        <span className="flex items-center gap-1">
+          <PrivateSwitch />
+          <Button variant="ghost" size="iconXs" aria-label="Close agents" data-agents-close="" onClick={closeDock}><X /></Button>
+        </span>
       </header>
+      <HelperLine />
       {/* The helper's page stays loaded under the board: site calls reach the Builder through it, whichever tab shows. */}
       <div className="relative flex min-h-0 flex-1 flex-col">
       {tab === "chats" ? <LanesBoard /> : null}
@@ -218,7 +282,7 @@ export function AgentsHost() {
   const open = useAgents((s) => s.open);
   const [here, setHere] = React.useState(false);
   /* Builds' agents entry opens the Builder with `?start=agents` (`builds/start.ts`): the dock opens with it. */
-  React.useEffect(() => { setHere(true); if (startAsked("agents")) openDock(); }, []);
+  React.useEffect(() => { setHere(true); startLive(); if (startAsked("agents")) openDock(); }, []);
   if (!here) return null;
   return (
     <>

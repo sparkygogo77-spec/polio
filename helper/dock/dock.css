@@ -169,3 +169,8 @@ button.small { padding: 1px 7px; font-size: 11px; }
 /* The daily token cap: Change opens a number box with Set and Keep it. */
 .cap-edit { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
 .cap-edit input { width: 130px; }
+/* Privacy: a row's pid, memory, command line and folder are folded under one Details (privacy-rules.md). */
+.pc-item .pc-more > summary { cursor: pointer; font: 11px var(--mono); opacity: .75; list-style: none; }
+.pc-item .pc-more > summary::before { content: "▸ "; }
+.pc-item .pc-more[open] > summary::before { content: "▾ "; }
+[data-hidden] { opacity: .6; font-style: italic; }

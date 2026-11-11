@@ -54,7 +54,7 @@ export function publicHistory(raw: unknown): { at: unknown; text: unknown }[] {
   return (raw as unknown[]).flatMap((h) => (h && typeof h === "object" && (h as { public?: unknown }).public === true ? [{ at: (h as { at?: unknown }).at, text: (h as { text?: unknown }).text }] : []));
 }
 /** What a chat may show the Builder; anything else the coordinator writes on it (a note, its last line) stays here. */
-const CHAT_KEYS = ["id", "name", "lane", "state", "sentAt", "lastSeen", "helper"];
+const CHAT_KEYS = ["id", "name", "lane", "code", "emoji", "state", "sentAt", "lastSeen", "helper"];
 
 /** The feed with every coordinator and chat cut down to its name, state and public timeline; the questions as they are. */
 export function namesOnly(raw: unknown): unknown {

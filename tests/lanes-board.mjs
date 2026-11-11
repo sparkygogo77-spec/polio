@@ -133,6 +133,8 @@ check("/api/lanes serves the file it is pointed at", routed?.feed?.coordinators?
 const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
 const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+/* These checks read chat names: Private (on by default since Orbs 2) draws badges instead. */
+await ctx.addInitScript(() => { try { localStorage.setItem("polio.private", "off"); } catch {} });
 let feedNow = JSON.parse(JSON.stringify(FIXTURE));
 await ctx.route("**/api/lanes", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ feed: feedNow, beats: [], now: Date.now() }) }));
 await ctx.route(`${HELPER}/**`, (r) => r.fulfill({ status: 200, contentType: "text/html", headers: { "access-control-allow-origin": "*" }, body: "<!doctype html><title>dock stub</title><body>dock" }));
@@ -160,11 +162,14 @@ const near = (colour, target, by = 40) => { const a = rgbOf(colour), b = hex(tar
 
 const COL = { need: "#ff4d4d", work: "#35c8ff", done: "#3dffae", park: "#6f7f99" };
 const allChats = FIXTURE.coordinators.flatMap((c) => c.chats);
+/* Orbs 2: the finished chats are one archive body in the middle; only the rest are orbs of their own. */
+const liveChats = allChats.filter((c) => c.state !== "done"), doneChats = allChats.filter((c) => c.state === "done");
+const archive = () => page.evaluate(() => { const a = document.querySelector("[data-lanes-archive]"); const m = /translate\(([-\d.]+) ([-\d.]+)\)/.exec(a?.getAttribute("transform") ?? ""); return a ? { n: Number(a.getAttribute("data-lanes-archive")), x: Number(m?.[1]), y: Number(m?.[2]) } : null; });
 let s = await until((x) => x.rings[A.id] && close(x.rings[B.id].r, 211.5, 0.5) && near(x.rings[C.id].colour, COL.need, 30), 10000);
 check("one ring per coordinator, 48 pieces each", Object.keys(s.rings).length === 3 && s.segs === 144, `${Object.keys(s.rings).length} rings, ${s.segs} pieces`);
-check("one orb per chat", Object.keys(s.orbs).length === allChats.length, String(Object.keys(s.orbs).length));
+check("one orb per chat still working, waiting or parked", Object.keys(s.orbs).length === liveChats.length && liveChats.every((c) => s.orbs[c.id]), String(Object.keys(s.orbs).length));
 check("no nucleus", (await page.locator("[data-lanes-nucleus]").count()) === 0);
-check("orbs head for their state's colour", allChats.every((c) => s.orbs[c.id]?.target === COL[c.state] && near(s.orbs[c.id].colour, COL[c.state]) && s.orbs[c.id].fill === s.orbs[c.id].colour));
+check("orbs head for their state's colour", liveChats.every((c) => s.orbs[c.id]?.target === COL[c.state] && near(s.orbs[c.id].colour, COL[c.state]) && s.orbs[c.id].fill === s.orbs[c.id].colour));
 check("rings: green all done, blue working, red one waits on J", s.rings[A.id]?.target === COL.done && s.rings[B.id]?.target === COL.work && s.rings[C.id]?.target === COL.need && [A, B, C].every((c) => near(s.rings[c.id].colour, s.rings[c.id].target)), JSON.stringify([A, B, C].map((c) => s.rings[c.id]?.colour)));
 check("each ring its own size: grown by its share done, a step out from the last", close(s.rings[A.id].r, 300, 0.5) && close(s.rings[B.id].r, 211.5, 0.5) && close(s.rings[C.id].r, 198, 0.5), JSON.stringify([A, B, C].map((c) => s.rings[c.id].r)));
 check("the decisions waiting are a line in the menu", s.decisions === "2 decisions wait on you", s.decisions);
@@ -175,16 +180,13 @@ s = await until((x) => Math.abs(x.rings[A.id].tilt) < 0.5, 12000);
 check("the all-done ring has settled flat and rests", s.rings[A.id].speed === 0 && Math.abs(s.rings[A.id].tilt) < 0.5, String(s.rings[A.id].tilt));
 
 const order = await page.evaluate(() => [...document.querySelectorAll("[data-ring-seg],[data-lanes-orb]")].map((e) => ({ z: Number(e.dataset.z), ring: e.getAttribute("data-ring-seg") })));
-check("one scene sorted by depth: every ring piece and orb, far to near", order.length === 154 && order.every((x, i) => i === 0 || x.z >= order[i - 1].z));
+check("one scene sorted by depth: every ring piece and orb, far to near", order.length === 144 + liveChats.length && order.every((x, i) => i === 0 || x.z >= order[i - 1].z));
 const switches = order.filter((x) => x.ring).reduce((n, x, i, a) => n + (i > 0 && x.ring !== a[i - 1].ring ? 1 : 0), 0);
 check("…so rings pass in front of and behind each other", switches > 6, `${switches} changes of ring along the depth order`);
 const orbsNow = Object.values(s.orbs);
 check("far orbs are smaller than near ones", orbsNow.filter((o) => o.z < -30).every((f) => orbsNow.filter((o) => o.z > 30).every((n) => f.scale < n.scale)));
-const mids = A.chats.map((c) => s.orbs[c.id]).concat([s.orbs[B.chats[2].id]]);
-check("the finished chats are the middle, spinning round it, with space between them", mids.every((o) => Math.abs(o.x) < 82 && Math.abs(o.y) < 45) && mids.every((o, i) => mids.every((q, j) => i === j || Math.hypot(o.x - q.x, o.y - q.y) > 10)), JSON.stringify(mids.map((o) => [o.x, o.y])));
-await page.waitForTimeout(400);
-const m1 = (await read()).orbs[A.chats[0].id];
-check("…turning", m1.x !== s.orbs[A.chats[0].id].x || m1.y !== s.orbs[A.chats[0].id].y);
+const ar = await archive();
+check("the finished chats are the middle: one archive body with their count", ar?.n === doneChats.length && Math.abs(ar.x) < 2 && Math.abs(ar.y) < 2 && doneChats.every((c) => !s.orbs[c.id]), JSON.stringify(ar));
 
 /* Hover: a point on a ring piece that the pointer really finds. */
 const onRing = (id) => page.evaluate((id) => {
@@ -247,10 +249,10 @@ check("…its colour drifting to blue, not snapping", near(s.orbs[form.id].colou
 s = await until((x) => x.orbs[form.id]?.share > 0.3, 9000);
 check("…easing round to the back while it thinks", s.orbs[form.id].share > 0.3 && s.orbs[form.id].share <= 0.5, String(s.orbs[form.id].share));
 state(form.id, "done");
-s = await until((x) => x.orbs[form.id]?.share === 1 && Math.abs(x.orbs[form.id].x) < 82 && Math.abs(x.orbs[form.id].y) < 45, 14000);
-await page.waitForTimeout(2500);
+s = await until((x) => !x.orbs[form.id], 16000);
+await page.waitForTimeout(500);
 s = await read();
-check("when it answers it completes the lap and goes to the middle", s.orbs[form.id].share === 1 && Math.abs(s.orbs[form.id].x) < 82 && Math.abs(s.orbs[form.id].y) < 45, JSON.stringify(s.orbs[form.id]));
+check("when it answers it completes the lap and goes into the archive", !s.orbs[form.id] && (await archive())?.n === doneChats.length + 1, JSON.stringify(await archive()));
 check("…and its ring grows a step out, eased", close(s.rings[B.id].r, 249, 0.5) && close(s.rings[B.id].speed, 5.35, 0.05), `${s.rings[B.id].r} ${s.rings[B.id].speed}`);
 
 /* The helper's page is still all there. */
@@ -264,6 +266,8 @@ await page.locator("[data-agents-close]").click().catch(() => {});
 
 /* A real site on the board, opened saved (no import): the board over it moves nothing. */
 const c3 = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
+/* These checks read chat names: Private (on by default since Orbs 2) draws badges instead. */
+await c3.addInitScript(() => { try { localStorage.setItem("polio.private", "off"); } catch {} });
 await c3.route("**/api/lanes", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ feed: FIXTURE, beats: [], now: Date.now() }) }));
 await c3.route(`${HELPER}/**`, (r) => r.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>dock stub</title><body>dock" }));
 const p3 = await c3.newPage();
@@ -282,11 +286,13 @@ await p3.waitForTimeout(3000);
 await p3.locator("[data-agents-close]").click().catch(() => {});
 await p3.waitForTimeout(800);
 const p1 = await parts();
-check(`on a real site (${p0.stored.length} parts): the atom draws and the board doesn't move by a pixel`, orbsOverSite === allChats.length && p0.stored.length > 20 && JSON.stringify(p0) === JSON.stringify(p1), `${orbsOverSite} orbs`);
+check(`on a real site (${p0.stored.length} parts): the atom draws and the board doesn't move by a pixel`, orbsOverSite === liveChats.length && p0.stored.length > 20 && JSON.stringify(p0) === JSON.stringify(p1), `${orbsOverSite} orbs`);
 await c3.close();
 
 /* No feed: says so, doesn't crash. */
 const c2 = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+/* These checks read chat names: Private (on by default since Orbs 2) draws badges instead. */
+await c2.addInitScript(() => { try { localStorage.setItem("polio.private", "off"); } catch {} });
 await c2.route("**/api/lanes", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ feed: null, beats: [], now: Date.now() }) }));
 await c2.route(`${HELPER}/**`, (r) => r.abort("connectionrefused"));
 const p2 = await c2.newPage();

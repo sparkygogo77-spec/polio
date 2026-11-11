@@ -27,6 +27,11 @@ export interface LaneChat {
   history: HistoryStep[];
   /** The helper's own agent: its controls are in the helper's tab, not in a chat. */
   helper: boolean;
+  /** Its badge (lane-rules, J 2026-11-10): one code word and an emoji; what a private screen shows in place of its name. */
+  code?: string;
+  emoji?: string;
+  /** Its name as written, kept for matching a question's `about` while the drawn name is its badge. */
+  realName?: string;
 }
 export interface HistoryStep { at: string; text: string }
 /** Names and states only: the helper keeps notes off the Builder's page (`helper/server/lanes.ts`). */
@@ -58,7 +63,7 @@ export function readFeed(raw: unknown): LanesFeed | null {
     const chats: LaneChat[] = [];
     for (const x of c.chats as Record<string, unknown>[]) {
       if (!x || typeof x.id !== "string" || !STATES.has(x.state as string)) continue;
-      chats.push({ id: x.id, name: words(x.name) || x.id, lane: words(x.lane), state: x.state as ChatState, sentAt: typeof x.sentAt === "number" ? x.sentAt : null, lastSeen: words(x.lastSeen), history: readHistory(x.history), helper: x.helper === true });
+      chats.push({ id: x.id, name: words(x.name) || x.id, lane: words(x.lane), state: x.state as ChatState, sentAt: typeof x.sentAt === "number" ? x.sentAt : null, lastSeen: words(x.lastSeen), history: readHistory(x.history), helper: x.helper === true, code: words(x.code), emoji: words(x.emoji) });
     }
     coordinators.push({ id: c.id, name: words(c.name) || c.id, chats });
   }
@@ -125,7 +130,7 @@ export const pictureUrl = (base: string, p: string) => `${base}/${p.split("/").m
 export function chatsAbout(feed: LanesFeed, about: string): LaneChat[] {
   const a = plain(about);
   if (!a) return [];
-  return feed.coordinators.flatMap((c) => c.chats).filter((x) => x.id === about || plain(x.lane) === a || plain(x.name) === a);
+  return feed.coordinators.flatMap((c) => c.chats).filter((x) => x.id === about || plain(x.lane) === a || plain(x.realName ?? x.name) === a);
 }
 
 /** "4 min ago", from an ISO time or a time in ms; nothing when there is none. */
@@ -179,8 +184,9 @@ export function chatLink(id: string): string | null {
   return /^[A-Za-z0-9_-]{8,80}$/.test(id) ? `claude://claude.ai/epitaxy/${id}` : null;
 }
 export const markOf = (name: string) => {
-  const w = name.trim().split(/\s+/).filter(Boolean);
-  return (w.length > 1 ? `${w[0]?.[0]}${w[1]?.[0]}` : name.slice(0, 2)).toUpperCase();
+  /* Words with a letter or digit only, so a badge's emoji never splits in half. */
+  const w = name.trim().split(/\s+/).filter((x) => /[\p{L}\p{N}]/u.test(x));
+  return (w.length > 1 ? `${w[0]?.[0]}${w[1]?.[0]}` : w.join("").slice(0, 2)).toUpperCase();
 };
 
 /* ------------------------------------------------------------ colour */
@@ -216,10 +222,12 @@ export const ROUNDS = {
 
 /** The camera looks at the middle from this far above. */
 export const PITCH = 22;
+/** Where the camera stands (the Tune drawer's orientation): how far above, and turned how far round the upright. */
+export const camera = { pitch: PITCH, yaw: 0 };
 export interface Seen { x: number; y: number; z: number }
 /** A point (x right, y up, z towards the viewer) turned by `tilt` about the horizontal axis and `axis` about the upright one, as the screen shows it; z above zero is nearer. */
 export function project(x: number, y: number, z: number, tilt: number, axis: number): Seen {
-  const th = rad(tilt), ps = rad(axis), phi = rad(PITCH);
+  const th = rad(tilt), ps = rad(axis + camera.yaw), phi = rad(camera.pitch);
   const y1 = y * Math.cos(th) - z * Math.sin(th), z1 = y * Math.sin(th) + z * Math.cos(th);
   const x2 = x * Math.cos(ps) + z1 * Math.sin(ps), z2 = -x * Math.sin(ps) + z1 * Math.cos(ps);
   return { x: x2, y: -(y1 * Math.cos(phi) - z2 * Math.sin(phi)), z: y1 * Math.sin(phi) + z2 * Math.cos(phi) };
@@ -288,3 +296,114 @@ export const tumbleAt = (u: number) => 1080 * (1 - Math.pow(1 - Math.min(1, Math
 
 /** A small steady number from a name, so a staggered start is the same every load. */
 export const hashOf = (s: string) => { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 9973; return h; };
+
+/* ------------------------------------------------------------ the helper's state (Orbs 2, piece A) */
+
+/**
+ * What the Builder can tell about the helper (J, 2026-11-10: "if it is active
+ * at all the Builder lets it be known, as well as when it's disconnected or
+ * my PC turned it off"):
+ *   · paired: it answered `/health` and says a dock is paired;
+ *   · answering: it answered, but no dock is paired, or (off the live Builder,
+ *     where it refuses to say more) it only answered at all;
+ *   · off: nothing answered: the helper is stopped, or the PC is asleep or off;
+ *   · checking: not asked yet.
+ */
+export type HelperState = "checking" | "paired" | "answering" | "off";
+export interface HelperRead { health: { paired?: unknown } | null; answered: boolean }
+export function helperStateOf(r: HelperRead): HelperState {
+  if (r.health) return r.health.paired === true ? "paired" : "answering";
+  return r.answered ? "answering" : "off";
+}
+export const HELPER_COLOUR: Record<HelperState, string> = { checking: "#6f7f99", paired: "#3dffae", answering: "#ffc94d", off: "#ff4d4d" };
+export function helperWords(s: HelperState, paired: boolean | null): string {
+  if (s === "paired") return "Helper on, paired and answering";
+  if (s === "answering") return paired === false ? "Helper on and answering, not paired" : "Helper on and answering";
+  if (s === "off") return "Helper not answering: it is off, or the PC is asleep";
+  return "Looking for the helper";
+}
+/** How often the Builder asks; a stop shows within one of these. */
+export const HELPER_POLL_MS = 3000;
+
+/* ------------------------------------------------------------ the archive body (piece C) */
+
+/** Only working, waiting and parked chats are orbs of their own; the finished ones are one archive body. */
+export const isArchived = (x: LaneChat) => x.state === "done";
+/** How many finished chats a press on the archive fans out. */
+export const ARCHIVE_FAN = 12;
+const seenAt = (x: LaneChat) => { const t = Date.parse(x.lastSeen); return Number.isFinite(t) ? t : x.sentAt ?? 0; };
+/** The finished chats, latest first (last heard from, else last sent). */
+export function archiveOf(feed: LanesFeed | null): LaneChat[] {
+  if (!feed) return [];
+  return feed.coordinators.flatMap((c) => c.chats).filter(isArchived).map((x, i) => ({ x, i })).sort((a, b) => seenAt(b.x) - seenAt(a.x) || a.i - b.i).map((o) => o.x);
+}
+/** The archive searched by name or lane, however written; an empty search is the whole archive. */
+export function searchArchive(list: LaneChat[], q: string): LaneChat[] {
+  const w = q.trim().toLowerCase();
+  if (!w) return list;
+  const p = plain(w);
+  return list.filter((x) => x.name.toLowerCase().includes(w) || (!!p && (plain(x.name).includes(p) || plain(x.lane).includes(p))));
+}
+/** Where the k-th of n fanned-out finished chats sits round the archive body: a flat ring, a full turn for a dozen. */
+export function archiveSlot(k: number, n: number, r = 118): Seen {
+  const a = -Math.PI / 2 + (k / Math.max(1, n)) * 2 * Math.PI;
+  return project(r * Math.cos(a), 0, r * Math.sin(a), 0, 0);
+}
+
+/* ------------------------------------------------------------ order on a ring (piece D) */
+
+export type BoardOrder = "state" | "age" | "coordinator";
+const STATE_RANK: Record<ChatState, number> = { need: 0, work: 1, park: 2, done: 3 };
+/** The chats waiting at a ring's front, left to right: by state (red first), by age (oldest heard from first) or as the coordinator listed them. */
+export function orderChats(chats: LaneChat[], order: BoardOrder): LaneChat[] {
+  const at = chats.map((x, i) => ({ x, i }));
+  if (order === "state") at.sort((a, b) => STATE_RANK[a.x.state] - STATE_RANK[b.x.state] || a.i - b.i);
+  else if (order === "age") at.sort((a, b) => seenAt(a.x) - seenAt(b.x) || a.i - b.i);
+  return at.map((o) => o.x);
+}
+
+/* ------------------------------------------------------------ weighted orbs (piece E) */
+
+/**
+ * An orb's body: how far it is pulled off its place, and how fast it moves.
+ * A drag holds it; let go, it is flung with the hand's speed and a spring
+ * (gravity) pulls it home through drag (resistance); the board's edge
+ * bounces it back with `bounce` of its speed. Below a hair's breadth and a
+ * crawl it is home, exactly, so a still board has nothing left to draw.
+ */
+export interface Body { dx: number; dy: number; vx: number; vy: number; held: boolean }
+export interface Motion { gravity: number; drag: number; bounce: number; settle: number }
+export const MOTION: Motion = { gravity: 1, drag: 1, bounce: 0.5, settle: 0.9 };
+/** One step of the body, in short fixed steps so a slow frame can't make it jitter or fly off. Says whether it still moves. */
+export function stepBody(b: Body, dt: number, m: Motion, home: { x: number; y: number }): boolean {
+  if (b.held) return true;
+  /* Settle time sets the spring (shorter is stiffer), gravity scales its pull, drag the damping. */
+  const w = ((2 * Math.PI) / Math.max(0.15, m.settle * 1.6)) * Math.sqrt(Math.max(0.05, m.gravity));
+  const zeta = Math.max(0.05, 0.55 * m.drag);
+  const k = w * w, c = 2 * zeta * w;
+  let left = Math.min(0.1, Math.max(0, dt));
+  while (left > 1e-6) {
+    const h = Math.min(1 / 240, left);
+    left -= h;
+    b.vx += (-k * b.dx - c * b.vx) * h; b.vy += (-k * b.dy - c * b.vy) * h;
+    b.dx += b.vx * h; b.dy += b.vy * h;
+    /* The board's edge: thrown past it, it comes back off it. */
+    const x = home.x + b.dx, y = home.y + b.dy, m0 = 24;
+    if (x < VIEW.x + m0) { b.dx = VIEW.x + m0 - home.x; b.vx = Math.abs(b.vx) * m.bounce; }
+    else if (x > VIEW.x + VIEW.w - m0) { b.dx = VIEW.x + VIEW.w - m0 - home.x; b.vx = -Math.abs(b.vx) * m.bounce; }
+    if (y < VIEW.y + m0) { b.dy = VIEW.y + m0 - home.y; b.vy = Math.abs(b.vy) * m.bounce; }
+    else if (y > VIEW.y + VIEW.h - m0) { b.dy = VIEW.y + VIEW.h - m0 - home.y; b.vy = -Math.abs(b.vy) * m.bounce; }
+  }
+  if (Math.hypot(b.dx, b.dy) < 0.05 && Math.hypot(b.vx, b.vy) < 0.5) { b.dx = b.dy = b.vx = b.vy = 0; return false; }
+  return true;
+}
+
+/**
+ * The feed as a private screen draws it (privacy-rules.md, row 10): each
+ * chat's name shortened to its badge, or "a chat". Questions keep their words
+ * (never sensitive). Matching still uses the name as written.
+ */
+export function veilFeed(feed: LanesFeed, on: boolean, badge: (x: LaneChat) => string): LanesFeed {
+  if (!on) return feed;
+  return { ...feed, coordinators: feed.coordinators.map((c) => ({ ...c, chats: c.chats.map((x) => ({ ...x, realName: x.realName ?? x.name, name: badge(x) || "a chat" })) })) };
+}

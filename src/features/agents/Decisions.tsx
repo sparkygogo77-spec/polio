@@ -60,7 +60,7 @@ async function send(url: string, body: Record<string, string>, atKey: "answeredA
 
 const mono = "ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace";
 
-export function Decisions({ questions, chatsOf, base, readAt, now, onFocus, onAnswered }: {
+export function Decisions({ questions, chatsOf, base, readAt, now, onFocus, onAnswered, lit = null }: {
   questions: Decision[];
   /** The chats a question is about, for its name and colour and the orb that pulses. */
   chatsOf: (about: string) => LaneChat[];
@@ -71,6 +71,8 @@ export function Decisions({ questions, chatsOf, base, readAt, now, onFocus, onAn
   now: number;
   onFocus: (ids: string[]) => void;
   onAnswered: (d: Decision) => void;
+  /** A press on an asking orb: this question, brought into view and lit (Orbs 2, piece B). */
+  lit?: { id: string; at: number } | null;
 }) {
   const reach = useAgents((s) => s.reach);
   /* What J pressed, shown at once and kept until the file says the same. */
@@ -137,7 +139,7 @@ export function Decisions({ questions, chatsOf, base, readAt, now, onFocus, onAn
       {open.map(({ d, a }) => (
         <Question key={d.id} d={d} answer={a.answer} chats={chatsOf(d.about)} base={base} busy={busy === d.id} said={said[d.id] ?? ""} onPress={(x) => void press(d, x)} onFocus={onFocus}
           open={details.has(d.id)} onToggle={() => toggle(d.id)} shown={steps[d.id] ?? 1} onShown={(n) => setSteps((x) => ({ ...x, [d.id]: n }))}
-          asked={d.ask || asked[d.id] || ""} askSaid={askSaid[d.id] ?? ""} onAsk={(w) => ask(d, w)} now={now} />
+          asked={d.ask || asked[d.id] || ""} askSaid={askSaid[d.id] ?? ""} onAsk={(w) => ask(d, w)} now={now} lit={lit?.id === d.id ? lit.at : 0} />
       ))}
       {done.map(({ d, a }) => {
         const o = d.options.find((x) => x.key === a.answer);
@@ -154,22 +156,32 @@ export function Decisions({ questions, chatsOf, base, readAt, now, onFocus, onAn
   );
 }
 
-function Question({ d, answer, chats, base, busy, said, onPress, onFocus, open, onToggle, shown, onShown, asked, askSaid, onAsk, now }: {
+function Question({ d, answer, chats, base, busy, said, onPress, onFocus, open, onToggle, shown, onShown, asked, askSaid, onAsk, now, lit }: {
   d: Decision; answer: string; chats: LaneChat[]; base: string; busy: boolean; said: string;
   onPress: (answer: string) => void; onFocus: (ids: string[]) => void;
   open: boolean; onToggle: () => void; shown: number; onShown: (n: number) => void;
   asked: string; askSaid: string; onAsk: (words: string) => Promise<boolean>; now: number;
+  /** When an orb's press asked for this question (0: not lit). */
+  lit: number;
 }) {
   const [text, setText] = React.useState("");
+  const me = React.useRef<HTMLElement>(null);
+  React.useEffect(() => {
+    if (!lit) return;
+    me.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+    me.current?.querySelector<HTMLButtonElement>("button[data-decision-press]")?.focus({ preventScroll: true });
+  }, [lit]);
   const pictured = d.options.some((o) => o.picture);
   const who = chats[0];
   const colour = who ? STATE_COLOUR[who.state] : "#9fb8c8";
   return (
     <article
+      ref={me}
       data-decision={d.id}
       data-about={d.about}
-      className="rounded-2xl p-3"
-      style={{ border: `2px solid ${colour}`, background: "oklch(0.15 0.05 300 / 0.92)", color: "#f2ecff", opacity: busy ? 0.7 : 1 }}
+      data-decision-lit={lit ? "" : undefined}
+      className="scroll-mt-2 rounded-2xl p-3"
+      style={{ border: `2px solid ${colour}`, background: "oklch(0.15 0.05 300 / 0.92)", color: "#f2ecff", opacity: busy ? 0.7 : 1, boxShadow: lit ? `0 0 0 3px #fff, 0 0 24px ${colour}` : "none" }}
       onMouseEnter={() => onFocus(chats.map((x) => x.id))}
       onMouseLeave={() => onFocus([])}
     >
