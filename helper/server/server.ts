@@ -15,8 +15,17 @@
  *                                    and nothing else, and POST /lanes/ask,
  *                                    J asking for new options on one, which
  *                                    sets its ask and askedAt and nothing
- *                                    else (CORS allows exactly
- *                                    this origin, nothing else)
+ *                                    else; POST /lanes/archive, one
+ *                                    chat's archived mark; POST
+ *                                    /lanes/press, one row appended to
+ *                                    console-presses.json for the
+ *                                    coordinator (a model asked for, a
+ *                                    picture chosen, a check ticked); and
+ *                                    GET /lanes/pc, what each chat costs
+ *                                    the PC as sums and kinds, never a
+ *                                    pid, a path or a command line (CORS
+ *                                    allows exactly this origin, nothing
+ *                                    else)
  *     http://127.0.0.1:<port>        the dock: the frame this server draws
  *                                    inside the Builder (GET /dock). Pairing,
  *                                    requests, the stream and every control
@@ -50,12 +59,12 @@
 import { createServer, type IncomingMessage, type ServerResponse, type Server } from "node:http";
 import { existsSync, readFileSync } from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
-import { dirname, extname } from "node:path";
+import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { problems, type Message, type Plan } from "../contract.ts";
 import type { ControlResult } from "../agents/runner.ts";
 import { describeCall, type BridgeLog } from "./bridgeLog.ts";
-import { answerLanes, askLanes, lanesFileAt, lanesFileHeaders, readLanes, type LanesFiles } from "./lanes.ts";
+import { answerLanes, archiveLanes, askLanes, costFor, lanesFileAt, lanesFileHeaders, pressLanes, readLanes, type LanesFiles } from "./lanes.ts";
 import type { Pairing } from "./pairing.ts";
 import type { SiteTickets } from "./tickets.ts";
 
@@ -169,23 +178,32 @@ export async function startHelperServer(opts: {
     // The Builder page may only ask whether a helper is here, read the lanes, and answer a question or ask for new options on it.
     if (who === "builder") {
       const cors = { "access-control-allow-origin": builder, vary: "Origin" };
-      if ((path === "/health" || path === "/lanes") && method === "OPTIONS") {
+      if ((path === "/health" || path === "/lanes" || path === "/lanes/pc") && method === "OPTIONS") {
         res.writeHead(204, { ...cors, "access-control-allow-methods": "GET", "access-control-max-age": "600" });
         return res.end();
       }
-      if ((path === "/lanes/answer" || path === "/lanes/ask") && method === "OPTIONS") {
+      const WRITES = ["/lanes/answer", "/lanes/ask", "/lanes/archive", "/lanes/press"];
+      if (WRITES.includes(path) && method === "OPTIONS") {
         res.writeHead(204, { ...cors, "access-control-allow-methods": "POST", "access-control-allow-headers": "content-type", "access-control-max-age": "600" });
         return res.end();
       }
-      if ((path === "/lanes/answer" || path === "/lanes/ask") && method === "POST") {
+      if (WRITES.includes(path) && method === "POST") {
         if (!opts.lanes) return send(res, 404, { ok: false, error: "this helper has no lanes.json" }, cors);
         let b: unknown;
         try { b = await body(req); } catch (e) { return send(res, 400, { ok: false, error: String((e as Error).message) }, cors); }
-        const r = path === "/lanes/ask" ? askLanes(opts.lanes.file, b) : answerLanes(opts.lanes.file, b);
+        const r = path === "/lanes/ask" ? askLanes(opts.lanes.file, b)
+          : path === "/lanes/archive" ? archiveLanes(opts.lanes.file, b)
+          : path === "/lanes/press" ? pressLanes(join(dirname(opts.lanes.file), "console-presses.json"), b)
+          : answerLanes(opts.lanes.file, b);
         return send(res, r.ok ? 200 : r.status, r, cors);
       }
       if (path === "/health" && method === "GET") return send(res, 200, { helper: true, paired: opts.pairing.paired }, cors);
       if (path === "/lanes" && method === "GET") return send(res, 200, opts.lanes ? readLanes(opts.lanes) : { feed: null, beats: [], now: Date.now() }, cors);
+      if (path === "/lanes/pc" && method === "GET") {
+        if (!opts.pc) return send(res, 404, { ok: false, error: "this helper doesn't read the PC" }, cors);
+        try { return send(res, 200, { ok: true, ...costFor(await opts.pc.read()) }, cors); }
+        catch (e) { return send(res, 500, { ok: false, error: String((e as Error).message) }, cors); }
+      }
       return refuse(res, 403, "the Builder page can't drive the helper: the dock does");
     }
 

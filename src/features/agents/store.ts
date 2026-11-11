@@ -26,13 +26,17 @@ interface AgentsState {
   tab: DockTab;
   /** The question last opened from an orb, a moon or a slice of the pie (Orbs 2, pieces B and H): brought into view, open and lit. */
   lit: { id: string; at: number } | null;
+  /** The full-screen Agents manager (J's columns, 2026-11-11): a toggle from the dock; while it shows, a question opens over its column there. */
+  manager: boolean;
 }
 
-export const useAgents = create<AgentsState>(() => ({ open: false, action: null, partId: null, reach: "checking", ask: null, seq: 0, compare: null, tab: "chats", lit: null }));
+export const useAgents = create<AgentsState>(() => ({ open: false, action: null, partId: null, reach: "checking", ask: null, seq: 0, compare: null, tab: "chats", lit: null, manager: false }));
 
 /** Open one question: the dock on the chats, that question open and lit (a slice of the pie, an orb, a moon). */
 export function openQuestion(id: string) {
   const s = useAgents.getState();
+  /* With the manager up, the question opens over its coordinator's column there, not in the dock under it. */
+  if (s.manager) { useAgents.setState({ lit: { id, at: Date.now() } }); return; }
   if (!s.open) { openDock(); }
   useAgents.setState({ tab: "chats", lit: { id, at: Date.now() } });
 }
@@ -48,7 +52,16 @@ export function setDockTab(tab: DockTab) {
 }
 
 export function closeDock() {
-  useAgents.setState({ open: false, action: null, partId: null });
+  useAgents.setState({ open: false, action: null, partId: null, manager: false });
+}
+
+/** The manager takes the whole screen; the dock stays loaded under it (the site bridge lives in its frame). */
+export function openManager() {
+  if (!useAgents.getState().open) openDock();
+  useAgents.setState({ manager: true, tab: "chats" });
+}
+export function closeManager() {
+  useAgents.setState({ manager: false });
 }
 
 export function openAsk(partId: string, x: number, y: number) {

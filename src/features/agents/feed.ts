@@ -19,6 +19,7 @@ import { create } from "zustand";
 import { DOCK_URL, HELPER_ORIGIN } from "./context";
 import { PRIVATE_KEY, readPrivate } from "./privacy";
 import { HELPER_POLL_MS, POLL_MS, helperStateOf, readFeed, withBeats, type HelperState, type LaneBeat, type LanesFeed } from "./lanes";
+import { readCost, type PcCost } from "./manager";
 
 const WAIT_MS = 2500;
 const SEEN_KEY = "polio.helper.seen";
@@ -28,7 +29,9 @@ const SLOW_MS = 15_000;
 
 export interface HelperNow { state: HelperState; paired: boolean | null; lastHeard: number | null; askedAt: number }
 export type Feed = { feed: LanesFeed | null; reached: boolean; base: string; readAt: number };
-interface Live { helper: HelperNow; lanes: Feed }
+/** What each chat costs the PC (the manager's piece E). `asked`: the helper was asked; `pc` null then means it is off, or older than this Builder. */
+export interface Cost { pc: PcCost | null; asked: boolean }
+interface Live { helper: HelperNow; lanes: Feed; cost: Cost }
 
 const store = (k: string) => { try { return localStorage.getItem(k); } catch { return null; } };
 const put = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* private window: this page still has it */ } };
@@ -36,6 +39,7 @@ const put = (k: string, v: string) => { try { localStorage.setItem(k, v); } catc
 export const useLive = create<Live>(() => ({
   helper: { state: "checking", paired: null, lastHeard: null, askedAt: 0 },
   lanes: { feed: null, reached: false, base: "/api/lanes/file", readAt: 0 },
+  cost: { pc: null, asked: false },
 }));
 
 async function get(url: string, init: RequestInit = {}): Promise<Response | null> {
@@ -119,6 +123,27 @@ export function boardShown(): () => void {
   boards++; startLive(); void readLanes();
   if (lanesTimer) { clearTimeout(lanesTimer); tickLanes(); }
   return () => { boards--; };
+}
+
+/**
+ * One read of what each chat costs the PC: the helper's `GET /lanes/pc`, sums
+ * and kinds only. It stays in this store, on this page: nothing reads it into
+ * a site, an export or a request (tests/agents-manager.mjs).
+ */
+export async function readCostNow(): Promise<void> {
+  const r = await get(`${HELPER_ORIGIN}/lanes/pc`);
+  const pc = r?.ok ? readCost(await r.json().catch(() => null)) : null;
+  useLive.setState({ cost: { pc, asked: true } });
+}
+let managers = 0, costTimer: ReturnType<typeof setTimeout> | null = null;
+function tickCost() {
+  costTimer = setTimeout(async () => { if (managers > 0) { if (!hidden()) await readCostNow(); tickCost(); } else costTimer = null; }, POLL_MS);
+}
+/** The manager shows: the cost is read at once, then every 5 s, and not at all once it is shut. */
+export function managerShown(): () => void {
+  managers++; void readCostNow();
+  if (!costTimer) tickCost();
+  return () => { managers--; };
 }
 
 /** The privacy switch (privacy-rules.md §3): on by default, kept per browser. */

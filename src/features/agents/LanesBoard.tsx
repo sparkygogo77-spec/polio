@@ -124,8 +124,30 @@ function useNow(ms = 1000): number {
   return now;
 }
 
-export function LanesBoard() {
-  const { feed: read, reached, base, readAt } = useLive((s) => s.lanes);
+/**
+ * Beside the manager's columns (J's pieces S, T and V): the same system on the
+ * nebula with no box behind it, each ring in its coordinator's colour and named
+ * on hover; a column under the pointer lights its ring (`lit`), and what the
+ * pointer is on here is told to the columns (`onPoint`), a press too (`onPress`).
+ * The feed is the manager's own grouping (a ring per column). No panel, no
+ * questions and no lists: the columns hold those.
+ */
+export interface BesideColumns {
+  feed: LanesFeed | null;
+  /** A ring's colour by its coordinator: [outer, inner]. */
+  colours: Record<string, [string, string]>;
+  /** A ring's name on hover ("C7 · PIONEER"). */
+  names: Record<string, string>;
+  /** The coordinator whose column is under the pointer, or the chat whose pane is. */
+  lit: string | null;
+  onPoint: (id: string | null) => void;
+  onPress: (id: string) => void;
+}
+const hexRgb = (h: string): Rgb => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+
+export function LanesBoard({ beside }: { beside?: BesideColumns } = {}) {
+  const { feed: fromHelper, reached, base, readAt } = useLive((s) => s.lanes);
+  const read = beside ? beside.feed : fromHelper;
   React.useEffect(() => boardShown(), []);
   /* Private (on by default): each chat is drawn by its badge, never its name. */
   const priv = usePrivate((s) => s.on);
@@ -142,7 +164,13 @@ export function LanesBoard() {
   const simRef = React.useRef<Sim>({ t: 0, tw: 0, last: 0, drawn: 0, moving: true, rings: new Map(), laps: new Map(), cols: new Map(), bodies: new Map(), still: false, left: new Map(), novas: new Map() });
   const spinStart = React.useRef(new Map<string, number>());
   const [, draw] = React.useReducer((n: number) => n + 1, 0);
-  const [hover, setHover] = React.useState<string | null>(null);
+  const [hover, setHoverOnly] = React.useState<string | null>(null);
+  const besideRef = React.useRef(beside);
+  besideRef.current = beside;
+  /* What the pointer is on is the columns' to know too. */
+  const setHover = React.useCallback((v: string | null | ((h: string | null) => string | null)) => {
+    setHoverOnly((h) => { const n = typeof v === "function" ? v(h) : v; if (n !== h) queueMicrotask(() => besideRef.current?.onPoint(n)); return n; });
+  }, []);
   /* The chats a question or note under the pointer is about: lit, without moving the panel. */
   const [focus, setFocus] = React.useState<string[]>([]);
   const pulses = React.useRef(new Map<string, number>());
@@ -183,7 +211,7 @@ export function LanesBoard() {
   const retired = retiredOf(feed);
   const liveRings = coords.filter((c) => !c.retired);
   const shownRings: { c: LaneCoordinator; purple: boolean }[] = [...liveRings.map((c) => ({ c, purple: false })), ...retired.filter((r) => revived.has(r.c.id)).map((r) => ({ c: r.c, purple: true }))];
-  const pointer = hover ?? picked;
+  const pointer = hover ?? (beside ? beside.lit : picked);
   const scene: Item[] = [], glows: React.ReactNode[] = [], rest: React.ReactNode[] = [];
   /* Where a press lands, above every ring piece: nucleus and sun first, orbs over them, moons on top. */
   const hits: React.ReactNode[] = [], moonHits: React.ReactNode[] = [];
@@ -354,7 +382,9 @@ export function LanesBoard() {
       if (u >= 1) spinStart.current.delete(key); else { spin = tumbleAt(u); sim.moving = true; }
     }
     const tilt = ring.tilt + spin + wob.tilt, axis = axisOf(i) + wob.axis, R = ring.r;
-    const base0: Rgb = purple ? [176, 124, 255] : (drift(sim, key, ringTarget(state, look.orbit > 0 ? tw : 0, i), dt));
+    /* Beside the columns a ring is its coordinator's colour, whatever its chats' states: those show on the orbs (piece S). */
+    const own = beside?.colours[key];
+    const base0: Rgb = purple ? [176, 124, 255] : own ? hexRgb(own[0]) : (drift(sim, key, ringTarget(state, look.orbit > 0 ? tw : 0, i), dt));
     const colour = rgbText(base0);
     const on = pointer === key;
     const segs = ringSegments(R, tilt, axis, wob.float);
@@ -367,8 +397,17 @@ export function LanesBoard() {
         {look.texture === "planet" ? <path d={line} fill="none" stroke={colour} strokeOpacity={0.3} strokeWidth={(on ? 26 : 19) * w} strokeDasharray="1 3" /> : null}
       </g>,
     );
+    if (beside && on && !purple) {
+      /* Named on hover, at the ring's highest point on screen. */
+      const top = [0, 1, 2, 3, 4, 5, 6, 7].map((k) => ringPoint(R, (k / 8) * 2 * Math.PI, tilt, axis, wob.float)).sort((a, b) => a.y - b.y)[0]!;
+      rest.push(
+        <g key={`${key}:name`} data-lanes-ring-name={key} transform={`translate(${fmt(top.x)} ${fmt(Math.max(VIEW.y + 26, top.y - 18))})`} style={{ pointerEvents: "none" }}>
+          <text textAnchor="middle" stroke="#05030a" strokeWidth={5} paintOrder="stroke" fill={own?.[1] ?? colour} style={{ font: "800 20px ui-monospace, Menlo, Consolas, monospace" }}>{beside.names[key] ?? c.name}</text>
+        </g>,
+      );
+    }
     rest.push(
-      <g key={key} data-lanes-ring={key} data-purple={purple ? "1" : undefined} data-state={state} data-target={purple ? PURPLE : STATE_COLOUR[state]} data-colour={colour} data-r={R.toFixed(1)}
+      <g key={key} data-lanes-ring={key} data-lit={on ? "1" : "0"} data-own={own?.[0]} data-purple={purple ? "1" : undefined} data-state={state} data-target={purple ? PURPLE : STATE_COLOUR[state]} data-colour={colour} data-r={R.toFixed(1)}
         data-tilt={(((ring.tilt % 360) + 540) % 360 - 180).toFixed(1)} data-speed={speed.toFixed(2)} data-spin={spin.toFixed(0)} data-style={look.texture} />,
     );
     /* Smooth, lit pieces (piece K): butt ends that meet exactly, each shaded by its depth, so no facet or join shows; the texture set gives the ring its look. */
@@ -486,6 +525,7 @@ export function LanesBoard() {
   }
   /** A press on a chat: it is pinned in the panel, and if a question waits on J about it, that question opens (piece B). */
   function press(id: string) {
+    if (beside) { beside.onPress(id); return; }
     setPicked(id);
     const q = asks.get(id)?.[0];
     if (q) openQuestion(q.id);
@@ -571,6 +611,66 @@ export function LanesBoard() {
   const clips = [...new Set([Math.round(R0), NUCLEUS_R])];
   const finished = archiveOf(feed);
 
+  const board = (
+    <svg ref={svg} viewBox={`${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}`} role="group" aria-label="The sun, a ring per coordinator with its chats, and the retired coordinators by the sun" style={{ display: "block", width: "100%", height: beside ? "100%" : "auto", touchAction: "none" }}
+      data-camera={`${camera.pitch.toFixed(0)},${camera.yaw.toFixed(0)}`} onMouseLeave={() => setHover(null)}>
+      <defs>
+        <radialGradient id="lanes-sphere" cx="0.33" cy="0.28" r="0.8">
+          <stop offset="0" stopColor="#ffffff" stopOpacity="0.95" /><stop offset="0.16" stopColor="#ffffff" stopOpacity="0.6" /><stop offset="0.42" stopColor="#ffffff" stopOpacity="0.08" /><stop offset="1" stopColor="#ffffff" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id="lanes-shade" cx="0.38" cy="0.32" r="0.78">
+          <stop offset="0.45" stopColor="#000000" stopOpacity="0" /><stop offset="0.82" stopColor="#000000" stopOpacity="0.32" /><stop offset="1" stopColor="#000000" stopOpacity="0.7" />
+        </radialGradient>
+        <radialGradient id="lanes-rim" cx="0.5" cy="0.5" r="0.5" fx="0.3" fy="0.25">
+          <stop offset="0.8" stopColor="#bfefff" stopOpacity="0" /><stop offset="0.94" stopColor="#bfefff" stopOpacity="0.55" /><stop offset="1" stopColor="#ffffff" stopOpacity="0.9" />
+        </radialGradient>
+        <radialGradient id="lanes-refract"><stop offset="0" stopColor="#ffffff" stopOpacity="0.4" /><stop offset="1" stopColor="#ffffff" stopOpacity="0" /></radialGradient>
+        <radialGradient id="lanes-sun-core"><stop offset="0" stopColor="#ffffff" /><stop offset="0.45" stopColor="#fff3c4" /><stop offset="0.8" stopColor="#ffd36b" /><stop offset="1" stopColor="#ffb13b" /></radialGradient>
+        <radialGradient id="lanes-sun-corona"><stop offset="0" stopColor="#fff1b8" stopOpacity="0.9" /><stop offset="0.3" stopColor="#ffc861" stopOpacity="0.45" /><stop offset="1" stopColor="#ff9a3c" stopOpacity="0" /></radialGradient>
+        <radialGradient id="lanes-moon-glow"><stop offset="0.3" stopColor="#fffbe0" stopOpacity="0.9" /><stop offset="1" stopColor="#ffe8a0" stopOpacity="0" /></radialGradient>
+        <radialGradient id="lanes-purple-halo"><stop offset="0.5" stopColor={PURPLE} stopOpacity="0.7" /><stop offset="1" stopColor={PURPLE} stopOpacity="0" /></radialGradient>
+        {clips.map((r) => <clipPath key={r} id={`lanes-clip-${r}`}><circle r={r} /></clipPath>)}
+        {HALO.map((s) => (
+          <radialGradient key={s} id={`lanes-halo-${s}`}>
+            <stop offset="0.55" stopColor={STATE_COLOUR[s]} stopOpacity="0.6" /><stop offset="1" stopColor={STATE_COLOUR[s]} stopOpacity="0" />
+          </radialGradient>
+        ))}
+      </defs>
+      {/* The empty board: a drag here turns it. */}
+      <rect data-lanes-turn="" x={VIEW.x} y={VIEW.y} width={VIEW.w} height={VIEW.h} fill="transparent" style={{ cursor: turn.current ? "grabbing" : "move" }} onPointerDown={startTurn} onMouseEnter={() => setHover(null)} />
+      {glows}
+      {scene.map((it) => <React.Fragment key={it.key}>{it.el}</React.Fragment>)}
+      {hits}
+      {moonHits}
+      {rest}
+    </svg>
+  );
+  const buttons = (
+    <div className="absolute right-2 top-2 z-20 flex gap-1.5">
+      {retired.length ? (
+        <button type="button" data-lanes-archive-toggle={archiveOn ? "on" : "off"} aria-pressed={archiveOn} onClick={flipArchive} title={archiveOn ? "Hide the retired coordinators" : "Show the retired coordinators by the sun"}
+          className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold" style={{ color: "#12051f", background: archiveOn ? PURPLE : "rgba(255,255,255,.55)" }}>
+          <Archive className="size-3.5" /> {archiveOn ? `Archive · ${retired.length}` : "Archive off"}
+        </button>
+      ) : null}
+      <button type="button" data-lanes-tune-open="" aria-expanded={tuning} onClick={() => setTuning((x) => !x)} title="Tune the board: orientation, order, size, texture, light, speeds, motion"
+        className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold" style={{ color: "#021018", background: tuning ? "#fff" : "oklch(0.85 0.17 205)" }}>
+        <Sliders className="size-3.5" /> Tune
+      </button>
+    </div>
+  );
+
+  /* Beside the columns: the system alone, on whatever is behind it (the nebula), with Tune over its corner. */
+  if (beside) {
+    return (
+      <div data-lanes-board="beside" className="relative flex h-full min-h-0 w-full flex-col" style={{ color: "#fff" }}>
+        {buttons}
+        <div className="min-h-0 flex-1">{board}</div>
+        {tuning ? <div className="absolute inset-x-2 bottom-2 z-30 max-h-[70%] overflow-y-auto rounded-xl p-2" style={{ background: "rgba(8,4,16,.88)", border: "1px solid rgba(255,255,255,.18)" }}><TuneDrawer schema={BOARD_TUNE} onClose={() => setTuning(false)} /></div> : null}
+      </div>
+    );
+  }
+
   return (
     <div data-lanes-board="" className="absolute inset-0 z-10 flex flex-col overflow-y-auto overflow-x-hidden" style={{ background: "#020104", color: "#fff" }}>
       {feed ? <Decisions questions={feed.questions} chatsOf={(about) => chatsAbout(feed, about)} base={base} readAt={readAt} now={now} onFocus={setFocus} onAnswered={answered} lit={lit} /> : null}
@@ -587,50 +687,8 @@ export function LanesBoard() {
           {shownRings.map(({ c }) => <button key={c.id} type="button" onFocus={() => setHover(c.id)} onClick={() => tumble(c.id)}>{c.name}</button>)}
         </div>
         <div className="relative">
-          <div className="absolute right-2 top-2 z-20 flex gap-1.5">
-            {retired.length ? (
-              <button type="button" data-lanes-archive-toggle={archiveOn ? "on" : "off"} aria-pressed={archiveOn} onClick={flipArchive} title={archiveOn ? "Hide the retired coordinators" : "Show the retired coordinators by the sun"}
-                className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold" style={{ color: "#12051f", background: archiveOn ? PURPLE : "rgba(255,255,255,.55)" }}>
-                <Archive className="size-3.5" /> {archiveOn ? `Archive · ${retired.length}` : "Archive off"}
-              </button>
-            ) : null}
-            <button type="button" data-lanes-tune-open="" aria-expanded={tuning} onClick={() => setTuning((x) => !x)} title="Tune the board: orientation, order, size, texture, light, speeds, motion"
-              className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold" style={{ color: "#021018", background: tuning ? "#fff" : "oklch(0.85 0.17 205)" }}>
-              <Sliders className="size-3.5" /> Tune
-            </button>
-          </div>
-          <svg ref={svg} viewBox={`${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}`} role="group" aria-label="The sun, a ring per coordinator with its chats, and the retired coordinators by the sun" style={{ display: "block", width: "100%", height: "auto", touchAction: "none" }}
-            data-camera={`${camera.pitch.toFixed(0)},${camera.yaw.toFixed(0)}`} onMouseLeave={() => setHover(null)}>
-            <defs>
-              <radialGradient id="lanes-sphere" cx="0.33" cy="0.28" r="0.8">
-                <stop offset="0" stopColor="#ffffff" stopOpacity="0.95" /><stop offset="0.16" stopColor="#ffffff" stopOpacity="0.6" /><stop offset="0.42" stopColor="#ffffff" stopOpacity="0.08" /><stop offset="1" stopColor="#ffffff" stopOpacity="0" />
-              </radialGradient>
-              <radialGradient id="lanes-shade" cx="0.38" cy="0.32" r="0.78">
-                <stop offset="0.45" stopColor="#000000" stopOpacity="0" /><stop offset="0.82" stopColor="#000000" stopOpacity="0.32" /><stop offset="1" stopColor="#000000" stopOpacity="0.7" />
-              </radialGradient>
-              <radialGradient id="lanes-rim" cx="0.5" cy="0.5" r="0.5" fx="0.3" fy="0.25">
-                <stop offset="0.8" stopColor="#bfefff" stopOpacity="0" /><stop offset="0.94" stopColor="#bfefff" stopOpacity="0.55" /><stop offset="1" stopColor="#ffffff" stopOpacity="0.9" />
-              </radialGradient>
-              <radialGradient id="lanes-refract"><stop offset="0" stopColor="#ffffff" stopOpacity="0.4" /><stop offset="1" stopColor="#ffffff" stopOpacity="0" /></radialGradient>
-              <radialGradient id="lanes-sun-core"><stop offset="0" stopColor="#ffffff" /><stop offset="0.45" stopColor="#fff3c4" /><stop offset="0.8" stopColor="#ffd36b" /><stop offset="1" stopColor="#ffb13b" /></radialGradient>
-              <radialGradient id="lanes-sun-corona"><stop offset="0" stopColor="#fff1b8" stopOpacity="0.9" /><stop offset="0.3" stopColor="#ffc861" stopOpacity="0.45" /><stop offset="1" stopColor="#ff9a3c" stopOpacity="0" /></radialGradient>
-              <radialGradient id="lanes-moon-glow"><stop offset="0.3" stopColor="#fffbe0" stopOpacity="0.9" /><stop offset="1" stopColor="#ffe8a0" stopOpacity="0" /></radialGradient>
-              <radialGradient id="lanes-purple-halo"><stop offset="0.5" stopColor={PURPLE} stopOpacity="0.7" /><stop offset="1" stopColor={PURPLE} stopOpacity="0" /></radialGradient>
-              {clips.map((r) => <clipPath key={r} id={`lanes-clip-${r}`}><circle r={r} /></clipPath>)}
-              {HALO.map((s) => (
-                <radialGradient key={s} id={`lanes-halo-${s}`}>
-                  <stop offset="0.55" stopColor={STATE_COLOUR[s]} stopOpacity="0.6" /><stop offset="1" stopColor={STATE_COLOUR[s]} stopOpacity="0" />
-                </radialGradient>
-              ))}
-            </defs>
-            {/* The empty board: a drag here turns it. */}
-            <rect data-lanes-turn="" x={VIEW.x} y={VIEW.y} width={VIEW.w} height={VIEW.h} fill="transparent" style={{ cursor: turn.current ? "grabbing" : "move" }} onPointerDown={startTurn} onMouseEnter={() => setHover(null)} />
-            {glows}
-            {scene.map((it) => <React.Fragment key={it.key}>{it.el}</React.Fragment>)}
-            {hits}
-            {moonHits}
-            {rest}
-          </svg>
+          {buttons}
+          {board}
           {!feed ? (
             <p data-lanes-empty="" className="absolute inset-x-0 top-[62%] mx-auto max-w-sm text-center text-small" style={{ color: "#d8d0ee" }}>
               {reached ? "No chats yet: the helper has no lanes.json on this PC." : "The chats are listed on your PC, and the helper isn't answering. Start it from the Helper tab."}

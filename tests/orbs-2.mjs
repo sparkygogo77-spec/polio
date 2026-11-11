@@ -155,7 +155,8 @@ if (HL?.forBuilder) {
   const served = HL.blankKeys(HL.forBuilder({ coordinators: [{ id: "c", name: "C", note: "n", retired: true, chats: [{ id: "x", name: "n", state: "work", note: "a note", last: `a line ${fakeKey}`, model: "Opus", pid: 4, history: [{ at: 1, text: "kept", public: false }] }] }] }));
   const x = served.coordinators[0].chats[0];
   check("G: the helper serves each chat's note, latest line and whole timeline", x.note === "a note" && x.last.startsWith("a line") && x.history.length === 1 && x.history[0].text === "kept" && served.coordinators[0].retired === true);
-  check("G: …never its model or a pid, and never a key", !("model" in x) && !("pid" in x) && !x.last.includes(fakeKey) && x.last.includes("•••"));
+  /* The Agents manager's model chip (J, 2026-11-10: "a way from both to be able to choose the model running") needs the model; it is drawn only with Private off. A pid still never leaves. */
+  check("G: …never a pid, and never a key (its model goes, for the manager's chip)", x.model === "Opus" && !("pid" in x) && !x.last.includes(fakeKey) && x.last.includes("•••"));
 }
 if (T && BT) {
   const S = BT.BOARD_TUNE, keys = T.controlsOf(S).map((c) => c.key);
