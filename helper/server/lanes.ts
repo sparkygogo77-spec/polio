@@ -15,8 +15,15 @@
  *
  * Names and states only (J, 2026-11-03): an imported site's scripts share the
  * Builder's page and could read what it fetched, so the coordinators' and
- * chats' notes and last lines never leave this PC. They stay in the
- * coordinator's messages (`namesOnly`).
+ * chats' notes and last lines never left this PC.
+ *
+ * More, since Orbs 2 (J, 2026-11-10, piece G: "you can include more information
+ * because I can't tell much currently"): what the Builder reads from the helper
+ * stays in J's browser and is never published, so each chat's note, latest
+ * line and whole timeline reach the Agents board too (`forBuilder`). Two limits
+ * hold: anything shaped like a key is blanked here, and the board folds pids,
+ * paths, command lines and session ids (privacy-rules.md). The Builder never
+ * writes any of it into a site, an export or a request (tests/orbs-2.mjs).
  */
 import { existsSync, readdirSync, readFileSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { extname, join, resolve, sep } from "node:path";
@@ -29,7 +36,7 @@ const KEEP_MS = 10 * 60_000;
 
 export function readLanes(at: LanesFiles, now = Date.now()): LanesRead {
   let feed: unknown = null;
-  try { feed = namesOnly(JSON.parse(readFileSync(at.file, "utf8"))); } catch { /* not there, or caught mid-write: the board keeps what it has */ }
+  try { feed = blankKeys(forBuilder(JSON.parse(readFileSync(at.file, "utf8")))); } catch { /* not there, or caught mid-write: the board keeps what it has */ }
   const beats: LanesRead["beats"] = [];
   let names: string[] = [];
   try { names = readdirSync(at.beats); } catch { /* no hook has run yet */ }
@@ -53,11 +60,24 @@ export function publicHistory(raw: unknown): { at: unknown; text: unknown }[] {
   if (!Array.isArray(raw)) return [];
   return (raw as unknown[]).flatMap((h) => (h && typeof h === "object" && (h as { public?: unknown }).public === true ? [{ at: (h as { at?: unknown }).at, text: (h as { text?: unknown }).text }] : []));
 }
-/** What a chat may show the Builder; anything else the coordinator writes on it (a note, its last line) stays here. */
-const CHAT_KEYS = ["id", "name", "lane", "state", "sentAt", "lastSeen", "helper"];
+/** What a chat shows the Builder. Since piece G its note and latest line too; anything else on it (a model, a pid) stays here. */
+const CHAT_KEYS = ["id", "name", "lane", "code", "emoji", "state", "sentAt", "lastSeen", "helper", "note", "last"];
+/** The whole timeline (piece G): every line, as its time and words. */
+export function allHistory(raw: unknown): { at: unknown; text: unknown }[] {
+  if (!Array.isArray(raw)) return [];
+  return (raw as unknown[]).flatMap((h) => (h && typeof h === "object" ? [{ at: (h as { at?: unknown }).at, text: (h as { text?: unknown }).text }] : []));
+}
+/** Values shaped like a key (GitHub, Anthropic, OpenAI, Vercel, a bearer header) never leave, wherever they sit. */
+const KEY_SHAPED = /\b(gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|vc[pk]_[A-Za-z0-9]{20,}|Bearer\s+\S{10,})/g;
+export function blankKeys<T>(v: T): T {
+  if (typeof v === "string") return v.replace(KEY_SHAPED, "•••") as T;
+  if (Array.isArray(v)) return v.map(blankKeys) as T;
+  if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, blankKeys(x)])) as T;
+  return v;
+}
 
-/** The feed with every coordinator and chat cut down to its name, state and public timeline; the questions as they are. */
-export function namesOnly(raw: unknown): unknown {
+/** The feed as the Builder gets it (piece G): coordinators with name, note and retired; chats with CHAT_KEYS and their whole timeline; the questions as they are; keys blanked. */
+export function forBuilder(raw: unknown): unknown {
   const r = raw as { updated?: unknown; decisions?: unknown; coordinators?: unknown } | null;
   if (!r || typeof r !== "object" || !Array.isArray(r.coordinators)) return null;
   const pick = (x: Record<string, unknown>, keys: readonly string[]) => Object.fromEntries(keys.filter((k) => k in x).map((k) => [k, x[k]]));
@@ -67,10 +87,12 @@ export function namesOnly(raw: unknown): unknown {
     coordinators: (r.coordinators as unknown[]).map((c) => {
       if (!c || typeof c !== "object") return c;
       const k = c as Record<string, unknown>;
-      return { ...pick(k, ["id", "name"]), chats: Array.isArray(k.chats) ? k.chats.map((x) => (x && typeof x === "object" ? { ...pick(x as Record<string, unknown>, CHAT_KEYS), ...("history" in x ? { history: publicHistory((x as { history?: unknown }).history) } : {}) } : x)) : k.chats };
+      return { ...pick(k, ["id", "name", "note", "retired"]), chats: Array.isArray(k.chats) ? k.chats.map((x) => (x && typeof x === "object" ? { ...pick(x as Record<string, unknown>, CHAT_KEYS), ...("history" in x ? { history: allHistory((x as { history?: unknown }).history) } : {}) } : x)) : k.chats };
     }),
   };
 }
+/** The old name: the board reads `forBuilder` now. */
+export const namesOnly = (raw: unknown): unknown => blankKeys(forBuilder(raw));
 
 /**
  * What a picture may be, and the styles and images an html design pulls in

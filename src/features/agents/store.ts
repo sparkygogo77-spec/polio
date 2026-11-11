@@ -24,9 +24,18 @@ interface AgentsState {
   compare: { href: string; name: string } | null;
   /** The dock's first tab is the lanes board; the helper's own page is the second. */
   tab: DockTab;
+  /** The question last opened from an orb, a moon or a slice of the pie (Orbs 2, pieces B and H): brought into view, open and lit. */
+  lit: { id: string; at: number } | null;
 }
 
-export const useAgents = create<AgentsState>(() => ({ open: false, action: null, partId: null, reach: "checking", ask: null, seq: 0, compare: null, tab: "chats" }));
+export const useAgents = create<AgentsState>(() => ({ open: false, action: null, partId: null, reach: "checking", ask: null, seq: 0, compare: null, tab: "chats", lit: null }));
+
+/** Open one question: the dock on the chats, that question open and lit (a slice of the pie, an orb, a moon). */
+export function openQuestion(id: string) {
+  const s = useAgents.getState();
+  if (!s.open) { openDock(); }
+  useAgents.setState({ tab: "chats", lit: { id, at: Date.now() } });
+}
 
 /** The Agents button opens on the chats; a request about a part goes to the helper, which is what takes it. */
 export function openDock(action: PartAction | null = null, partId: string | null = null) {

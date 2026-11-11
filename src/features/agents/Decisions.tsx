@@ -24,7 +24,7 @@ import * as React from "react";
 import { Info } from "lucide-react";
 import { HELPER_ORIGIN } from "./context";
 import { setDockTab, useAgents } from "./store";
-import { STATE_COLOUR, STATE_WORD, agoOf, isOpen, pictureKind, pictureUrl, whenOf, type Decision, type DecisionOption, type LaneChat } from "./lanes";
+import { STATE_COLOUR, STATE_WORD, ageOf, agoOf, carriedWords, isOpen, pictureKind, pictureUrl, whenOf, type Decision, type DecisionOption, type LaneChat } from "./lanes";
 
 export const ANSWER_URL = `${HELPER_ORIGIN}/lanes/answer`;
 export const ASK_URL = `${HELPER_ORIGIN}/lanes/ask`;
@@ -60,7 +60,7 @@ async function send(url: string, body: Record<string, string>, atKey: "answeredA
 
 const mono = "ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace";
 
-export function Decisions({ questions, chatsOf, base, readAt, now, onFocus, onAnswered }: {
+export function Decisions({ questions, chatsOf, base, readAt, now, onFocus, onAnswered, lit = null }: {
   questions: Decision[];
   /** The chats a question is about, for its name and colour and the orb that pulses. */
   chatsOf: (about: string) => LaneChat[];
@@ -71,6 +71,8 @@ export function Decisions({ questions, chatsOf, base, readAt, now, onFocus, onAn
   now: number;
   onFocus: (ids: string[]) => void;
   onAnswered: (d: Decision) => void;
+  /** A press on an asking orb: this question, brought into view and lit (Orbs 2, piece B). */
+  lit?: { id: string; at: number } | null;
 }) {
   const reach = useAgents((s) => s.reach);
   /* What J pressed, shown at once and kept until the file says the same. */
@@ -117,6 +119,10 @@ export function Decisions({ questions, chatsOf, base, readAt, now, onFocus, onAn
     setAsked((x) => ({ ...x, [d.id]: words.trim() }));
     return true;
   };
+  /* Each question is one line until opened (piece F); what is open is kept for this browser. A question opened from an orb, a moon or the pie opens here. */
+  const [expanded, setExpanded] = React.useState<Set<string>>(() => readOpen());
+  React.useEffect(() => { if (lit) setExpanded((x) => (x.has(lit.id) ? x : keepOpen(new Set(x).add(lit.id)))); }, [lit]);
+  const flip = (id: string) => setExpanded((x) => { const n = new Set(x); if (n.has(id)) n.delete(id); else n.add(id); return keepOpen(n); });
   const toggle = (id: string) => setDetails((x) => { const n = new Set(x); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const rows = questions.map((d) => ({ d, a: answerOf(d) }));
   const open = rows.filter((x) => !x.a.answer.trim() || changing.has(x.d.id));
@@ -137,7 +143,8 @@ export function Decisions({ questions, chatsOf, base, readAt, now, onFocus, onAn
       {open.map(({ d, a }) => (
         <Question key={d.id} d={d} answer={a.answer} chats={chatsOf(d.about)} base={base} busy={busy === d.id} said={said[d.id] ?? ""} onPress={(x) => void press(d, x)} onFocus={onFocus}
           open={details.has(d.id)} onToggle={() => toggle(d.id)} shown={steps[d.id] ?? 1} onShown={(n) => setSteps((x) => ({ ...x, [d.id]: n }))}
-          asked={d.ask || asked[d.id] || ""} askSaid={askSaid[d.id] ?? ""} onAsk={(w) => ask(d, w)} now={now} />
+          asked={d.ask || asked[d.id] || ""} askSaid={askSaid[d.id] ?? ""} onAsk={(w) => ask(d, w)} now={now} lit={lit?.id === d.id ? lit.at : 0}
+          expanded={expanded.has(d.id)} onExpand={() => flip(d.id)} />
       ))}
       {done.map(({ d, a }) => {
         const o = d.options.find((x) => x.key === a.answer);
@@ -154,26 +161,49 @@ export function Decisions({ questions, chatsOf, base, readAt, now, onFocus, onAn
   );
 }
 
-function Question({ d, answer, chats, base, busy, said, onPress, onFocus, open, onToggle, shown, onShown, asked, askSaid, onAsk, now }: {
+const OPEN_KEY = "polio.decisions.open";
+function readOpen(): Set<string> { try { const v = JSON.parse(localStorage.getItem(OPEN_KEY) ?? "[]"); return new Set(Array.isArray(v) ? v.filter((x) => typeof x === "string") : []); } catch { return new Set(); } }
+function keepOpen(s: Set<string>): Set<string> { try { localStorage.setItem(OPEN_KEY, JSON.stringify([...s])); } catch { /* not kept */ } return s; }
+
+function Question({ d, answer, chats, base, busy, said, onPress, onFocus, open, onToggle, shown, onShown, asked, askSaid, onAsk, now, lit, expanded, onExpand }: {
   d: Decision; answer: string; chats: LaneChat[]; base: string; busy: boolean; said: string;
   onPress: (answer: string) => void; onFocus: (ids: string[]) => void;
   open: boolean; onToggle: () => void; shown: number; onShown: (n: number) => void;
   asked: string; askSaid: string; onAsk: (words: string) => Promise<boolean>; now: number;
+  /** When an orb's press asked for this question (0: not lit). */
+  lit: number;
+  /** Open whole, or folded to one line. */
+  expanded: boolean; onExpand: () => void;
 }) {
   const [text, setText] = React.useState("");
+  const me = React.useRef<HTMLElement>(null);
+  React.useEffect(() => {
+    if (!lit || !expanded) return;
+    me.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+    me.current?.querySelector<HTMLButtonElement>("button[data-decision-press]")?.focus({ preventScroll: true });
+  }, [lit, expanded]);
   const pictured = d.options.some((o) => o.picture);
   const who = chats[0];
   const colour = who ? STATE_COLOUR[who.state] : "#9fb8c8";
   return (
     <article
+      ref={me}
       data-decision={d.id}
       data-about={d.about}
-      className="rounded-2xl p-3"
-      style={{ border: `2px solid ${colour}`, background: "oklch(0.15 0.05 300 / 0.92)", color: "#f2ecff", opacity: busy ? 0.7 : 1 }}
+      data-decision-lit={lit ? "" : undefined}
+      className="scroll-mt-2 rounded-2xl p-3"
+      style={{ border: `2px solid ${colour}`, background: "oklch(0.15 0.05 300 / 0.92)", color: "#f2ecff", opacity: busy ? 0.7 : 1, boxShadow: lit ? `0 0 0 3px #fff, 0 0 24px ${colour}` : "none" }}
       onMouseEnter={() => onFocus(chats.map((x) => x.id))}
       onMouseLeave={() => onFocus([])}
     >
-      {who || d.about ? <div className="text-[11px] font-bold" style={{ color: colour }}>{who?.name ?? d.about}</div> : null}
+      {/* The one line it folds to: who, the question, how long it has waited. */}
+      <button type="button" data-decision-head={d.id} aria-expanded={expanded} onClick={onExpand} className="flex w-full items-baseline gap-1.5 text-left">
+        <span aria-hidden style={{ color: colour }}>{expanded ? "▾" : "▸"}</span>
+        <span className="shrink-0 text-[11px] font-bold" style={{ color: colour }}>{who?.name ?? (d.about || "a chat")}</span>
+        {expanded ? <span className="min-w-0 flex-1" /> : <span className="min-w-0 flex-1 truncate text-[12px] text-white">{d.question}</span>}
+        {d.asked ? <span data-decision-age="" className="ml-auto shrink-0 text-[11px]" style={{ color: "#9fb8c8" }}>{ageOf(d.asked, now)}</span> : null}
+      </button>
+      {expanded ? <>
       <div className="mt-0.5 flex items-start gap-2">
         <h3 className="m-0 min-w-0 flex-1 text-[14px] font-bold leading-snug text-white">{d.question}</h3>
         <button type="button" data-decision-details={d.id} aria-expanded={open} aria-label={`${open ? "Hide" : "Show"} details: ${d.question}`} title={open ? "Hide details" : "Details: the chat, its timeline, the area, new options"} onClick={onToggle}
@@ -182,7 +212,16 @@ function Question({ d, answer, chats, base, busy, said, onPress, onFocus, open, 
         </button>
       </div>
       {asked ? <p data-decision-asked={d.id} className="m-0 mt-1 text-[12px] font-bold" style={{ color: BLUE }}>Asked for new options: <span className="font-normal" style={{ color: "#d8d0ee" }}>{asked}</span></p> : null}
-      {d.why ? <p className="m-0 mt-1 text-[12px] leading-snug" style={{ color: "#d8d0ee" }}>{d.why}</p> : null}
+      {/* What, Why, How (piece F), who asked and when, and where it went. */}
+      <dl data-decision-whole={d.id} className="m-0 mt-1 grid grid-cols-[3.2em_1fr] gap-x-2 gap-y-0.5 text-[12px] leading-snug" style={{ color: "#d8d0ee" }}>
+        {d.what ? <><dt className="font-bold text-white">What</dt><dd data-decision-what="" className="m-0">{d.what}</dd></> : null}
+        {d.why ? <><dt className="font-bold text-white">Why</dt><dd className="m-0">{d.why}</dd></> : null}
+        {d.how ? <><dt className="font-bold text-white">How</dt><dd data-decision-how="" className="m-0">{d.how}</dd></> : null}
+      </dl>
+      <p data-decision-asked-by={d.id} className="m-0 mt-1 text-[11px]" style={{ color: "#9fb8c8" }}>
+        {carriedWords(d, who?.name ?? "") || `asked by ${who?.name ?? (d.about || "a chat")}`}{d.asked ? ` · ${whenOf(d.asked)} (${ageOf(d.asked, now)} ago)` : ""}{d.carried ? ` · moved ${ageOf(d.carried, now)} ago` : ""}
+      </p>
+      {d.context ? <details data-decision-context="" className="mt-1 text-[12px] leading-snug" style={{ color: "#d8d0ee" }}><summary className="cursor-pointer" style={{ color: BLUE }}>Background</summary><p className="m-0 mt-1 whitespace-pre-wrap">{d.context}</p></details> : null}
       {open ? <Details d={d} chat={who ?? null} base={base} busy={busy} shown={shown} onShown={onShown} askSaid={askSaid} onAsk={onAsk} now={now} /> : null}
       <div className={pictured ? "mt-2.5 grid grid-cols-2 gap-2" : "mt-2.5 flex flex-wrap gap-1.5"}>
         {d.options.map((o) => <Option key={o.key} o={o} base={base} picked={answer === o.key} busy={busy} pictured={pictured} onPress={() => onPress(o.key)} />)}
@@ -200,6 +239,7 @@ function Question({ d, answer, chats, base, busy, said, onPress, onFocus, open, 
         <button type="submit" data-decision-send={d.id} disabled={busy || !text.trim()} className="rounded-full px-3 text-[12px] font-bold" style={{ color: "#021018", background: "oklch(0.85 0.17 205)", opacity: busy || !text.trim() ? 0.5 : 1 }}>Send</button>
       </form>
       {said ? <p data-decision-said={d.id} role="status" className="m-0 mt-2 text-[12px] leading-snug" style={{ color: "#ffb4b4" }}>{said}</p> : null}
+      </> : null}
     </article>
   );
 }
@@ -282,8 +322,10 @@ function Option({ o, base, picked, busy, pictured, onPress }: { o: DecisionOptio
   if (!pictured) {
     return (
       <button type="button" data-decision-option={o.key} data-decision-press={o.key} aria-pressed={picked} disabled={busy} title={o.desc || undefined} onClick={onPress}
-        className="min-h-[34px] rounded-full px-3 text-[12px]" style={{ border: ring, background: picked ? "rgba(61,255,174,.15)" : "rgba(255,255,255,.06)", color: "#fff" }}>
-        {label}
+        className={o.desc ? "flex min-h-[34px] w-full flex-col items-start rounded-xl px-3 py-1.5 text-left text-[12px]" : "min-h-[34px] rounded-full px-3 text-[12px]"} style={{ border: ring, background: picked ? "rgba(61,255,174,.15)" : "rgba(255,255,255,.06)", color: "#fff" }}>
+        <span>{label}</span>
+        {/* What it gives (piece F): enough to answer without the chat. */}
+        {o.desc ? <span data-decision-gives="" className="text-[11px] leading-snug" style={{ color: "#c9bfe6" }}>{o.desc}</span> : null}
       </button>
     );
   }
