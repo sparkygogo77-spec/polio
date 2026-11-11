@@ -4,17 +4,19 @@
  *
  * No Claude call: Make draws the free local concepts. Held here:
  *
- *   1. /builder/concepts: one prompt and Make show three concepts side by
- *      side, each a whole page of real parts, each a site of its own in
+ *   1. /builder/concepts: one prompt and Make show three concepts in the
+ *      grid, each a whole page of real parts, each a site of its own in
  *      Builds named "<site>: <direction>", none the open site;
- *   2. the sections under each page: taking the first screen from one and
- *      a section from another makes the Mix, a fourth site, with those parts
- *      stacked in that order; taking one out rebuilds it;
- *   3. Again rolls one concept and leaves the other two byte for byte;
+ *   2. the grid (Merges 71 replaced the side-by-side take keys): one tick a
+ *      row, ticking the first screen of one concept and a section of
+ *      another; a tick pressed again comes off; the ticks line and the Your
+ *      page column say what is ticked;
+ *   3. Again (Boards view) rolls one concept and leaves the other two byte
+ *      for byte;
  *   4. Edit opens the Builder on that concept with its parts on the board
  *      and the bar's way back to the canvas; back, the three are still there;
- *   5. Promote on the Mix: its record goes, it is the open site, the Builder
- *      shows its parts;
+ *   5. Build the ticked page: a new site, the open one, its Mix record gone,
+ *      the Builder showing the ticked sections stacked in row order;
  *   6. with capture folders: each is seeded as the open site, concepts are
  *      made, and the capture's stored document is byte for byte the same.
  *
@@ -79,7 +81,7 @@ async function make(p) {
     await p.waitForTimeout(500);
   }
   await p.click("[data-concepts-make]");
-  const drew = await waitFor(p, async () => (await p.locator("[data-concept] [data-node-id], [data-concept] svg, [data-concept-page] *").count()) > 0 && (await p.locator("[data-concept]").count()) === 3, 60000);
+  const drew = await waitFor(p, async () => (await p.locator("[data-grid-cell]:not([data-empty]) *").count()) > 0 && (await p.locator("[data-grid-col]").count()) === 3, 60000);
   await p.waitForTimeout(800);
   return drew;
 }
@@ -92,7 +94,7 @@ await blank(page);
 const drew = await make(page);
 const groups = (await hook(page, "groups")) ?? {};
 const g = Object.values(groups)[0];
-check("1. one prompt and Make show three concepts side by side", drew && g && g.ids.length === 3 && g.prompt === PROMPT, J({ drew, ids: g?.ids?.length }));
+check("1. one prompt and Make show three concepts in the grid", drew && g && g.ids.length === 3 && g.prompt === PROMPT, J({ drew, ids: g?.ids?.length }));
 const byId = (await hook(page, "byId")) ?? {};
 const names = (g?.ids ?? []).map((id) => byId[id]?.name);
 check("…each with a direction of its own", new Set(names).size === 3 && names.every(Boolean), names.join(" / "));
@@ -103,41 +105,34 @@ let b = await builds(page);
 check("…each a site of its own in Builds, named site: direction, and none is the open site", (g?.ids ?? []).every((id) => b.projects.some((p) => p.id === id && /^.+: .+$/.test(p.name))) && b.activeId === "s1" && b.projects.length === 4, J({ active: b.activeId, names: b.projects.map((p) => p.name) }));
 const live = await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio")).state.nodes.length);
 check("…the open board was not touched", live === 0, `${live} parts on the open board`);
-check("…every concept's sections are offered as keys", (await page.locator("[data-concept-take]").count()) >= 9, `${await page.locator("[data-concept-take]").count()} keys`);
+const filled = await page.locator("[data-grid-cell]:not([data-empty])").count();
+check("…every concept's sections are offered as cells of the grid", (await page.locator("[data-grid-col]").count()) === 3 && filled >= 9, `${filled} cells`);
 await shot(page, "live-canvas.png");
 
-/* 2. */
-const takeOn = async (index, which) => {
-  const keys = page.locator(`[data-concept-index="${index}"] [data-concept-take]`);
-  const n = await keys.count();
-  const names = [];
-  for (let i = 0; i < n; i++) names.push(await keys.nth(i).getAttribute("data-concept-take"));
-  const pick = which === "first" ? (names.find((x) => /first screen/i.test(x)) ?? names[1]) : (names.find((x) => !/header|footer|first screen|pages/i.test(x)) ?? names[names.length - 2]);
-  await page.locator(`[data-concept-index="${index}"] [data-concept-take="${pick}"]`).click();
-  await waitFor(page, async () => (await hook(page, "groups"))?.[g.id]?.takes?.some((t) => t.section === pick), 20000);
-  await page.waitForTimeout(600);
-  return pick;
-};
-const t1 = await takeOn(1, "first");
-const t2 = await takeOn(0, "middle");
-let g2 = (await hook(page, "groups"))[g.id];
-check("2. taking the first screen from 2 and a section from 1 makes the Mix", g2.takes.length === 2 && g2.mix && g2.takes[0].from === g.ids[1] && g2.takes[0].section === t1 && g2.takes[1].from === g.ids[0] && g2.takes[1].section === t2, J({ takes: g2.takes.map((t) => t.section), mix: !!g2.mix }));
-const mixDoc = await hook(page, "doc", g2.mix);
-const srcA = docs[g.ids[1]].nodes.filter((n) => sectionOf(n.label) === t1);
-const srcB = docs[g.ids[0]].nodes.filter((n) => sectionOf(n.label) === t2);
-const blockA = (mixDoc?.nodes ?? []).filter((n) => n.id.startsWith("mx0_"));
-const blockB = (mixDoc?.nodes ?? []).filter((n) => n.id.startsWith("mx1_"));
-const bottom = (ns) => Math.max(...ns.map((n) => n.y + n.h));
-const top = (ns) => Math.min(...ns.map((n) => n.y));
-check("…the Mix holds those parts, stacked in that order", blockA.length === srcA.length && blockB.length === srcB.length && (mixDoc?.nodes?.length ?? 0) === srcA.length + srcB.length && top(blockA) === 0 && top(blockB) >= bottom(blockA), J({ a: [blockA.length, srcA.length], b: [blockB.length, srcB.length] }));
-check("…the Mix is a fourth site in Builds, and shows on the canvas", (await builds(page)).projects.some((p) => p.id === g2.mix && /: Mix$/.test(p.name)) && (await page.locator("[data-mix-take]").count()) === 2);
+/* 2. The grid: one tick a row. */
+const rowKeys = await page.locator("[data-grid-row]").evaluateAll((els) => els.map((e) => e.getAttribute("data-grid-row")));
+const cellOf = (key, col) => page.locator(`[data-grid-cell="${key}:${g.ids[col]}"]:not([data-empty])`);
+const has = async (key, col) => (await cellOf(key, col).count()) === 1;
+const t1 = rowKeys.find((k) => /first screen/i.test(k)) ?? rowKeys[1];
+let t2 = null;
+for (const k of rowKeys) if (k !== t1 && !/header|footer|pages/i.test(k) && (await has(k, 0))) { t2 = k; break; }
+let t3 = null;
+for (const k of rowKeys) if (k !== t1 && k !== t2 && (await has(k, 2))) { t3 = k; break; }
+const tickAll = async () => { await cellOf(t1, 1).click(); await cellOf(t2, 0).click(); await page.waitForTimeout(300); };
+await tickAll();
+await cellOf(t3, 2).click();
+await cellOf(t3, 2).click();
+await page.waitForTimeout(400);
+const ticked = await page.locator("[data-grid-cell][data-ticked]").evaluateAll((els) => els.map((e) => e.getAttribute("data-grid-cell")));
+check("2. one tick a row: the first screen of concept 2 and a section of concept 1", ticked.length === 2 && ticked.includes(`${t1}:${g.ids[1]}`) && ticked.includes(`${t2}:${g.ids[0]}`), J({ t1, t2, ticked }));
+check("…a tick pressed again comes off", (await cellOf(t3, 2).getAttribute("aria-pressed")) === "false", t3);
+const line = (await page.locator("[data-grid-ticks]").textContent()) ?? "";
+check("…the ticks line counts one from each", /Ticks: 1 from .+, 1 from /.test(line), line);
+check("…the Your page column shows the two ticked rows and nothing else", (await page.locator("[data-grid-yourpage]:not([data-empty]):not([data-grid-yourpage-head])").count()) === 2, `${await page.locator("[data-grid-yourpage]:not([data-empty])").count()} filled`);
 await shot(page, "live-mix.png");
-await page.locator("[data-mix-take]").nth(1).locator("[data-mix-untake]").click();
-await waitFor(page, async () => ((await hook(page, "groups"))?.[g.id]?.takes?.length ?? 0) === 1, 20000);
-await page.waitForTimeout(500);
-g2 = (await hook(page, "groups"))[g.id];
-const mixDoc2 = await hook(page, "doc", g2.mix);
-check("…taking one out rebuilds the Mix with what is left", g2.takes.length === 1 && (mixDoc2?.nodes?.length ?? 0) === srcA.length, J({ takes: g2.takes.length, parts: mixDoc2?.nodes?.length }));
+await page.locator('[data-concepts-view="boards"]').click();
+await waitFor(page, async () => (await page.locator("[data-concept]").count()) === 3, 20000);
+await page.waitForTimeout(600);
 
 /* 3. */
 const before = { 0: J(docs[g.ids[0]]), 1: J(docs[g.ids[1]]) };
@@ -147,7 +142,7 @@ await page.waitForTimeout(600);
 const after2 = await hook(page, "doc", g.ids[2]);
 check("3. Again rolls that concept", J(after2) !== J(docs[g.ids[2]]) && (after2?.nodes?.length ?? 0) >= 6, `${after2?.nodes?.length} parts now`);
 check("…and leaves the other two byte for byte", J(await hook(page, "doc", g.ids[0])) === before[0] && J(await hook(page, "doc", g.ids[1])) === before[1]);
-check("…three concepts and the Mix still on the canvas", (await page.locator("[data-concept]").count()) === 3 && (await page.locator("[data-concept-mix]").count()) === 1);
+check("…three concepts still on the canvas", (await page.locator("[data-concept]").count()) === 3);
 
 /* 4. */
 await page.locator(`[data-concept-index="0"] [data-concept-edit]`).click();
@@ -162,18 +157,31 @@ check("…the bar has the way back to the canvas", (await back.count()) === 1 &&
 await shot(page, "live-edit.png");
 await back.click();
 await page.waitForURL(/\/builder\/concepts/, { timeout: 30000 });
-await waitFor(page, async () => (await page.locator("[data-concept]").count()) === 3, 30000);
 await page.waitForTimeout(800);
-check("…back on the canvas, the three are still there", (await page.locator("[data-concept]").count()) === 3 && (await page.locator("[data-concept-mix]").count()) === 1);
+await waitFor(page, async () => (await page.locator("[data-grid-col]").count()) === 3, 30000);
+check("…back on the canvas, the three are still there", (await page.locator("[data-grid-col]").count()) === 3);
 
-/* 5. */
-await page.locator("[data-mix-promote]").click();
-await page.waitForURL(/\/builder(\?|$)/, { timeout: 30000 });
+/* 5. Build the ticked page (the ticks are the page's own state: tick again after coming back). */
+const src = {};
+for (const id of g.ids) src[id] = await hook(page, "doc", id);
+const inRow = (doc, key) => (doc?.nodes ?? []).filter((n) => sectionOf(n.label).trim().toLowerCase() === key);
+const srcA = inRow(src[g.ids[1]], t1);
+const srcB = inRow(src[g.ids[0]], t2);
+const order = rowKeys.indexOf(t1) < rowKeys.indexOf(t2) ? [srcA, srcB] : [srcB, srcA];
+await tickAll();
+await page.locator("[data-grid-build]").click();
+await page.waitForURL(/\/builder(\?|#|$)/, { timeout: 30000 });
 await waitFor(page, async () => (await page.evaluate(() => window.__studioHistory?.doc()?.nodes?.length ?? 0)) > 0, 30000);
 await page.waitForTimeout(800);
 b = await builds(page);
 const byId2 = await page.evaluate(() => JSON.parse(localStorage.getItem("builder.concepts") ?? "{}").state ?? {});
-check("5. Promote on the Mix: it is the open site, its record is gone, the Builder shows its parts", b.activeId === g2.mix && !byId2.byId?.[g2.mix] && byId2.groups?.[g.id]?.mix === null && (await page.evaluate(() => window.__studioHistory?.doc()?.nodes?.length ?? 0)) === srcA.length, J({ active: b.activeId === g2.mix, record: !!byId2.byId?.[g2.mix], parts: await page.evaluate(() => window.__studioHistory?.doc()?.nodes?.length ?? 0) }));
+const built = await page.evaluate(() => window.__studioHistory?.doc()?.nodes ?? []);
+const blockA = built.filter((n) => n.id.startsWith("mx0_"));
+const blockB = built.filter((n) => n.id.startsWith("mx1_"));
+const bottom = (ns) => Math.max(...ns.map((n) => n.y + n.h));
+const top = (ns) => Math.min(...ns.map((n) => n.y));
+check("5. Build the ticked page: a new site, the open one, its Mix record gone", !!b.activeId && !g.ids.includes(b.activeId) && b.activeId !== "s1" && !byId2.byId?.[b.activeId] && byId2.groups?.[g.id]?.mix === null, J({ active: b.activeId, record: !!byId2.byId?.[b.activeId], mix: byId2.groups?.[g.id]?.mix }));
+check("…the Builder shows the ticked sections, stacked in row order", srcA.length > 0 && srcB.length > 0 && built.length === srcA.length + srcB.length && blockA.length === order[0].length && blockB.length === order[1].length && top(blockA) === 0 && top(blockB) >= bottom(blockA), J({ built: built.length, a: [blockA.length, order[0].length], b: [blockB.length, order[1].length] }));
 check("…no way back shows on a promoted site", (await page.locator("[data-concepts-back]").count()) === 0);
 check("…the Start row offers Concepts", await (async () => { await page.goto(`${BASE}/builds`, { waitUntil: "networkidle" }); return (await page.locator('[data-start="concepts"]').count()) === 1; })());
 await ctx.close();

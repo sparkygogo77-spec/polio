@@ -8,7 +8,7 @@ import { type ThreadDoc } from "../../loop";
 import { activeRepo } from "@/features/builds/store";
 import { boardActions } from "./board";
 import { FRAME_WIDTHS } from "./frame";
-import { EDIT_RUN_MS, HISTORY_LIMIT, asideOf, edited, pen, shelve, shelved, snapshot, starterDoc, stepTo, type Push } from "./history";
+import { EDIT_RUN_MS, HISTORY_LIMIT, asPutBack, asideOf, editMade, edited, pen, shelve, shelved, snapshot, starterDoc, stepTo, type Push } from "./history";
 import { ZOOM_MIN } from "./model";
 import { nodesActions } from "./nodes";
 import { docOnly, mergeDoc } from "./persist";
@@ -184,6 +184,7 @@ export const useStudio = create<StudioState>()(
         seed();
         run = null;
         pushes++;
+        editMade();
         edited();
         set((s) => ({
           /* What the step changes beside the document, as it was, when it says (`history.ts#stepTo`). */
@@ -304,7 +305,7 @@ export const useStudio = create<StudioState>()(
             const { patch, back } = stepTo(s, prev);
             return shelved(s, {
               ...patch,
-              nodes: wearAgain(patch.nodes),
+              nodes: asPutBack(wearAgain(patch.nodes)),
               past: s.past.slice(0, -1),
               future: [back, ...s.future].slice(0, HISTORY_LIMIT),
               selection: [],
@@ -331,7 +332,7 @@ export const useStudio = create<StudioState>()(
             const { patch, back } = stepTo(s, next);
             return shelved(s, {
               ...patch,
-              nodes: wearAgain(patch.nodes),
+              nodes: asPutBack(wearAgain(patch.nodes)),
               past: [...s.past, back].slice(-HISTORY_LIMIT),
               future: s.future.slice(1),
               selection: [],
@@ -363,7 +364,7 @@ export const useStudio = create<StudioState>()(
             }
             return shelved(s, {
               ...patch,
-              ...(patch.nodes ? { nodes: wearAgain(patch.nodes) } : {}),
+              ...(patch.nodes ? { nodes: asPutBack(wearAgain(patch.nodes)) } : {}),
               past: at.past.slice(-HISTORY_LIMIT),
               future: at.future.slice(0, HISTORY_LIMIT),
               selection: [],

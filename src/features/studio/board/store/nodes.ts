@@ -11,7 +11,7 @@ import { grownSays, grownTo, type Read } from "../../owns";
 import { newTour, siteFaces } from "../../tour";
 import { placeInFrame } from "./frame";
 import { groupTwins } from "../../states";
-import { GetStudio, HUES, SetStudio, TYPED_FIELDS, inherit, withFits, withGrown, withJoins, withPaint, withoutTwins } from "./history";
+import { GetStudio, HUES, SetStudio, TYPED_FIELDS, inherit, wasPutBack, withFits, withGrown, withJoins, withPaint, withoutTwins } from "./history";
 import { ShapeKind, ShapeRelation, StudioNode } from "./model";
 import type { StudioState } from "./state";
 import { ridersOf } from "../../owner";
@@ -211,6 +211,8 @@ export function nodesActions(set: SetStudio, get: GetStudio, push: () => void, p
         const nodes = s.nodes.map((n) => {
           const f = by.get(n.id);
           if (!f || (f.h === n.h && f.y === n.y && (f.w === undefined || f.w === n.w))) return n;
+          /* As undo or redo put it back, with no edit since: its checkpoint's box is the answer (`history.ts#asPutBack`). */
+          if (wasPutBack(n)) return n;
           moved = true;
           return { ...n, h: f.h, y: f.y, ...(f.w !== undefined ? { w: f.w } : {}) };
         });

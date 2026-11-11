@@ -17,6 +17,7 @@
  * so undoing the typing puts the width back with it.
  */
 import { useStudio, type StudioNode } from "./board/store";
+import { wasPutBack } from "./board/store/history";
 import { atFullSize } from "./textFit";
 import { holds, parentOf } from "./owner";
 
@@ -88,6 +89,8 @@ export function heldRowsGrow(id: string): void {
     const el = document.querySelector<HTMLElement>(`[data-node-id="${CSS.escape(id)}"]`);
     const frame = document.querySelector("[data-frame]");
     if (!n || !el || !frame) return;
+    /* Its look came back with an undo or redo, and so did its box: the checkpoint's box is the answer (EDIT-ISSUES #55, `store/history.ts#asPutBack`). */
+    if (wasPutBack(n)) return;
     const zoom = frame.getBoundingClientRect().width / Math.max(1, s.frameWidth);
     if (!(zoom > 0)) return;
     const box = el.getBoundingClientRect();

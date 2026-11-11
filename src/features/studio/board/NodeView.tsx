@@ -3,7 +3,7 @@ import { RemakeOnPart } from "../RemakePicture";
 import * as React from "react";
 import { getFeature,categoryOf } from "../shelf";
 import { isOverlay } from "../shelf/ui";
-import { drawnShift,pageClip } from "../pageClip";
+import { drawnShift, movesOf, pageClip } from "../pageClip";
 import { appAreaLabel,appAreaName,holderIds,isWrapper,wordsOf } from "../owner";
 import { leadsOf } from "../shelf";
 import { Block,themeFrom } from "../blocks";
@@ -327,14 +327,7 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
   const stepLook = useStudio((s) => looksOnBoard(s).get(node.id));
   /* …in the box the state draws it in, so words that wrap there wrap here (the tour's text: four lines, not one). */
   /* What its own motions rewrite ("transform translate"), so a shift they own is left to them (`pageClip.ts#drawnShift`). */
-  const moves = useStudio((s) => {
-    /* Only a motion that lasts: a one-off rise (mochi's "rise", to `none`) hands the part back to its own shift when it ends. */
-    const names = new Set((node.motion?.animation ?? []).filter((a) => a.iterations === "infinite" || /forwards|both/.test(a.fill ?? "")).map((a) => a.name));
-    if (!names.size) return "";
-    const kf = ((s.look as { keyframes?: { name: string; frames: { style?: Record<string, string> }[] }[] }).keyframes ?? []).filter((k) => names.has(k.name));
-    const props = new Set(kf.flatMap((k) => k.frames.flatMap((f) => Object.keys(f.style ?? {}))));
-    return ["transform", "translate"].filter((p) => props.has(p)).join(" ");
-  });
+  const moves = useStudio((s) => movesOf(node, s.look));
   /* Stood where it is drawn: its box, marks and handles carry its own shift, and the drawing inside goes without it (EDIT-ISSUES #35). */
   const shift = React.useMemo(() => drawnShift(node.art, (p) => moves.includes(p)), [node.art, moves]);
   /* Turned or scaled by its own transform (sol face's stickers, mochi's icons at 1.22): its rings turn with it, so they hug what is drawn; the handles stay on its box. */

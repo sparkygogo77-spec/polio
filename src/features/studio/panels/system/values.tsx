@@ -72,10 +72,13 @@ export function ColourBox({ value, onCommit, label }: { value: string; onCommit:
 export function TokenValue({ kind, value, onCommit, label }: { kind: TokenKind; value: string | number; onCommit: (v: string | number) => boolean; label: string }) {
   if (kind === "colour") {
     return (
-      /* Never narrower than a colour's words: the row wraps first (tokens.tsx). */
-      <span className="flex min-w-[8.5rem] flex-1 items-center gap-1">
+      /* Never narrower than a colour's words: the row wraps first (tokens.tsx).
+         In px, with room for 100px of typing inside the box's own padding:
+         8.5rem left 93px under the side panel, too narrow for
+         "rgb(255, 0, 255)" (tests/house-style.mjs). */
+      <span className="flex min-w-[150px] flex-1 items-center gap-1">
         <ColourBox value={String(value)} label={label} onCommit={(hex) => { if (!onCommit(hex)) play("deny"); }} />
-        <CommitInput mono label={label} value={value} onCommit={(v) => onCommit(v)} className="flex-1" />
+        <CommitInput mono label={label} value={value} onCommit={(v) => onCommit(v)} className="min-w-[120px] flex-1" />
       </span>
     );
   }
