@@ -185,8 +185,9 @@ const served = () => namesOnly(lanesNow());
   const chats = served().coordinators.flatMap((c) => c.chats);
   const text = JSON.stringify(served());
   const emServed = chats.find((x) => x.id === em.id);
-  check("the helper serves only the lines marked public, each as its time and words and nothing else", emHidden.length === 2 && emSteps.length === 2 && emServed?.history?.length === 2 && emServed.history.every((h) => Object.keys(h).sort().join() === "at,text") && emServed.history.map((h) => h.text).reverse().join("|") === emSteps.join("|"), JSON.stringify(emServed?.history));
-  check("…an unmarked line, a note or a last line never leaves the PC", !emHidden.some((t) => text.includes(t)) && !text.includes(em.note) && !text.includes(em.last) && (chats.find((x) => x.id === imp.id)?.history?.length ?? -1) === 0, text.slice(0, 200));
+  /* Orbs 2, piece G (J, 2026-11-10): what the Builder reads from the helper stays in J's browser, so the whole timeline, the note and the last line go. */
+  check("the helper serves the whole timeline, each line as its time and words and nothing else", emServed?.history?.length === em.history.length && emServed.history.every((h) => Object.keys(h).sort().join() === "at,text"), JSON.stringify(emServed?.history));
+  check("…and the chat's note and last line", text.includes(em.note) && text.includes(em.last));
   check("publicHistory takes `public: true` only, never a truthy stand-in, and drops everything but time and words", publicHistory([{ at: "a", text: "x", public: true, note: "n" }, { at: "b", text: "y", public: "yes" }, { at: "c", text: "z", public: 1 }, { at: "d", text: "w" }, null, "s"]).map((h) => JSON.stringify(h)).join() === '{"at":"a","text":"x"}' && publicHistory("x").length === 0);
 }
 /** Forward the page's call to the stand-in, as the page sent it, and hand its answer back. */
@@ -206,7 +207,7 @@ const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(A
 const errors = [];
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 /* These checks read chat names: Private (on by default since Orbs 2) draws badges instead. */
-await ctx.addInitScript(() => { try { localStorage.setItem("polio.private", "off"); } catch {} });
+await ctx.addInitScript(() => { try { localStorage.setItem("polio.private", "off"); localStorage.setItem("polio.decisions.open", JSON.stringify(["popup-design", "merge-order", "tidy-scale"])); } catch {} });
 /* The feed is our handovers folder's, so an answer written there comes back on the next read. */
 await ctx.route("**/api/lanes", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ feed: served(), beats: [], now: Date.now() }) }));
 await ctx.route(`${HELPER}/**`, forward);
@@ -259,16 +260,16 @@ check("each open question has a Details button, and no strip shows until it is p
 await page.locator('[data-decision-details="popup-design"]').click().catch(() => {});
 let st = await strip("popup-design");
 check("Details opens a strip with the chat the question belongs to, its state and when it was last heard from", st?.chat === em.id && /Export motion/.test(st.text) && /needs you/.test(st.text) && /ago|just now/.test(st.text) && (await page.locator('[data-decision-details="popup-design"]').getAttribute("aria-expanded")) === "true", JSON.stringify(st));
-check("…and its newest public change, none of the unmarked lines' words", st?.steps.length === 1 && st.steps[0] === emSteps[0] && !emHidden.some((t) => st.text.includes(t)), JSON.stringify(st?.steps));
+check("…and its newest change (piece G: every line, not only those marked public)", st?.steps.length === 1 && st.steps[0] === emAll[0], JSON.stringify(st?.steps));
 {
   const seen = [];
   for (let i = 0; i < 6 && st?.earlier; i++) { await page.locator('[data-decision-earlier="popup-design"]').click().catch(() => {}); st = await strip("popup-design"); seen.push(st.steps.length); }
-  check("Earlier reveals one more public step a press, in order, back to the chat's start", seen.join() === "2" && st.steps.join("|") === emSteps.join("|") && !st.earlier && /the chat's start/.test(st.text), `${seen.join()} ${st?.steps.join("|")}`);
+  check("Earlier reveals one more step a press, in order, back to the chat's start", seen.join() === Array.from({ length: emAll.length - 1 }, (_, k) => k + 2).join() && st.steps.join("|") === emAll.join("|") && !st.earlier && /the chat's start/.test(st.text), `${seen.join()} ${st?.steps.join("|")}`);
   /* A picture of the strip with its two public lines, for whoever asks (STRIP_SHOT); otherwise it goes to the temp folder. */
   await page.screenshot({ path: process.env.STRIP_SHOT || join(root, "strip.png"), clip: { x: 1440 - 480, y: 0, width: 480, height: 900 } }).catch(() => {});
   await page.locator('[data-decision-collapse="popup-design"]').click().catch(() => {});
   st = await strip("popup-design");
-  check("Collapse folds it back to the newest", st?.steps.length === 1 && st.steps[0] === emSteps[0] && !st.collapse);
+  check("Collapse folds it back to the newest", st?.steps.length === 1 && st.steps[0] === emAll[0] && !st.collapse);
 }
 check("a question with no area picture shows no picture box", st?.area === false);
 await page.locator('[data-decision-details="merge-order"]').click().catch(() => {});
@@ -276,7 +277,8 @@ const area = page.locator('[data-decision-area="merge-order"] img[data-decision-
 await area.scrollIntoViewIfNeeded().catch(() => {});
 await page.waitForFunction(() => { const i = document.querySelector('[data-decision-area="merge-order"] img'); return i?.complete && i.naturalWidth > 0; }, null, { timeout: 8000 }).catch(() => {});
 check("a question with an area picture draws it, captioned with its chat", await area.evaluate((i) => i.complete && i.naturalWidth > 0).catch(() => false) && /Import checkup/.test((await page.locator('[data-decision-area="merge-order"] figcaption').textContent().catch(() => "")) ?? ""));
-check("…and with none of its lines marked public, no step and \"No shared timeline yet\"", (await strip("merge-order"))?.steps.length === 0 && !(await strip("merge-order")).earlier && (await page.locator('[data-decision-timeline-empty="merge-order"]').textContent().catch(() => "")) === "No shared timeline yet" && !(await strip("merge-order")).text.includes(imp.history[0].text));
+/* Piece G (J, 2026-11-10): an unmarked line shows too, since it never leaves J's browser. */
+check("…and its one line, marked public or not, with nothing earlier", (await strip("merge-order"))?.steps.length === 1 && !(await strip("merge-order")).earlier && (await strip("merge-order")).text.includes(imp.history[0].text));
 await page.locator('[data-decision-ask="merge-order"]').fill("Cheaper ones, please").catch(() => {});
 await page.locator('[data-decision-ask-send="merge-order"]').click().catch(() => {});
 await page.waitForSelector('[data-decision-asked="merge-order"]', { timeout: 5000 }).catch(() => {});
@@ -323,7 +325,7 @@ writeLanes();
 const before = readFileSync(LANES, "utf8");
 const c2 = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 /* These checks read chat names: Private (on by default since Orbs 2) draws badges instead. */
-await c2.addInitScript(() => { try { localStorage.setItem("polio.private", "off"); } catch {} });
+await c2.addInitScript(() => { try { localStorage.setItem("polio.private", "off"); localStorage.setItem("polio.decisions.open", JSON.stringify(["popup-design", "merge-order", "tidy-scale"])); } catch {} });
 let feedUp = true;
 await c2.route("**/api/lanes", (r) => (feedUp ? r.fallback() : r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ feed: null, beats: [], now: Date.now() }) })));
 await c2.route(`${HELPER}/**`, (r) => r.abort("connectionrefused"));

@@ -71,7 +71,7 @@ if (L) {
   check("a working ring tumbles, slower the more is done, each its own speed; a done one doesn't", L.tumbleSpeed(0, 0) === 8 && L.tumbleSpeed(0.5, 0) === 4 && L.tumbleSpeed(0, 2) > L.tumbleSpeed(0, 1) && L.tumbleSpeed(1, 1) === 0);
   check("no two rings set off in line", new Set([0, 1, 2, 3].map((i) => L.startTilt(i) % 360)).size === 4);
   const segs = L.ringSegments(200, 40, 20);
-  check("a ring is 48 pieces, each with its own depth, some near and some far", segs.length === 48 && segs.every((x) => /^M[-\d. ]+L[-\d. ]+$/.test(x.d)) && segs.some((x) => x.z > 0) && segs.some((x) => x.z < 0));
+  check("a ring is " + L.SEGMENTS + " curved pieces (Orbs 2: no facets), each with its own depth, some near and some far", segs.length === L.SEGMENTS && segs.every((x) => /^M[-\d. ]+Q[-\d. ]+$/.test(x.d)) && segs.some((x) => x.z > 0) && segs.some((x) => x.z < 0));
   check("the tumble is three whole turns, eased, and ends where it began", L.tumbleAt(0) === 0 && L.tumbleAt(1) === 1080 && L.tumbleAt(0.1) > L.tumbleAt(0.05) && L.ringSegments(200, 40 + L.tumbleAt(1), 20).every((x, k) => x.d === segs[k].d));
   check("colours drift 4% every 25 ms, never snapping", close(L.driftShare(0.025), 0.04, 1e-9) && close(L.driftShare(0.05), 1 - 0.96 * 0.96, 1e-9) && L.driftShare(0) === 0);
   const red = L.ringTarget("need", 0, 0);
@@ -111,8 +111,9 @@ try {
   const hidden = FIXTURE.coordinators.flatMap((c) => c.chats.flatMap((x) => (x.history ?? []).filter((h) => h.public !== true).map((h) => h.text.trim()))).filter(Boolean);
   const shown = FIXTURE.coordinators.flatMap((c) => c.chats.flatMap((x) => (x.history ?? []).filter((h) => h.public === true).map((h) => h.text.trim())));
   const servedSteps = served.flatMap((c) => c.chats.flatMap((x) => x.history ?? []));
-  check("the feed carries only the history lines marked public, as time and words, and not a word of an unmarked one", hidden.length >= 3 && shown.length === 2 && servedSteps.length === 2 && servedSteps.every((h) => Object.keys(h).sort().join() === "at,text") && servedSteps.map((h) => h.text).join("|") === shown.join("|") && !hidden.some((t) => JSON.stringify(ok.json).includes(t)), `${hidden.length} ${JSON.stringify(servedSteps)}`);
-  check("the feed comes without a single note or last line, from coordinators or chats", said.length >= 20 && served.every((c) => !("note" in c) && c.chats.every((x) => !("note" in x) && !("last" in x))) && !said.some((n) => JSON.stringify(ok.json).includes(n)), String(said.length));
+  /* Orbs 2, piece G (J, 2026-11-10): what the Builder reads from the helper stays in J's browser, so the whole timeline goes, as time and words. */
+  check("the feed carries each chat's whole timeline, as time and words", servedSteps.length === FIXTURE.coordinators.flatMap((c) => c.chats.flatMap((x) => x.history ?? [])).length && servedSteps.length >= hidden.length + shown.length && servedSteps.every((h) => Object.keys(h).sort().join() === "at,text"), `${servedSteps.length}`);
+  check("…and each chat's note and latest line, and each coordinator's note (piece G)", said.length >= 20 && said.every((n) => JSON.stringify(ok.json).includes(n)));
   check("…keeping each chat's name, state and when it was last heard from, and the questions whole", served.flatMap((c) => c.chats).every((x, i) => { const y = FIXTURE.coordinators.flatMap((c) => c.chats)[i]; return x.id === y.id && x.name === y.name && x.state === y.state && x.lastSeen === y.lastSeen; }) && JSON.stringify(ok.json.feed.decisions) === JSON.stringify(FIXTURE.decisions));
   check("…and the fresh beats, not the old or torn ones", ok.json?.beats?.length === 1 && ok.json.beats[0].session === "abc" && ok.json.beats[0].name === "form-backend", JSON.stringify(ok.json?.beats));
   check("another origin is refused", (await call("/lanes", "https://evil.test")).status === 403);
@@ -165,28 +166,26 @@ const allChats = FIXTURE.coordinators.flatMap((c) => c.chats);
 /* Orbs 2: the finished chats are one archive body in the middle; only the rest are orbs of their own. */
 const liveChats = allChats.filter((c) => c.state !== "done"), doneChats = allChats.filter((c) => c.state === "done");
 const archive = () => page.evaluate(() => { const a = document.querySelector("[data-lanes-archive]"); const m = /translate\(([-\d.]+) ([-\d.]+)\)/.exec(a?.getAttribute("transform") ?? ""); return a ? { n: Number(a.getAttribute("data-lanes-archive")), x: Number(m?.[1]), y: Number(m?.[2]) } : null; });
-let s = await until((x) => x.rings[A.id] && close(x.rings[B.id].r, 211.5, 0.5) && near(x.rings[C.id].colour, COL.need, 30), 10000);
-check("one ring per coordinator, 48 pieces each", Object.keys(s.rings).length === 3 && s.segs === 144, `${Object.keys(s.rings).length} rings, ${s.segs} pieces`);
+/* Orbs 2 (pieces L, M): Coordinator A, all done, is retired: a numbered purple orb by the sun, not a ring. B and C are the rings. */
+let s = await until((x) => x.rings[B.id] && close(x.rings[B.id].r, 187.5, 0.5) && near(x.rings[C.id].colour, COL.need, 30), 10000);
+check("one ring per live coordinator, " + L.SEGMENTS + " pieces each; the retired one has none", Object.keys(s.rings).length === 2 && !s.rings[A.id] && s.segs === 2 * L.SEGMENTS, `${Object.keys(s.rings).length} rings, ${s.segs} pieces`);
 check("one orb per chat still working, waiting or parked", Object.keys(s.orbs).length === liveChats.length && liveChats.every((c) => s.orbs[c.id]), String(Object.keys(s.orbs).length));
-check("no nucleus", (await page.locator("[data-lanes-nucleus]").count()) === 0);
+check("a sun at the centre", (await page.locator("[data-lanes-sun]").count()) === 1);
 check("orbs head for their state's colour", liveChats.every((c) => s.orbs[c.id]?.target === COL[c.state] && near(s.orbs[c.id].colour, COL[c.state]) && s.orbs[c.id].fill === s.orbs[c.id].colour));
-check("rings: green all done, blue working, red one waits on J", s.rings[A.id]?.target === COL.done && s.rings[B.id]?.target === COL.work && s.rings[C.id]?.target === COL.need && [A, B, C].every((c) => near(s.rings[c.id].colour, s.rings[c.id].target)), JSON.stringify([A, B, C].map((c) => s.rings[c.id]?.colour)));
-check("each ring its own size: grown by its share done, a step out from the last", close(s.rings[A.id].r, 300, 0.5) && close(s.rings[B.id].r, 211.5, 0.5) && close(s.rings[C.id].r, 198, 0.5), JSON.stringify([A, B, C].map((c) => s.rings[c.id].r)));
-check("the decisions waiting are a line in the menu", s.decisions === "2 decisions wait on you", s.decisions);
+check("rings: blue working, red one waits on J", s.rings[B.id]?.target === COL.work && s.rings[C.id]?.target === COL.need && [B, C].every((c) => near(s.rings[c.id].colour, s.rings[c.id].target)), JSON.stringify([B, C].map((c) => s.rings[c.id]?.colour)));
+check("each ring its own size: grown by its share done, a step out from the last", close(s.rings[B.id].r, 187.5, 0.5) && close(s.rings[C.id].r, 174, 0.5), JSON.stringify([B, C].map((c) => s.rings[c.id].r)));
+check("the retired coordinator is one numbered purple orb by the sun", (await page.locator(`[data-lanes-retired="${A.id}"][data-n="1"]`).count()) === 1);
 
 const t1 = await read(); await page.waitForTimeout(1500); const t2 = await read();
-check("working rings tumble end over end, each its own speed, slower the more is done", t2.rings[B.id].tilt !== t1.rings[B.id].tilt && t2.rings[C.id].tilt !== t1.rings[C.id].tilt && close(t2.rings[B.id].speed, 8.03, 0.05) && close(t2.rings[C.id].speed, 13.4, 0.05), JSON.stringify([t1.rings[B.id].tilt, t2.rings[B.id].tilt, t2.rings[C.id].speed]));
-s = await until((x) => Math.abs(x.rings[A.id].tilt) < 0.5, 12000);
-check("the all-done ring has settled flat and rests", s.rings[A.id].speed === 0 && Math.abs(s.rings[A.id].tilt) < 0.5, String(s.rings[A.id].tilt));
+check("working rings tumble end over end, each its own speed, slower the more is done", t2.rings[B.id].tilt !== t1.rings[B.id].tilt && t2.rings[C.id].tilt !== t1.rings[C.id].tilt && close(t2.rings[B.id].speed, 6, 0.05) && close(t2.rings[C.id].speed, 10.7, 0.05), JSON.stringify([t1.rings[B.id].tilt, t2.rings[B.id].tilt, t2.rings[C.id].speed]));
 
-const order = await page.evaluate(() => [...document.querySelectorAll("[data-ring-seg],[data-lanes-orb]")].map((e) => ({ z: Number(e.dataset.z), ring: e.getAttribute("data-ring-seg") })));
-check("one scene sorted by depth: every ring piece and orb, far to near", order.length === 144 + liveChats.length && order.every((x, i) => i === 0 || x.z >= order[i - 1].z));
+const order = await page.evaluate(() => [...document.querySelectorAll("[data-ring-seg],[data-lanes-orb],[data-lanes-bead]")].map((e) => ({ z: Number(e.dataset.z), ring: e.getAttribute("data-ring-seg") })));
+check("one scene sorted by depth: every ring piece, orb and bead, far to near", order.length === 2 * L.SEGMENTS + liveChats.length + B.chats.filter((x) => x.state === "done").length && order.every((x, i) => i === 0 || x.z >= order[i - 1].z));
 const switches = order.filter((x) => x.ring).reduce((n, x, i, a) => n + (i > 0 && x.ring !== a[i - 1].ring ? 1 : 0), 0);
-check("…so rings pass in front of and behind each other", switches > 6, `${switches} changes of ring along the depth order`);
+check("…so rings pass in front of and behind each other", switches > 4, `${switches} changes of ring along the depth order`);
 const orbsNow = Object.values(s.orbs);
 check("far orbs are smaller than near ones", orbsNow.filter((o) => o.z < -30).every((f) => orbsNow.filter((o) => o.z > 30).every((n) => f.scale < n.scale)));
-const ar = await archive();
-check("the finished chats are the middle: one archive body with their count", ar?.n === doneChats.length && Math.abs(ar.x) < 2 && Math.abs(ar.y) < 2 && doneChats.every((c) => !s.orbs[c.id]), JSON.stringify(ar));
+check("a live ring's finished chats are small beads on it, not orbs", B.chats.filter((x) => x.state === "done").every((x) => !s.orbs[x.id]) && (await page.locator("[data-lanes-bead]").count()) === B.chats.filter((x) => x.state === "done").length);
 
 /* Hover: a point on a ring piece that the pointer really finds. */
 const onRing = (id) => page.evaluate((id) => {
@@ -202,7 +201,7 @@ await page.mouse.move(pt.x, pt.y); await page.waitForTimeout(120);
 s = await read();
 check("hovering a ring shows its coordinator in the menu", s.menu === C.name, s.menu);
 const widths = await page.evaluate((id) => [...new Set([...document.querySelectorAll(`[data-ring-seg="${id}"] path:first-child`)].map((p) => p.getAttribute("stroke-width")))], C.id);
-check("…and brightens it, only it", widths.join() === "14" && s.rings[C.id].spin === 0, widths.join());
+check("…and brightens it, only it", widths.join() === "12" && s.rings[C.id].spin === 0, widths.join());
 
 /* The tumble. */
 pt = await onRing(C.id);
@@ -211,7 +210,7 @@ const seenSpins = [], others = [];
 const t0 = Date.now();
 for (;;) {
   const r = await read();
-  seenSpins.push(r.rings[C.id].spin); others.push(r.rings[A.id].spin + r.rings[B.id].spin);
+  seenSpins.push(r.rings[C.id].spin); others.push(r.rings[B.id].spin);
   if ((r.rings[C.id].spin === 0 && seenSpins.some((x) => x > 0)) || Date.now() - t0 > 12000) break;
   await page.waitForTimeout(50);
 }
@@ -225,17 +224,17 @@ check("…and it says what Steer, Pause and Stop do from here", /desktop app/.te
 
 /* Hover an orb. */
 const em = C.chats[0];
-const orbOnScreen = (id) => page.evaluate((id) => { const g = document.querySelector(`[data-lanes-orb="${id}"]`), r = g.querySelectorAll("circle")[1].getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, top: document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.closest("[data-lanes-orb]") === g }; }, id);
+const orbOnScreen = (id) => page.evaluate((id) => { const g = document.querySelector(`[data-lanes-orb="${id}"]`), r = g.querySelectorAll("circle")[1].getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, top: document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.closest("[data-lanes-hit]")?.getAttribute("data-lanes-hit") === id }; }, id);
 let o = await orbOnScreen(em.id);
 for (let i = 0; i < 40 && !o.top; i++) { await page.waitForTimeout(150); o = await orbOnScreen(em.id); }
 await page.mouse.move(o.x, o.y); await page.waitForTimeout(200);
 s = await read();
 check("hovering a chat names it in the menu and opens its box", s.menu === em.name && s.box === em.id, `${s.menu} / ${s.box}`);
 const boxText = await page.locator("[data-lanes-box]").textContent().catch(() => "");
-check("…with its state and when it was last heard from, no note or last line, a field and Send", /needs you/.test(boxText) && /last heard from ([0-9]+ (min|h|d) ago|just now)/.test(boxText) && !boxText.includes(em.note) && !boxText.includes(em.last) && (await page.locator("[data-lanes-say]").count()) === 1 && (await page.locator("[data-lanes-send]").count()) === 1, boxText.slice(0, 80));
+check("…with its state, its age, its note and latest line (piece G), a field and Send", /needs you · [0-9]+ (s|min|h|d)/.test(boxText) && boxText.includes(em.note) && (await page.locator("[data-lanes-say]").count()) === 1 && (await page.locator("[data-lanes-send]").count()) === 1, boxText.slice(0, 160));
 await page.mouse.move(3, 400); await page.waitForTimeout(250);
 const notesText = await page.locator("[data-lanes-notes]").textContent().catch(() => "");
-check("the list under the board names every chat and its state, and shows no note", FIXTURE.coordinators.every((c) => notesText.includes(c.name) && c.chats.every((x) => notesText.includes(x.name) && !notesText.includes(x.note) && !notesText.includes(x.last))) && FIXTURE.coordinators.every((c) => !notesText.includes(c.note)), notesText.slice(0, 80));
+check("the list under the board names every live chat and its state with no note, and the retired coordinator once", [B, C].every((c) => notesText.includes(c.name) && c.chats.every((x) => notesText.includes(x.name) && !notesText.includes(x.note) && !notesText.includes(x.last))) && notesText.includes(A.name) && !A.chats.some((x) => notesText.includes(x.name)), notesText.slice(0, 120));
 
 /* One lap per message: sent, round the back, answered, to the middle. */
 const form = B.chats[3];
@@ -250,10 +249,9 @@ s = await until((x) => x.orbs[form.id]?.share > 0.3, 9000);
 check("…easing round to the back while it thinks", s.orbs[form.id].share > 0.3 && s.orbs[form.id].share <= 0.5, String(s.orbs[form.id].share));
 state(form.id, "done");
 s = await until((x) => !x.orbs[form.id], 16000);
-await page.waitForTimeout(500);
-s = await read();
-check("when it answers it completes the lap and goes into the archive", !s.orbs[form.id] && (await archive())?.n === doneChats.length + 1, JSON.stringify(await archive()));
-check("…and its ring grows a step out, eased", close(s.rings[B.id].r, 249, 0.5) && close(s.rings[B.id].speed, 5.35, 0.05), `${s.rings[B.id].r} ${s.rings[B.id].speed}`);
+s = await until((x) => close(x.rings[B.id].r, 225, 0.5), 8000);
+check("when it answers it completes the lap and becomes a bead on its ring", !s.orbs[form.id] && (await page.locator(`[data-lanes-bead="${form.id}"]`).count()) === 1);
+check("…and its ring grows a step out, eased", close(s.rings[B.id].r, 225, 0.5) && close(s.rings[B.id].speed, 4, 0.05), `${s.rings[B.id].r} ${s.rings[B.id].speed}`);
 
 /* The helper's page is still all there. */
 await page.locator('[data-agents-tab="helper"]').click().catch(() => {}); await page.waitForTimeout(400);

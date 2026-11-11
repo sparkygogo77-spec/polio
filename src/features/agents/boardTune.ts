@@ -44,11 +44,13 @@ export const BOARD_TUNE: TuneSchema = {
       { key: "drag", label: "Resistance", kind: "slider", min: 0.1, max: 3, step: 0.05, value: 1 },
       { key: "bounce", label: "Bounce", kind: "slider", min: 0, max: 1, step: 0.05, value: 0.5 },
       { key: "settle", label: "Settle time", kind: "slider", min: 0.2, max: 3, step: 0.05, value: 0.9, unit: "s" },
+      /* Piece P: a chat that retired with a question left. J offered both; the picture round asks him to pick. */
+      { key: "leftover", label: "Retired, still asking", kind: "choice", value: "drift", options: [{ value: "drift", label: "A small sun drifting away" }, { value: "nova", label: "A small sun, a supernova when answered" }] },
     ] },
   ],
 };
 
 export interface BoardLook {
   tilt: number; axis: number; order: "coordinator" | "state" | "age"; orb: number; ring: number; texture: TextureSet;
-  key: number; rim: number; glow: number; orbit: number; spin: number; gravity: number; drag: number; bounce: number; settle: number;
+  key: number; rim: number; glow: number; orbit: number; spin: number; gravity: number; drag: number; bounce: number; settle: number; leftover: "drift" | "nova";
 }

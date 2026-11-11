@@ -45,25 +45,39 @@ const check = (name, ok, detail = "") => { results.push(ok === true); console.lo
 const close = (a, b, e) => Math.abs(a - b) <= e;
 const tryImport = async (p) => { try { return await import(p); } catch (e) { check(`${p} loads`, false, String(e?.message ?? e).split("\n")[0].slice(0, 140)); return null; } };
 
-/* A made feed of 40 chats: 3 coordinators; 26 finished, the rest working, waiting or parked; two open questions. */
-const minutes = (m) => new Date(Date.parse("2026-11-10T12:00:00Z") - m * 60_000).toISOString();
+/*
+ * A made feed of 42 chats: two live coordinators (B, C), two retired (A, all done; D, marked retired), three open
+ * questions (one carried from a retired lane, one about a chat that retired with it unanswered) and one answered.
+ */
+const minutes = (m) => new Date(Date.now() - m * 60_000).toISOString();
 const chat = (c, k, state, extra = {}) => ({ id: `local_${c}${String(k).padStart(7, "0")}-0000-4000-8000-000000000000`, name: `Secret client ${c}${k}`, lane: `lane-${c}${k}`, code: `C${c.toUpperCase()}${k}`, emoji: "🔮", state, lastSeen: minutes(k * 7 + c.charCodeAt(0)), ...extra });
 const FEED = {
   decisions: [
-    { id: "q-orbit", order: 1, about: "lane-b7", question: "Which orbit speed?", options: [{ key: "a", label: "Slow" }, { key: "b", label: "Fast", pick: true }], answer: "", answeredAt: "" },
-    { id: "q-merge", order: 2, about: "lane-c2", question: "Merge which first?", options: [{ key: "a", label: "Orbs" }, { key: "b", label: "Veil" }], answer: "", answeredAt: "" },
+    { id: "q-orbit", order: 1, about: "lane-b7", question: "Which orbit speed?", options: [{ key: "a", label: "Slow" }, { key: "b", label: "Fast", pick: true }], answer: "", answeredAt: "", asked: minutes(30) },
+    { id: "q-merge", order: 2, about: "lane-c2", askedBy: "lane-a3", carried: minutes(90), asked: minutes(2 * 1440 + 60), question: "Merge which first?", what: "Two branches touch the dock.", why: "Merging both at once conflicts.", how: "Press one; the other rebases after.", context: "Long background that sits under a fold.",
+      options: [{ key: "a", label: "Orbs", desc: "The board lands first.", pick: true }, { key: "b", label: "Veil", desc: "The console lands first." }], answer: "", answeredAt: "" },
+    { id: "q-left", order: 3, about: "lane-c1", question: "Keep the old dock tab?", options: [{ key: "a", label: "Keep" }, { key: "b", label: "Drop" }], answer: "", answeredAt: "", asked: minutes(600) },
     { id: "q-done", order: 0, about: "lane-a1", question: "Already answered", options: [{ key: "a", label: "Yes" }], answer: "a", answeredAt: minutes(5) },
   ],
   coordinators: [
     { id: "local_cccccccc-0000-4000-8000-00000000000a", name: "Coordinator A", chats: Array.from({ length: 14 }, (_, k) => chat("a", k + 1, "done")) },
     { id: "local_cccccccc-0000-4000-8000-00000000000b", name: "Coordinator B", chats: [...Array.from({ length: 10 }, (_, k) => chat("b", k + 1, k < 6 ? "done" : k === 6 ? "need" : "work"))] },
     { id: "local_cccccccc-0000-4000-8000-00000000000c", name: "Coordinator C", chats: [...Array.from({ length: 16 }, (_, k) => chat("c", k + 1, k < 6 ? "done" : k === 1 ? "need" : k % 3 === 0 ? "park" : "work"))] },
+    { id: "local_cccccccc-0000-4000-8000-00000000000d", name: "Coordinator D", retired: true, chats: [chat("d", 1, "done", { lastSeen: minutes(9000) }), chat("d", 2, "work", { lastSeen: minutes(9100) })] },
   ],
 };
 FEED.coordinators[2].chats[1].state = "need";
+/* Piece G: a chat's note and latest line, with a path, a pid and a word that must never leave the browser. */
+FEED.coordinators[1].chats[6].note = String.raw`Working on HELPERTEXT-7f3 in C:\Users\Josh\Pleo\work-secret, pid 4242`;
+FEED.coordinators[1].chats[6].last = "Pushed HELPERTEXT-last-91 for review";
+const HELPER_WORDS = ["HELPERTEXT-7f3", "HELPERTEXT-last-91"];
 const ALL = FEED.coordinators.flatMap((c) => c.chats);
 const DONE = ALL.filter((x) => x.state === "done");
-const LIVE = ALL.filter((x) => x.state !== "done");
+const LIVE = FEED.coordinators.slice(1, 3).flatMap((c) => c.chats).filter((x) => x.state !== "done");
+const OPEN = FEED.decisions.filter((d) => !d.answer);
+const QM = FEED.decisions.find((d) => d.id === "q-merge");
+const asker = FEED.coordinators[1].chats[6], asker2 = FEED.coordinators[2].chats[1], leftover = FEED.coordinators[2].chats[0];
+const BEADS = FEED.coordinators.slice(1, 3).flatMap((c) => c.chats).filter((x) => x.state === "done" && x.id !== leftover.id);
 
 /* ------------------------------------------------------------ 1. pure */
 const L = await tryImport("../src/features/agents/lanes.ts");
@@ -109,9 +123,38 @@ if (L?.archiveOf) {
   check("5: an orb's mark is the badge's letters, never half an emoji", L.markOf("🔮 CB7") === "CB" && L.markOf("Export motion") === "EM");
 } else check("C: the archive is read", false);
 
+if (L?.pieOf) {
+  const now = Date.now(), feed = L.readFeed(FEED);
+  check("H: a live age, short: s, min, h, d", L.ageOf(now - 42e3, now) === "42 s" && L.ageOf(now - 7 * 60e3, now) === "7 min" && L.ageOf(now - 3 * 3600e3, now) === "3 h" && L.ageOf(now - 2 * 86400e3, now) === "2 d" && L.ageOf("", now) === "");
+  check("H: chats by latest word, newest first", (() => { const o = L.byLatest(feed.coordinators[2].chats); return o.every((x, i) => i === 0 || Date.parse(o[i - 1].lastSeen) >= Date.parse(x.lastSeen)); })());
+  const pie = L.pieOf(feed.questions, now);
+  check("H: the pie: one equal slice per question this round, open ones red, the recent answer green", pie.length === 4 && pie.filter((x) => x.open).length === 3 && close(pie[1].to - pie[1].from, 0.25, 1e-9) && pie[0].from === 0 && pie.at(-1).to === 1);
+  const many = Array.from({ length: 11 }, (_, i) => ({ ...feed.questions[1], id: `m${i}`, answer: "" }));
+  check("H: past eight, eight slices and the last says how many more", L.pieOf(many, now).length === 8 && L.pieOf(many, now).at(-1).more === 3);
+  check("H: a lone slice is a whole circle", /A9 9 0 1 1/.test(L.slicePath({ id: "x", open: true, from: 0, to: 1, more: 0 }, 9)) && /^M0 0L/.test(L.slicePath(pie[0], 9)));
+  const ret = L.retiredOf(feed);
+  check("M: retired coordinators: one marked retired, one all done; numbered oldest first, brightest the newest", ret.length === 2 && ret[0].c.id.endsWith("d") && ret[1].c.id.endsWith("a") && ret[0].n === 1 && ret[1].light > ret[0].light && !feed.coordinators[1].retired);
+  check("M: their purple goes from dark to light", L.purpleOf(0)[0] < L.purpleOf(1)[0]);
+  const ms = Array.from({ length: 3 }, (_, k) => L.moonAt(k, 3, 1, 24));
+  check("O: moons orbit their orb, apart from each other, outside it", ms.every((m) => Math.hypot(m.x, m.y / 0.35) > 24) && ms.every((m, i) => ms.every((q, j) => i === j || Math.hypot(m.x - q.x, m.y - q.y) > 4)));
+  check("O: a carried question says who asked and who has it now", L.carriedWords(feed.questions.find((d) => d.id === "q-merge"), "CC2") === "asked by lane-a3, now with CC2" && L.carriedWords(feed.questions.find((d) => d.id === "q-orbit"), "x") === "");
+  check("P: a done chat with a question still open is a leftover", L.leftovers(feed).has(leftover.id) && L.leftovers(feed).size === 1);
+  check("P: it drifts further the older it is, never past the edge; a burst lasts under a second", L.driftOut(1) < L.driftOut(24) && L.driftOut(1e6) <= 1 && L.NOVA_S < 1 && L.novaAt(1).alpha === 0 && L.novaAt(0).r === 1);
+  const sg = L.ringSegments(200, 30, 10);
+  check("K: a ring is 96 curved pieces, each through the circle's own midpoint", L.SEGMENTS === 96 && sg.length === 96 && sg.every((x) => /^M[-\d. ]+Q[-\d. ]+$/.test(x.d)));
+  check("F: a question carries What, How, background, asked, askedBy and carried", (() => { const d = feed.questions.find((x) => x.id === "q-merge"); return !!(d.what && d.how && d.context && d.asked && d.askedBy === "lane-a3" && d.carried); })());
+}
+if (HL?.forBuilder) {
+  /* A made key-shaped value, built here so no key-like text sits in the file. */
+  const fakeKey = ["s", "k-", "ant-api03-", "q".repeat(26)].join("");
+  const served = HL.blankKeys(HL.forBuilder({ coordinators: [{ id: "c", name: "C", note: "n", retired: true, chats: [{ id: "x", name: "n", state: "work", note: "a note", last: `a line ${fakeKey}`, model: "Opus", pid: 4, history: [{ at: 1, text: "kept", public: false }] }] }] }));
+  const x = served.coordinators[0].chats[0];
+  check("G: the helper serves each chat's note, latest line and whole timeline", x.note === "a note" && x.last.startsWith("a line") && x.history.length === 1 && x.history[0].text === "kept" && served.coordinators[0].retired === true);
+  check("G: …never its model or a pid, and never a key", !("model" in x) && !("pid" in x) && !x.last.includes(fakeKey) && x.last.includes("•••"));
+}
 if (T && BT) {
   const S = BT.BOARD_TUNE, keys = T.controlsOf(S).map((c) => c.key);
-  check("D: the board's drawer has every value J named", ["tilt", "axis", "order", "orb", "ring", "texture", "key", "rim", "glow", "orbit", "spin", "gravity", "drag", "bounce", "settle"].every((k) => keys.includes(k)) && S.groups.map((g) => g.label).join() === "Orientation,Order,Size,Texture,Lighting,Speeds,Motion", keys.join());
+  check("D: the board's drawer has every value J named", ["tilt", "axis", "order", "orb", "ring", "texture", "key", "rim", "glow", "orbit", "spin", "gravity", "drag", "bounce", "settle", "leftover"].every((k) => keys.includes(k)) && S.groups.map((g) => g.label).join() === "Orientation,Order,Size,Texture,Lighting,Speeds,Motion", keys.join());
   check("D: three texture sets to choose from", BT.TEXTURE_SETS.length === 3 && T.controlsOf(S).find((c) => c.key === "texture").options.length === 3);
   const d = T.defaultsOf(S);
   check("D: values read back are clamped and snapped; unknown keys and bad choices dropped", (() => { const v = T.readValues(S, { orb: 99, tilt: "12.4", texture: "plaid", junk: 1 }); return v.orb === 1.6 && v.tilt === 12 && v.texture === "glass" && !("junk" in v) && Object.keys(v).length === keys.length; })());
@@ -139,7 +182,7 @@ if (PV) {
 }
 if (HL?.namesOnly) {
   const s = HL.namesOnly({ coordinators: [{ id: "c", chats: [{ id: "x", name: "n", code: "ORBS", emoji: "🔮", state: "work", note: "secret" }] }] });
-  check("5: the helper serves each chat's badge, still no note", s.coordinators[0].chats[0].code === "ORBS" && s.coordinators[0].chats[0].emoji === "🔮" && !("note" in s.coordinators[0].chats[0]));
+  check("5: the helper serves each chat's badge", s.coordinators[0].chats[0].code === "ORBS" && s.coordinators[0].chats[0].emoji === "🔮");
 }
 
 /* ------------------------------------------------------------ 2. in the Builder */
@@ -160,14 +203,18 @@ async function standIn(ctx, origin) {
       if (helper.mode === "refuse") return r.fulfill({ status: 403, contentType: "application/json", body: '{"error":"this origin may not use the helper"}' });
       return r.fulfill({ status: 200, contentType: "application/json", headers: cors, body: JSON.stringify({ helper: true, paired: helper.mode === "paired" }) });
     }
+    if (r.request().method() === "OPTIONS") return r.fulfill({ status: 204, headers: { ...cors, "access-control-allow-methods": "GET, POST", "access-control-allow-headers": "content-type" }, body: "" });
+    if (u.pathname === "/lanes/answer" && r.request().method() === "POST") {
+      const b = JSON.parse(r.request().postData() ?? "{}"), d = FEED.decisions.find((x) => x.id === b.id);
+      if (d) { d.answer = b.answer; d.answeredAt = new Date().toISOString(); }
+      return r.fulfill({ status: 200, contentType: "application/json", headers: cors, body: JSON.stringify({ ok: true, answeredAt: d?.answeredAt }) });
+    }
     if (u.pathname === "/lanes") return r.fulfill({ status: 200, contentType: "application/json", headers: cors, body: JSON.stringify({ feed: FEED, beats: [], now: Date.now() }) });
     return r.fulfill({ status: 200, contentType: "text/html", headers: { "access-control-allow-origin": "*" }, body: "<!doctype html><title>dock stub</title><body>dock" });
   });
   await ctx.route("**/api/lanes", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ feed: FEED, beats: [], now: Date.now() }) }));
 }
 const waitFor = async (page, fn, arg, ms) => page.waitForFunction(fn, arg, { timeout: ms }).then(() => true).catch(() => false);
-/** A press on the archive body, where its hit circle is. */
-const pressArchive = async (page) => { const b = await page.locator("[data-lanes-hit=archive]").boundingBox(); if (b) await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2); };
 /** The board's parts once they stop settling (a saved board's text can move a few pixels as fonts arrive, dock or no dock). */
 const settled = async (page) => { let a = ""; for (let i = 0; i < 30; i++) { const b = await page.evaluate(() => JSON.stringify(window.__studioNodes?.() ?? [])); if (b === a) return b; a = b; await page.waitForTimeout(1500); } return a; };
 const mark = (page) => page.evaluate(() => document.querySelector("[data-agents-helper-mark]")?.getAttribute("data-agents-helper-mark") ?? null);
@@ -176,6 +223,9 @@ try {
   const origin = new URL(BASE).origin;
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   await standIn(ctx, origin);
+  /* Piece G's limit: nothing read from the helper goes out in a request (to anywhere but the helper and the lanes route) or into the site. */
+  const outgoing = [];
+  ctx.on("request", (r) => { const u = r.url(); if (!u.startsWith(HELPER) && !u.includes("/api/lanes")) outgoing.push(`${r.method()} ${u} ${r.postData() ?? ""}`); });
   const page = await ctx.newPage();
   page.on("pageerror", (e) => errors.push(`made page: ${e.message}`));
   page.setDefaultTimeout(60_000);
@@ -200,47 +250,142 @@ try {
   helper.mode = "paired";
   await waitFor(page, () => document.querySelector("[data-agents-helper-mark]")?.getAttribute("data-agents-helper-mark") === "paired", null, 8000);
   check("A: the polio-helper:// link was never followed", helper.starts === 0);
-
-  /* B. */
-  const asks = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll("[data-lanes-asks]")].map((e) => [e.getAttribute("data-lanes-orb"), e.getAttribute("data-lanes-asks")])));
-  check("B: the Agents button counts the questions waiting on J", (await page.locator("[data-agents-waiting]").getAttribute("data-agents-waiting").catch(() => null)) === "2");
-  const asker = FEED.coordinators[1].chats[6], asker2 = FEED.coordinators[2].chats[1];
-  check("B: the asking chats' orbs carry the same mark", asks[asker.id] === "1" && asks[asker2.id] === "1" && Object.keys(asks).length === 2, JSON.stringify(asks));
+  await page.waitForTimeout(800);
   await page.evaluate(() => document.querySelector("[data-lanes-atom]")?.scrollIntoView({ block: "end" }));
-  await page.waitForTimeout(300);
+
+  /* H: the pie. */
+  const pie = await page.evaluate(() => [...document.querySelectorAll("[data-agents-slice]")].map((e) => `${e.getAttribute("data-agents-slice")}:${e.getAttribute("data-open")}`));
+  check("H: the Agents button's mark is a pie: one slice per question this round, red open, green answered", pie.length === 4 && pie.filter((x) => x.endsWith(":1")).length === OPEN.length && pie.includes("q-done:0"), pie.join());
+  check("B: …and it counts the questions waiting on J", (await page.locator("[data-agents-waiting]").getAttribute("data-agents-waiting").catch(() => null)) === String(OPEN.length));
+
+  /* O: moons; B: the count mark. */
+  const moons = await page.evaluate(() => [...document.querySelectorAll("[data-lanes-moon]")].map((e) => `${e.getAttribute("data-of")}:${e.getAttribute("data-lanes-moon")}`));
+  check("O: each open question is a bright moon round the orb that asked", moons.length === OPEN.length && moons.includes(`${asker.id}:q-orbit`) && moons.includes(`${asker2.id}:q-merge`) && moons.includes(`${leftover.id}:q-left`), moons.join());
+  const asks = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll("[data-lanes-asks]")].map((e) => [e.getAttribute("data-lanes-orb"), e.getAttribute("data-lanes-asks")])));
+  check("B: the asking orbs keep the count mark", asks[asker.id] === "1" && asks[asker2.id] === "1", JSON.stringify(asks));
+
+  /* F: folded to one line; a press on the orb opens it whole. */
+  check("F: each question is one line until opened", (await page.locator("[data-decision-head]").count()) === OPEN.length && (await page.locator("button[data-decision-press]").count()) === 0);
   await page.locator(`[data-lanes-hit="${asker2.id}"]`).dispatchEvent("pointerdown", { button: 0, clientX: 0, clientY: 0, pointerId: 1, isPrimary: true });
   await page.evaluate(() => window.dispatchEvent(new PointerEvent("pointerup", { button: 0, clientX: 0, clientY: 0, pointerId: 1 })));
-  const opened = await waitFor(page, () => document.querySelector('[data-decision="q-merge"][data-decision-lit]') !== null, null, 4000);
-  check("B: a press on the asking orb opens its question, lit", opened);
+  check("B: a press on the asking orb opens its question, lit", await waitFor(page, () => document.querySelector('[data-decision="q-merge"][data-decision-lit]') !== null, null, 4000));
   check("B: …with its options as buttons, the first one ready to press", (await page.locator('[data-decision="q-merge"] button[data-decision-press]').count()) === 2 && (await page.evaluate(() => document.activeElement?.closest('[data-decision="q-merge"]') !== null)));
+  const whole = (await page.locator('[data-decision="q-merge"]').innerText()).replace(/\s+/g, " ");
+  check("F: opened, it is whole: What, Why, How, what each option gives, the pick, who asked and when", whole.includes(QM.what) && whole.includes(QM.why) && whole.includes(QM.how) && whole.includes(QM.options[0].desc) && /pick/.test(whole) && /asked by/.test(whole) && /ago/.test(whole), whole.slice(0, 240));
+  check("O: a carried question says who asked and who has it now, with the real asked time", /asked by lane-a3, now with/.test(whole) && /moved \d+ (s|min|h|d) ago/.test(whole) && /2 d ago/.test(whole), whole.slice(0, 240));
+  check("F: the background sits under a fold", (await page.locator('[data-decision="q-merge"] [data-decision-context]').count()) === 1 && !(await page.locator('[data-decision="q-merge"] [data-decision-context]').evaluate((d) => d.open)));
+  /* A moon's press opens its own question. */
+  const mb = await page.locator('[data-lanes-moon-hit="q-orbit"]').boundingBox();
+  await page.locator('[data-lanes-moon-hit="q-orbit"]').dispatchEvent("click");
+  check("O: a press on a moon opens that question", await waitFor(page, () => document.querySelector('[data-decision="q-orbit"][data-decision-lit]') !== null && document.querySelectorAll('[data-decision="q-orbit"] button[data-decision-press]').length === 2, null, 4000), JSON.stringify(mb));
+  /* H: a slice opens its question too, with the dock shut. */
   await page.locator("[data-agents-close]").click();
   await page.waitForTimeout(300);
-  check("B: with the dock shut, the count and the mark stay on the button", (await page.locator("[data-agents-waiting]").getAttribute("data-agents-waiting").catch(() => null)) === "2" && (await mark(page)) === "paired");
+  check("B: with the dock shut, the pie and the mark stay on the button", (await page.locator("[data-agents-waiting]").getAttribute("data-agents-waiting").catch(() => null)) === String(OPEN.length) && (await mark(page)) === "paired");
   const asked = helper.healthAsks;
   helper.mode = "off";
   check("A: …and the dock shut, the mark still follows the helper", await waitFor(page, () => document.querySelector("[data-agents-helper-mark]")?.getAttribute("data-agents-helper-mark") === "off", null, 9000) && helper.healthAsks >= asked);
   helper.mode = "paired";
-  await page.locator("[data-agents-button]").click();
-  await page.waitForSelector("[data-lanes-board]", { timeout: 20000 }).catch(() => {});
-  await page.waitForTimeout(1500);
+  await page.locator('[data-agents-slice="q-left"]').click();
+  check("H: a press on a slice opens the dock on that question", await waitFor(page, () => document.querySelector('[data-decision="q-left"][data-decision-lit]') !== null, null, 8000));
+  await page.waitForTimeout(800);
+  await page.evaluate(() => document.querySelector("[data-lanes-atom]")?.scrollIntoView({ block: "end" }));
 
-  /* C. */
-  const orbs = await page.evaluate(() => [...document.querySelectorAll("[data-lanes-orb]")].map((e) => e.getAttribute("data-lanes-orb")));
-  check("C: only working, waiting and parked chats are orbs of their own", orbs.length === LIVE.length && LIVE.every((x) => orbs.includes(x.id)), `${orbs.length} orbs for ${LIVE.length}`);
-  check("C: the finished ones are one archive body with their count", (await page.locator("[data-lanes-archive]").getAttribute("data-lanes-archive").catch(() => null)) === String(DONE.length) && (await page.locator("[data-lanes-archive]").textContent()).includes(String(DONE.length)));
-  await pressArchive(page);
+  /* I: nothing shown twice. */
+  const dockText = await page.locator("[data-agents-dock]").innerText();
+  const times = (s, w) => s.split(w).length - 1;
+  check("I: a question's words are shown once, in the questions; elsewhere a count and a jump", OPEN.every((d) => times(dockText, d.question) === 1) && (await page.locator("[data-lanes-note-asks]").count()) >= 2 && !(await page.locator("[data-lanes-decisions]").count()), OPEN.map((d) => times(dockText, d.question)).join());
+
+  /* L, M, K: the sun, the nucleus, smooth rings. */
+  check("L: a sun at the centre", (await page.locator("[data-lanes-sun]").count()) === 1);
+  const nucleus = await page.evaluate(() => [...document.querySelectorAll("[data-lanes-retired]")].map((e) => ({ id: e.getAttribute("data-lanes-retired"), n: +e.getAttribute("data-n"), light: +e.getAttribute("data-light") })));
+  const retiredA = FEED.coordinators[0].id, retiredD = FEED.coordinators[3].id;
+  check("M: the archive is one numbered purple orb per retired coordinator, brightest the newest", nucleus.length === 2 && nucleus.find((x) => x.id === retiredD)?.n === 1 && nucleus.find((x) => x.id === retiredA)?.n === 2 && nucleus.find((x) => x.id === retiredA).light > nucleus.find((x) => x.id === retiredD).light, JSON.stringify(nucleus));
+  const rings = await page.evaluate(() => [...document.querySelectorAll("[data-lanes-ring]")].map((e) => e.getAttribute("data-lanes-ring")));
+  check("M: retired coordinators have no ring; their chats are inside, not drawn", rings.length === 2 && !rings.includes(retiredA) && (await page.locator(`[data-lanes-orb="${FEED.coordinators[0].chats[0].id}"],[data-lanes-bead="${FEED.coordinators[0].chats[0].id}"]`).count()) === 0, rings.join());
+  const orbs = await page.evaluate(() => [...document.querySelectorAll("[data-lanes-orb][data-kind=orb]")].map((e) => e.getAttribute("data-lanes-orb")));
+  check("C: only working, waiting and parked chats are orbs; a live ring's finished chats are small beads", orbs.length === LIVE.length && LIVE.every((x) => orbs.includes(x.id)) && (await page.locator("[data-lanes-bead]").count()) === BEADS.length, `${orbs.length} orbs, ${await page.locator("[data-lanes-bead]").count()} beads`);
+  const segs = await page.evaluate(() => [...document.querySelectorAll("[data-ring-seg] path")].filter((p) => p.getAttribute("stroke") !== "transparent").map((p) => `${p.getAttribute("d")?.includes("Q") ? "Q" : "L"}${p.getAttribute("stroke-linecap")}`));
+  check("K: rings are smooth: curved pieces with flat ends that meet, 96 to a ring, no round caps to overlap", segs.length > 0 && segs.every((s) => s === "Qbutt") && (await page.locator("[data-ring-seg]").count()) === 96 * 2, `${segs.length} ${[...new Set(segs)].join()}`);
+  await page.locator(`[data-lanes-hit="retired:${retiredA}"]`).dispatchEvent("click");
   await page.waitForTimeout(1200);
-  const fan = await page.evaluate(() => [...document.querySelectorAll("[data-lanes-orb][data-state=done]")].map((e) => ({ id: e.getAttribute("data-lanes-orb"), x: +e.getAttribute("data-x"), y: +e.getAttribute("data-y") })));
-  const latest = [...DONE].sort((a, b) => Date.parse(b.lastSeen) - Date.parse(a.lastSeen)).slice(0, 12).map((x) => x.id);
-  check("C: a press fans out the latest dozen round it", fan.length === 12 && latest.every((id) => fan.some((f) => f.id === id)) && fan.every((f) => Math.hypot(f.x, f.y) > 40 && Math.hypot(f.x, f.y) < 160), `${fan.length}`);
-  const oldest = [...DONE].sort((a, b) => Date.parse(a.lastSeen) - Date.parse(b.lastSeen))[0];
+  const back = await page.evaluate((id) => ({ ring: document.querySelector(`[data-lanes-ring="${id}"]`)?.getAttribute("data-purple"), orbs: document.querySelectorAll("[data-lanes-orb]").length }), retiredA);
+  check("M: a press on one brings it back as a purple ring with its chats on it", back.ring === "1" && back.orbs >= LIVE.length + FEED.coordinators[0].chats.length, JSON.stringify(back));
+  check("N: …and the panel says so, with a way to put it away", /retired coordinator #2/.test(await page.locator("[data-lanes-menu]").innerText()) && (await page.locator(`[data-lanes-revive="${retiredA}"]`).count()) === 1);
+  await page.locator(`[data-lanes-revive="${retiredA}"]`).click();
+  await page.waitForTimeout(600);
+  check("M: put away, its ring goes", (await page.locator(`[data-lanes-ring="${retiredA}"]`).count()) === 0);
+  await page.locator("[data-lanes-archive-toggle]").click();
+  await page.waitForTimeout(300);
+  check("M: the nucleus is a toggle, off", (await page.locator("[data-lanes-retired]").count()) === 0 && (await page.locator("[data-lanes-archive-toggle]").getAttribute("data-lanes-archive-toggle")) === "off");
+  await page.reload({ waitUntil: "networkidle" });
+  await page.locator("[data-agents-button]").click();
+  await page.waitForSelector("[data-lanes-orb]", { timeout: 20000 }).catch(() => {});
+  check("M: …remembered", (await page.locator("[data-lanes-retired]").count()) === 0);
+  await page.locator("[data-lanes-archive-toggle]").click();
+  await page.waitForTimeout(300);
+  check("M: …and on again", (await page.locator("[data-lanes-retired]").count()) === 2);
+  await page.evaluate(() => document.querySelector("[data-lanes-atom]")?.scrollIntoView({ block: "end" }));
+  await page.waitForTimeout(400);
+
+  /* C: search reaches every finished chat. */
+  await page.locator("[data-lanes-archive-list] summary").click();
+  const oldest = FEED.coordinators[0].chats.at(-1);
   await page.locator("[data-lanes-archive-search]").fill(oldest.code.toLowerCase());
   await page.waitForTimeout(300);
   const hits = await page.evaluate(() => [...document.querySelectorAll("[data-lanes-archive-item]")].map((e) => e.getAttribute("data-lanes-archive-item")));
-  check("C: search reaches one that isn't in the dozen", !latest.includes(oldest.id) && hits.length === 1 && hits[0] === oldest.id, JSON.stringify(hits));
-  await pressArchive(page);
-  await page.waitForTimeout(1800);
-  check("C: pressed again, they fold back in", (await page.locator("[data-lanes-orb][data-state=done]").count()) === 0 && (await page.locator("[data-lanes-archive-list]").count()) === 0);
+  check("C: search reaches a finished chat inside a retired coordinator", hits.length === 1 && hits[0] === oldest.id, JSON.stringify(hits));
+
+  /* N: hover snaps the panel, the hover ending puts it back, a press pins. */
+  const hb = await page.locator(`[data-lanes-hit="${asker.id}"]`).boundingBox();
+  const panelName = () => page.locator("[data-lanes-menu-name]").textContent();
+  const pinned = await panelName();
+  await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2);
+  await page.waitForTimeout(250);
+  const onHover = await panelName();
+  await page.mouse.move(5, 500);
+  await page.waitForTimeout(300);
+  const afterHover = await panelName();
+  const badge = `${asker.emoji} ${asker.code}`;
+  check("N: hovering an orb snaps the panel to that chat; the hover ending puts it back", onHover === badge && afterHover === pinned && pinned !== badge, `${pinned} / ${onHover} / ${afterHover}`);
+  await page.mouse.click(hb.x + hb.width / 2, hb.y + hb.height / 2);
+  await page.mouse.move(5, 500);
+  await page.waitForTimeout(300);
+  check("N: a press pins it", (await panelName()) === badge);
+  check("J: the panel sits above the board, not on the orbs", await page.evaluate(() => { const p = document.querySelector("[data-lanes-menu]").getBoundingClientRect(), s = document.querySelector("svg[data-camera]").getBoundingClientRect(); return p.bottom <= s.top + 1; }));
+
+  /* G: more is shown, nothing of it leaves. */
+  const panel = await page.locator("[data-lanes-menu]").innerText();
+  check("G: the panel shows the chat's note and latest line", panel.includes("HELPERTEXT-7f3") && panel.includes("Latest:"), panel.slice(0, 200));
+  check("G: …with paths and pids hidden while Private", !/Users|work-secret|4242/.test(panel) && panel.includes("hidden"), panel.replace(/\s+/g, " ").slice(0, 220));
+  await page.locator("[data-lanes-panel-fold]").click();
+  check("J: the panel folds to one line", (await page.locator("[data-lanes-menu]").getAttribute("data-folded")) === "1" && (await page.locator("[data-lanes-menu]").boundingBox()).height < 48);
+  await page.locator("[data-lanes-panel-fold]").click();
+  check("J: …and opens again, and can be dragged taller", (await page.locator("[data-lanes-menu]").evaluate((e) => getComputedStyle(e).resize)) === "vertical");
+
+  /* H: chats by latest word with a live age. */
+  const notes = await page.evaluate((id) => [...document.querySelectorAll(`[data-lanes-notes-coord="${id}"] [data-lanes-note]`)].map((e) => ({ id: e.getAttribute("data-lanes-note"), age: e.querySelector("[data-lanes-seen]")?.textContent })), FEED.coordinators[2].id);
+  const wantOrder = [...FEED.coordinators[2].chats].sort((a, b) => Date.parse(b.lastSeen) - Date.parse(a.lastSeen)).map((x) => x.id);
+  check("H: chats are ordered by latest word, newest first, each with an age", notes.map((n) => n.id).join() === wantOrder.join() && notes.every((n) => /^\d+ (s|min|h|d)$/.test(n.age ?? "")), notes.slice(0, 3).map((n) => n.age).join());
+
+  /* J: drag the empty board to turn it. */
+  await page.evaluate(() => document.querySelector("[data-lanes-atom]")?.scrollIntoView({ block: "end" }));
+  const cam0 = await page.locator("svg[data-camera]").getAttribute("data-camera");
+  const sb = await page.locator("svg[data-camera]").boundingBox();
+  await page.mouse.move(sb.x + 12, sb.y + sb.height - 12);
+  await page.mouse.down();
+  for (let i = 1; i <= 8; i++) { await page.mouse.move(sb.x + 12 + 15 * i, sb.y + sb.height - 12 - 4 * i); await page.waitForTimeout(16); }
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  const cam1 = await page.locator("svg[data-camera]").getAttribute("data-camera");
+  const tuned = await page.evaluate(() => JSON.parse(localStorage.getItem("polio.tune.agents-board") ?? "{}"));
+  check("J: a drag on the empty board turns it, and Tune keeps the turn", cam0 !== cam1 && tuned.axis === Number(cam1.split(",")[1]), `${cam0} → ${cam1} ${JSON.stringify(tuned)}`);
+  await page.evaluate(() => localStorage.removeItem("polio.tune.agents-board"));
+  await page.reload({ waitUntil: "networkidle" });
+  await page.locator("[data-agents-button]").click();
+  await page.waitForSelector("[data-lanes-orb]", { timeout: 20000 }).catch(() => {});
+  await page.waitForTimeout(1200);
+  await page.evaluate(() => document.querySelector("[data-lanes-atom]")?.scrollIntoView({ block: "end" }));
 
   /* 5, on the board. */
   const boardText = await page.locator("[data-agents-dock]").innerText();
@@ -251,13 +396,37 @@ try {
   await page.locator("[data-agents-private]").click();
   await page.waitForTimeout(300);
 
+  /* P: a chat retired with a question left is a small sun; answered, it bursts (nova) or fades (drift), in under a second. */
+  check("P: a chat that retired with a question left is a small sun, not a bead", (await page.locator(`[data-lanes-orb="${leftover.id}"][data-kind=sun]`).count()) === 1 && (await page.locator(`[data-lanes-bead="${leftover.id}"]`).count()) === 0);
+  const sunAt = async () => page.evaluate((id) => { const e = document.querySelector(`[data-lanes-orb="${id}"]`); return e ? Math.hypot(+e.dataset.x, +e.dataset.y) : 0; }, leftover.id);
+  const driftFar = await sunAt();
+  await page.evaluate(() => localStorage.setItem("polio.tune.agents-board", JSON.stringify({ leftover: "nova" })));
+  await page.reload({ waitUntil: "networkidle" });
+  await page.locator("[data-agents-button]").click();
+  await page.waitForSelector("[data-lanes-orb]", { timeout: 20000 }).catch(() => {});
+  await page.waitForTimeout(1500);
+  const novaNear = await sunAt();
+  check("P: drifting, it sits further out than the nova look keeps it", driftFar > novaNear + 20, `${driftFar.toFixed(0)} vs ${novaNear.toFixed(0)}`);
+  if ((await page.locator('[data-decision-head="q-left"]').getAttribute("aria-expanded")) !== "true") await page.locator('[data-decision-head="q-left"]').click();
+  await page.locator('[data-decision="q-left"] button[data-decision-press="a"]').click();
+  const burst = await waitFor(page, (id) => document.querySelector(`[data-lanes-nova="${id}"][data-mode=nova]`) !== null, leftover.id, 8000);
+  const tBurst = Date.now();
+  const gone = await waitFor(page, (id) => !document.querySelector(`[data-lanes-nova="${id}"]`), leftover.id, 3000);
+  check("P: answered, the small sun ends in a quick supernova (under a second)", burst && gone && Date.now() - tBurst < 1500 && (await page.locator(`[data-lanes-orb="${leftover.id}"]`).count()) === 0);
+  check("P: …and becomes a plain finished bead", (await page.locator(`[data-lanes-bead="${leftover.id}"]`).count()) === 1);
+  FEED.decisions.find((d) => d.id === "q-left").answer = "";
+  await page.evaluate(() => localStorage.removeItem("polio.tune.agents-board"));
+
   /* D. */
+  await page.reload({ waitUntil: "networkidle" });
+  await page.locator("[data-agents-button]").click();
+  await page.waitForSelector("[data-lanes-orb]", { timeout: 20000 }).catch(() => {});
   await page.locator("[data-lanes-tune-open]").click();
   await page.waitForSelector("[data-tune]", { timeout: 4000 }).catch(() => {});
   const groups = await page.evaluate(() => [...document.querySelectorAll("[data-tune-group]")].map((e) => e.getAttribute("data-tune-group")));
   check("D: Tune opens one drawer, grouped as J asked", groups.join() === "orientation,order,size,texture,lighting,speeds,motion", groups.join());
-  check("D: …sliders for every number, a choice for order and texture", (await page.locator('[data-tune] input[type=range]').count()) === 13 && (await page.locator("[data-tune] select").count()) === 2);
-  const scaleOf = () => page.evaluate(() => { const o = document.querySelector("[data-lanes-orb]"); return o ? +o.querySelector("circle:nth-of-type(2)").getAttribute("r") : 0; });
+  check("D: …sliders for every number, a choice for order, texture and the leftover look", (await page.locator('[data-tune] input[type=range]').count()) === 13 && (await page.locator("[data-tune] select").count()) === 3);
+  const scaleOf = () => page.evaluate(() => { const o = document.querySelector("[data-lanes-orb][data-kind=orb]"); return o ? +o.querySelector("circle:nth-of-type(2)").getAttribute("r") : 0; });
   const r1 = await scaleOf();
   await page.locator('[data-tune-key="orb"]').fill("1.5");
   await page.waitForTimeout(400);
@@ -265,7 +434,7 @@ try {
   check("D: a slider changes the board live (orb size)", close(r2 / r1, 1.5, 0.02), `${r1} → ${r2}`);
   await page.locator('[data-tune-key="texture"]').selectOption("planet");
   await page.waitForTimeout(400);
-  check("D/E: a texture set wraps the orbs", (await page.locator('[data-lanes-texture="planet"]').count()) >= LIVE.length);
+  check("D/E: a texture set wraps the orbs, and gives the rings their look", (await page.locator('[data-lanes-texture="planet"]').count()) >= LIVE.length && (await page.locator('[data-lanes-ring][data-style="planet"]').count()) === 2);
   await page.locator('[data-tune-key="texture"]').selectOption("marble");
   await page.waitForTimeout(300);
   check("E: the marble set too", (await page.locator('[data-lanes-texture="marble"]').count()) >= LIVE.length);
@@ -280,24 +449,24 @@ try {
   await page.waitForTimeout(400);
   check("D: a pasted look sets the board", close((await scaleOf()) / r1, 1.2, 0.02) && (await page.locator('[data-lanes-texture="planet"]').count()) > 0);
   const mid = await page.evaluate(() => JSON.stringify(window.__studioNodes?.() ?? []));
-  const diffOf = (x, y) => { const A = JSON.parse(x), B = JSON.parse(y); if (A.length !== B.length) return `${A.length} parts, then ${B.length}`; const i = A.findIndex((n, k) => JSON.stringify(n) !== JSON.stringify(B[k])); if (i < 0) return ""; return `${A[i].id}: ${Object.keys({ ...A[i], ...B[i] }).filter((k) => JSON.stringify(A[i][k]) !== JSON.stringify(B[i][k])).map((k) => `${k} ${JSON.stringify(A[i][k])?.slice(0, 40)} → ${JSON.stringify(B[i][k])?.slice(0, 40)}`).join("; ")}`; };
-  check("the board under the dock didn't move by a pixel (helper states, questions, archive, Tune)", before === mid && before.length > 10, diffOf(before, mid));
+  const diffOf = (x, y) => { const A = JSON.parse(x), B = JSON.parse(y); if (A.length !== B.length) return `${A.length} parts, then ${B.length}`; const i = A.findIndex((n, k) => JSON.stringify(n) !== JSON.stringify(B[k])); if (i < 0) return ""; return `${A[i].id}: ${Object.keys({ ...A[i], ...B[i] }).filter((k) => JSON.stringify(A[i][k]) !== JSON.stringify(B[i][k])).join()}`; };
+  check("the board under the dock didn't move by a pixel (helper states, questions, nucleus, panel, turning, Tune)", before === mid && before.length > 10, diffOf(before, mid));
   await page.reload({ waitUntil: "networkidle" });
   await page.locator("[data-agents-button]").click();
   await page.waitForSelector("[data-lanes-orb]", { timeout: 20000 }).catch(() => {});
   check("D: …and a reload keeps it", (await page.locator('[data-lanes-texture="planet"]').count()) > 0);
+  await page.evaluate(() => localStorage.removeItem("polio.tune.agents-board"));
   await page.locator("[data-agents-close]").click();
   const before2 = await settled(page);
   await page.locator("[data-agents-button]").click();
   await page.waitForSelector("[data-lanes-orb]", { timeout: 20000 }).catch(() => {});
-  await page.evaluate(() => localStorage.removeItem("polio.tune.agents-board"));
 
   /* E. */
   await page.evaluate(() => document.querySelector("[data-lanes-atom]")?.scrollIntoView({ block: "end" }));
   await page.waitForTimeout(500);
   const target = LIVE.find((x) => x.state === "park") ?? LIVE[0];
   const orb = page.locator(`[data-lanes-orb="${target.id}"]`);
-  const box = await orb.boundingBox();
+  const box = await page.locator(`[data-lanes-hit="${target.id}"]`).boundingBox();
   if (box) {
     const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
     await page.mouse.move(cx, cy);
@@ -311,7 +480,8 @@ try {
     const last = samples.at(-1);
     check("E: a drag holds the orb off its place, a release flings it", held === "held" && flung === "flung" && samples[0].d > 30, `${held} ${flung} ${samples[0].d.toFixed(0)}`);
     check("E: it settles home exactly, by itself", last.d === 0 && last.held === "", JSON.stringify(last));
-    const settledAt = samples.findIndex((s) => s.d === 0);
+    /* Home is when its body is gone (data-held cleared): a swing can pass through zero on its way. */
+    const settledAt = samples.findIndex((s) => s.d === 0 && s.held === "");
     check("E: and stays there: no jitter once home", settledAt > 0 && samples.slice(settledAt).every((s) => s.d === 0));
   } else check("E: the orb is on screen to drag", false);
 
@@ -322,15 +492,30 @@ try {
   await page.locator("[data-lanes-tune-open]").click();
   await page.locator('[data-tune-key="orbit"]').fill("0");
   await page.locator('[data-tune-key="spin"]').fill("0");
-  /* A working ring held at orbit 0 eases flat over some seconds; then nothing moves. */
   const stilled = await waitFor(page, () => window.__lanesBoard && !window.__lanesBoard.moving, null, 30000);
   await page.waitForTimeout(300);
   const idleRate = await fps();
   check("E: a board where nothing moves isn't drawn", stilled && idleRate < 2, `${idleRate} draws a second`);
   await page.evaluate(() => localStorage.removeItem("polio.tune.agents-board"));
   const after = await page.evaluate(() => JSON.stringify(window.__studioNodes?.() ?? []));
-  const diff = (() => { const A = JSON.parse(before2), B = JSON.parse(after); if (A.length !== B.length) return `${A.length} parts, then ${B.length}`; const i = A.findIndex((n, k) => JSON.stringify(n) !== JSON.stringify(B[k])); if (i < 0) return ""; const keys = Object.keys({ ...A[i], ...B[i] }).filter((k) => JSON.stringify(A[i][k]) !== JSON.stringify(B[i][k])); return `${A[i].id}: ${keys.map((k) => `${k} ${JSON.stringify(A[i][k])?.slice(0, 40)} → ${JSON.stringify(B[i][k])?.slice(0, 40)}`).join("; ")}`; })();
-  check("…nor while orbs are dragged and the board tuned", before2 === after && before2.length > 10, diff);
+  check("…nor while orbs are dragged and the board tuned", before2 === after && before2.length > 10, diffOf(before2, after));
+
+  /* G: nothing read from the helper left the browser or went into the site. */
+  const saved = await page.evaluate(async () => {
+    const out = [];
+    for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith("builder.")) out.push(localStorage.getItem(k)); }
+    const ask = (req) => new Promise((done, no) => { req.onsuccess = () => done(req.result); req.onerror = () => no(req.error); });
+    for (const { name, version } of await indexedDB.databases()) {
+      if (!name?.startsWith("builder.")) continue;
+      const db = await ask(indexedDB.open(name, version));
+      for (const store of db.objectStoreNames) out.push(JSON.stringify(await ask(db.transaction(store, "readonly").objectStore(store).getAll()), (k, v) => (v instanceof Blob ? "blob" : v)));
+      db.close();
+    }
+    return out.join("\n");
+  });
+  const leaks = outgoing.filter((r) => HELPER_WORDS.some((w) => r.includes(w)));
+  check("G: no word read from the helper is in any request the page sent", outgoing.length > 0 && leaks.length === 0, leaks[0]?.slice(0, 160) ?? `${outgoing.length} requests`);
+  check("G: …nor in the saved site", saved.length > 1000 && !HELPER_WORDS.some((w) => saved.includes(w)) && JSON.stringify(await page.evaluate(() => window.__studioHistory?.doc() ?? {})).length > 100 && !HELPER_WORDS.some((w) => JSON.stringify(after).includes(w)));
   await ctx.close();
 
   /* E, reduced motion. */
@@ -342,13 +527,13 @@ try {
   await p2.locator("[data-agents-button]").click();
   await p2.waitForSelector("[data-lanes-orb]", { timeout: 20000 }).catch(() => {});
   await p2.waitForTimeout(800);
-  const pos = () => p2.evaluate(() => [...document.querySelectorAll("[data-lanes-orb]")].map((e) => `${e.dataset.x},${e.dataset.y}`).join("|"));
+  const pos = () => p2.evaluate(() => [...document.querySelectorAll("[data-lanes-orb],[data-lanes-moon],[data-lanes-retired]")].map((e) => e.getAttribute("transform")).join("|"));
   const a1 = await pos(), d1 = await p2.evaluate(() => window.__lanesBoard?.draws ?? 0);
   await p2.waitForTimeout(1500);
   check("E: under prefers-reduced-motion everything is still and nothing redraws", a1 === (await pos()) && a1.length > 0 && (await p2.evaluate(() => window.__lanesBoard?.draws ?? 0)) - d1 < 3);
-  await pressArchive(p2);
-  await p2.waitForTimeout(200);
-  check("E: …and the archive still fans out, at once", (await p2.locator("[data-lanes-orb][data-state=done]").count()) === 12);
+  await p2.locator(`[data-lanes-hit="retired:${FEED.coordinators[0].id}"]`).dispatchEvent("click");
+  await p2.waitForTimeout(300);
+  check("M: …and a retired coordinator still comes back as a ring, at once", (await p2.locator(`[data-lanes-ring="${FEED.coordinators[0].id}"]`).count()) === 1);
   await c2.close();
 } catch (e) { check("the Builder part ran to the end", false, String(e?.message ?? e).split("\n")[0].slice(0, 200)); }
 
@@ -397,18 +582,20 @@ async function onFixture(site) {
   await page.evaluate((d) => window.__studioLoadDoc(d), { ...doc, activePageId: doc.pages[0].id });
   const before = await settled(page);
   await page.locator("[data-agents-button]").click();
-  await page.waitForSelector("[data-lanes-archive]", { timeout: 30000 }).catch(() => {});
+  await page.waitForSelector("[data-lanes-sun]", { timeout: 30000 }).catch(() => {});
   await page.waitForTimeout(1500);
   const s = await page.evaluate(() => ({
     mark: document.querySelector("[data-agents-helper-mark]")?.getAttribute("data-agents-helper-mark"),
     waiting: document.querySelector("[data-agents-waiting]")?.getAttribute("data-agents-waiting"),
-    orbs: document.querySelectorAll("[data-lanes-orb]").length,
+    orbs: document.querySelectorAll("[data-lanes-orb][data-kind=orb]").length,
+    sun: document.querySelectorAll("[data-lanes-sun]").length,
+    moons: document.querySelectorAll("[data-lanes-moon]").length,
     archive: document.querySelector("[data-lanes-archive]")?.getAttribute("data-lanes-archive"),
   }));
   await page.locator("[data-lanes-tune-open]").click().catch(() => {});
   const tune = await page.locator("[data-tune-group]").count();
   const after = await page.evaluate(() => JSON.stringify(window.__studioNodes?.() ?? []));
-  check(`${site}: the helper's mark, the count, ${LIVE.length} orbs, the archive and Tune, with the dock open`, s.mark === "paired" && s.waiting === "2" && s.orbs === LIVE.length && s.archive === String(DONE.length) && tune === 7, JSON.stringify({ ...s, tune }));
+  check(`${site}: the helper's mark, the pie, ${LIVE.length} orbs, the sun, the moons, the nucleus and Tune, with the dock open`, s.mark === "paired" && s.waiting === String(OPEN.length) && s.orbs === LIVE.length && s.sun === 1 && s.moons === OPEN.length && s.archive === "2" && tune === 7, JSON.stringify({ ...s, tune }));
   check(`${site}: the board doesn't move by a pixel`, before === after && before.length > 10, `${before.length} ${after.length}`);
   await ctx.close();
 }

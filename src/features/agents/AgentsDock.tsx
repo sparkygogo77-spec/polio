@@ -27,11 +27,11 @@ import { Tooltip } from "@/core/ui/tooltip";
 import { useStudio } from "@/features/studio/board/store";
 import { siteSystem } from "@/features/studio/system/api";
 import { ACTION_WORDS, DOCK_URL, HELPER_ORIGIN, PART_ACTIONS, START_LINK, checkContext, installLine, uninstallLine, contextFor, type AgentsContext, type PartAction, type PartLike, type SystemLike } from "./context";
-import { closeAsk, closeDock, openDock, reachHelper, setDockTab, useAgents } from "./store";
+import { closeAsk, closeDock, openDock, openQuestion, reachHelper, setDockTab, useAgents } from "./store";
 import { listen } from "./bridge";
 import { LanesBoard } from "./LanesBoard";
 import { dockShown, setPrivate, startLive, useLive, usePrivate } from "./feed";
-import { HELPER_COLOUR, STATE_COLOUR, helperWords } from "./lanes";
+import { HELPER_COLOUR, STATE_COLOUR, helperWords, pieOf, slicePath } from "./lanes";
 import { startAsked } from "@/features/builds/start";
 
 export const ACTION_ICONS: Record<PartAction, typeof Bot> = { change: Pencil, features: Lightbulb, security: ShieldCheck, backend: Server, explain: Code2 };
@@ -82,6 +82,7 @@ export function AgentsButton() {
   const words = helperWords(helper.state, helper.paired);
   const asks = waiting ? `${waiting} ${waiting === 1 ? "question waits" : "questions wait"} on you. ` : "";
   return (
+    <span className="inline-flex items-center gap-1">
     <Tooltip content={`${asks}${words}. ${open ? "Close the agents dock" : "Agents: ask for a change, see what the agents are doing"}`}>
       <Button
         variant={open ? "subtle" : "ghost"}
@@ -96,11 +97,37 @@ export function AgentsButton() {
         Agents
         {/* The helper's state, always: green paired, amber answering, red not answering. */}
         <span data-agents-helper-mark={helper.state} aria-hidden className="inline-block size-2 shrink-0 rounded-full" style={{ background: HELPER_COLOUR[helper.state], boxShadow: helper.state === "off" ? "none" : `0 0 6px ${HELPER_COLOUR[helper.state]}` }} />
-        {waiting ? (
-          <span data-agents-waiting={waiting} aria-hidden className="ml-0.5 inline-grid h-4 min-w-4 place-items-center rounded-full px-1 text-[10px] font-bold leading-none text-white" style={{ background: STATE_COLOUR.need }}>{waiting}</span>
-        ) : null}
       </Button>
     </Tooltip>
+    <Pie waiting={waiting} />
+    </span>
+  );
+}
+
+/**
+ * The pie (piece H, the console's piece K): one slice per question this round, red while it waits, green once
+ * answered; a press on a slice opens that question. Past eight, the last slice says how many more.
+ */
+function Pie({ waiting }: { waiting: number }) {
+  const questions = useLive((s) => s.lanes.feed?.questions);
+  const now = useNow(30_000);
+  const slices = React.useMemo(() => pieOf(questions ?? [], now), [questions, now]);
+  if (!slices.length) return null;
+  const R = 9;
+  return (
+    <svg data-agents-waiting={waiting} data-agents-pie={slices.length} role="group" aria-label={`${waiting} of ${slices.length} questions wait on you`} viewBox="-11 -11 22 22" width={22} height={22} className="ml-0.5 shrink-0">
+      {slices.map((sl) => {
+        const q = questions?.find((d) => d.id === sl.id);
+        return (
+          <path key={sl.id} data-agents-slice={sl.id} data-open={sl.open ? "1" : "0"} d={slicePath(sl, R)} fill={sl.open ? STATE_COLOUR.need : STATE_COLOUR.done} stroke="#0b0614" strokeWidth={1.2}
+            role="button" tabIndex={0} aria-label={`${sl.open ? "Waiting" : "Answered"}: ${q?.question ?? sl.id}${sl.more ? `, and ${sl.more} more` : ""}`} style={{ cursor: "pointer" }}
+            onClick={() => openQuestion(sl.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openQuestion(sl.id); } }}>
+            <title>{q?.question ?? sl.id}</title>
+          </path>
+        );
+      })}
+      {waiting ? <text y={3.5} textAnchor="middle" fill="#fff" style={{ font: "800 9px ui-monospace, Menlo, Consolas, monospace", pointerEvents: "none" }}>{waiting}</text> : null}
+    </svg>
   );
 }
 
