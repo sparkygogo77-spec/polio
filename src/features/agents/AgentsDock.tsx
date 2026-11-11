@@ -21,13 +21,14 @@
  */
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { Bot, Code2, ExternalLink, Lightbulb, Pencil, Play, RefreshCw, Server, ShieldCheck, X } from "lucide-react";
+import { Bot, Code2, Columns3, ExternalLink, Lightbulb, Pencil, Play, RefreshCw, Server, ShieldCheck, X } from "lucide-react";
 import { Button } from "@/core/ui/button";
 import { Tooltip } from "@/core/ui/tooltip";
 import { useStudio } from "@/features/studio/board/store";
 import { siteSystem } from "@/features/studio/system/api";
 import { ACTION_WORDS, DOCK_URL, HELPER_ORIGIN, PART_ACTIONS, START_LINK, checkContext, installLine, uninstallLine, contextFor, type AgentsContext, type PartAction, type PartLike, type SystemLike } from "./context";
-import { closeAsk, closeDock, openDock, openQuestion, reachHelper, setDockTab, useAgents } from "./store";
+import { closeAsk, closeDock, openDock, openManager, openQuestion, reachHelper, setDockTab, useAgents } from "./store";
+import { AgentsManager } from "./AgentsManager";
 import { listen } from "./bridge";
 import { LanesBoard } from "./LanesBoard";
 import { dockShown, setPrivate, startLive, useLive, usePrivate } from "./feed";
@@ -204,7 +205,7 @@ function Setup() {
 }
 
 function Dock() {
-  const { action, partId, reach, seq, compare, tab } = useAgents();
+  const { action, partId, reach, seq, compare, tab, manager } = useAgents();
   const frame = React.useRef<HTMLIFrameElement>(null);
   const [loaded, setLoaded] = React.useState(false);
   /* The picked part, so a new pick hands the frame new chips. */
@@ -238,6 +239,8 @@ function Dock() {
           </span>
         </span>
         <span className="flex items-center gap-1">
+          {/* The whole screen for the chats (J: "toggle to agents manager so we can use a full screen"). */}
+          <Button variant="ghost" size="xs" data-agents-manager-open="" title="Agents manager: the whole screen, a column per coordinator, the orbs beside them" onClick={openManager}><Columns3 /> Manager</Button>
           <PrivateSwitch />
           <Button variant="ghost" size="iconXs" aria-label="Close agents" data-agents-close="" onClick={closeDock}><X /></Button>
         </span>
@@ -245,7 +248,8 @@ function Dock() {
       <HelperLine />
       {/* The helper's page stays loaded under the board: site calls reach the Builder through it, whichever tab shows. */}
       <div className="relative flex min-h-0 flex-1 flex-col">
-      {tab === "chats" ? <LanesBoard /> : null}
+      {/* One board at a time: while the manager shows, its own board is the one that draws. */}
+      {tab === "chats" && !manager ? <LanesBoard /> : null}
       <div inert={tab === "chats"} className="flex min-h-0 flex-1 flex-col">
       {compare ? (
         <p data-agents-compare="" className="flex items-center justify-between gap-2 border-b border-border px-3 py-1.5 text-xs text-fg-muted">
@@ -307,6 +311,7 @@ function AskChooser() {
 /** Mounted once from the top bar; draws nothing there itself. */
 export function AgentsHost() {
   const open = useAgents((s) => s.open);
+  const manager = useAgents((s) => s.manager);
   const [here, setHere] = React.useState(false);
   /* Builds' agents entry opens the Builder with `?start=agents` (`builds/start.ts`): the dock opens with it. */
   React.useEffect(() => { setHere(true); startLive(); if (startAsked("agents")) openDock(); }, []);
@@ -314,6 +319,7 @@ export function AgentsHost() {
   return (
     <>
       {open ? createPortal(<Dock />, document.body) : null}
+      {open && manager ? createPortal(<AgentsManager />, document.body) : null}
       <AskChooser />
     </>
   );

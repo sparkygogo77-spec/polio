@@ -348,7 +348,7 @@ function Option({ o, base, picked, busy, pictured, onPress }: { o: DecisionOptio
 }
 
 /** An html design, live, at a fixed size shrunk to the card. Sandboxed: its scripts run, but reach nothing of this page. */
-function PageFrame({ src, title, k }: { src: string; title: string; k: string }) {
+export function PageFrame({ src, title, k }: { src: string; title: string; k: string }) {
   const box = React.useRef<HTMLDivElement>(null);
   const [w, setW] = React.useState(0);
   React.useEffect(() => {

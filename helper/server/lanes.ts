@@ -24,6 +24,15 @@
  * hold: anything shaped like a key is blanked here, and the board folds pids,
  * paths, command lines and session ids (privacy-rules.md). The Builder never
  * writes any of it into a site, an export or a request (tests/orbs-2.mjs).
+ *
+ * The Agents manager (J's columns, 2026-11-11) adds: each chat's kind, who
+ * runs it, its turns, what it runs on, and whether J hid or archived it; the
+ * things to look at (`checks`, `iterations`); two more presses, each as
+ * narrow as the answer: `archiveLanes` sets one chat's `archived` and
+ * `archivedAt` (never deletes), and `pressLanes` appends one row to
+ * handovers/console-presses.json, the file the coordinator reads each turn
+ * (a model asked for, a picture chosen, a check ticked); and what each chat
+ * costs the PC (`costFor`): sums and kinds, never a pid, a path or a command.
  */
 import { existsSync, readdirSync, readFileSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { extname, join, resolve, sep } from "node:path";
@@ -61,7 +70,7 @@ export function publicHistory(raw: unknown): { at: unknown; text: unknown }[] {
   return (raw as unknown[]).flatMap((h) => (h && typeof h === "object" && (h as { public?: unknown }).public === true ? [{ at: (h as { at?: unknown }).at, text: (h as { text?: unknown }).text }] : []));
 }
 /** What a chat shows the Builder. Since piece G its note and latest line too; anything else on it (a model, a pid) stays here. */
-const CHAT_KEYS = ["id", "name", "lane", "code", "emoji", "state", "sentAt", "lastSeen", "helper", "note", "last"];
+const CHAT_KEYS = ["id", "name", "lane", "code", "emoji", "state", "sentAt", "lastSeen", "helper", "note", "last", "kind", "runBy", "turns", "model", "effort", "hidden", "archived", "archivedAt", "report"];
 /** The whole timeline (piece G): every line, as its time and words. */
 export function allHistory(raw: unknown): { at: unknown; text: unknown }[] {
   if (!Array.isArray(raw)) return [];
@@ -84,6 +93,8 @@ export function forBuilder(raw: unknown): unknown {
   return {
     updated: r.updated,
     decisions: r.decisions,
+    ...("checks" in r ? { checks: (r as { checks?: unknown }).checks } : {}),
+    ...("iterations" in r ? { iterations: (r as { iterations?: unknown }).iterations } : {}),
     coordinators: (r.coordinators as unknown[]).map((c) => {
       if (!c || typeof c !== "object") return c;
       const k = c as Record<string, unknown>;
@@ -182,6 +193,11 @@ function writeQuestion(file: string, id: unknown, said: unknown, field: string, 
   const at = now.toISOString();
   q[field] = words;
   q[atField] = at;
+  return swapIn(file, text, feed) ?? { ok: true, id, words, at };
+}
+
+/** The file written back whole, keeping its indent and line ends, so the coordinator never reads half of it. Null when it worked. */
+function swapIn(file: string, text: string, feed: unknown): { ok: false; status: number; error: string } | null {
   const indent = /^[{[]\r?\n([ \t]+)/.exec(text)?.[1] ?? 2;
   const eol = text.includes("\r\n") ? "\r\n" : "\n";
   let out = JSON.stringify(feed, null, indent);
@@ -193,5 +209,118 @@ function writeQuestion(file: string, id: unknown, said: unknown, field: string, 
     try { renameSync(tmp, file); }
     catch { writeFileSync(file, out); try { unlinkSync(tmp); } catch { /* left for the next tidy */ } }
   } catch (e) { return { ok: false, status: 500, error: `couldn't write lanes.json: ${(e as Error).message}` }; }
-  return { ok: true, id, words, at };
+  return null;
+}
+
+export type ArchiveResult = { ok: true; id: string; archived: boolean; archivedAt: string } | { ok: false; status: number; error: string };
+/**
+ * One press to archive a chat, or to put it back (the manager's piece F):
+ * `{id, archived}` sets that chat's `archived` and `archivedAt` and nothing
+ * else. Archived means left off the board and marked in the feed; the row
+ * and its history stay. Nothing is ever deleted here.
+ */
+export function archiveLanes(file: string, body: unknown, now = new Date()): ArchiveResult {
+  const b = (body ?? {}) as { id?: unknown; archived?: unknown };
+  if (typeof b.id !== "string" || !b.id || typeof b.archived !== "boolean") return { ok: false, status: 400, error: "it is {id, archived}: a chat's id and true or false" };
+  let text: string;
+  try { text = readFileSync(file, "utf8"); } catch { return { ok: false, status: 404, error: "there is no lanes.json on this PC" }; }
+  let feed: { coordinators?: unknown };
+  try { feed = JSON.parse(text); } catch { return { ok: false, status: 409, error: "lanes.json is being written just now: press again" }; }
+  const chats = (Array.isArray(feed?.coordinators) ? (feed.coordinators as { chats?: unknown }[]) : []).flatMap((c) => (c && Array.isArray(c.chats) ? (c.chats as Record<string, unknown>[]) : []));
+  const x = chats.find((c) => c && typeof c === "object" && c.id === b.id);
+  if (!x) return { ok: false, status: 404, error: "no chat with that id" };
+  const at = now.toISOString();
+  x.archived = b.archived;
+  x.archivedAt = at;
+  return swapIn(file, text, feed) ?? { ok: true, id: b.id, archived: b.archived, archivedAt: at };
+}
+
+/** The presses the Builder may save for the coordinator, and nothing else: a model asked for, a picture chosen, a check ticked. */
+export const PRESS_KINDS = ["model", "choose", "check"] as const;
+export const PRESS_MODELS = ["Fable 5.2", "Opus 5.5", "Sonnet 5.5", "Haiku 5.5"];
+export const PRESS_EFFORTS = ["low", "medium", "high", "xhigh", "max"];
+export type PressResult = { ok: true; at: string; kind: string; target: string } | { ok: false; status: number; error: string };
+/**
+ * One press saved for the coordinator (the manager's piece G, and its cube):
+ * a row appended to handovers/console-presses.json, the same file and the
+ * same shape the console writes, one press a line. `{kind: "model", target,
+ * model, effort}` asks for a chat to run on another model (only the
+ * coordinator can set it); `{kind: "choose", target, option}` picks a
+ * picture round's option; `{kind: "check", target}` ticks a thing looked at.
+ * A file that is there and does not parse is never overwritten.
+ */
+export function pressLanes(file: string, body: unknown, now = new Date()): PressResult {
+  const b = (body ?? {}) as Record<string, unknown>;
+  const word = (v: unknown, max = 120) => (typeof v === "string" && v.trim() && v.length <= max && !/[\r\n\0]/.test(v) ? v.trim() : null);
+  const kind = PRESS_KINDS.find((k) => k === b.kind), target = word(b.target);
+  if (!kind || !target) return { ok: false, status: 400, error: `it is {kind, target}: kind one of ${PRESS_KINDS.join(", ")}` };
+  const row: Record<string, unknown> = { at: now.toISOString(), kind, target, from: "builder" };
+  if (kind === "model") {
+    if (!PRESS_MODELS.includes(b.model as string) || !PRESS_EFFORTS.includes(b.effort as string)) return { ok: false, status: 400, error: "a model press names one of the four models and an effort" };
+    row.model = b.model; row.effort = b.effort;
+  }
+  if (kind === "choose") {
+    const option = word(b.option, 40);
+    if (!option) return { ok: false, status: 400, error: "a choose press names the option" };
+    row.option = option;
+  }
+  let list: unknown[] = [];
+  if (existsSync(file)) {
+    try { const j = JSON.parse(readFileSync(file, "utf8").trim() || "[]") as unknown; if (!Array.isArray(j)) throw new Error("not a list"); list = j; }
+    catch { return { ok: false, status: 409, error: "console-presses.json does not parse, so nothing was saved: ask the coordinator to fix it" }; }
+  }
+  list.push(row);
+  const out = `[\n${list.map((p) => `  ${JSON.stringify(p)}`).join(",\n")}\n]\n`;
+  const tmp = `${file}.${process.pid}-${Date.now()}.tmp`;
+  try {
+    writeFileSync(tmp, out);
+    try { renameSync(tmp, file); }
+    catch { writeFileSync(file, out); try { unlinkSync(tmp); } catch { /* left for the next tidy */ } }
+  } catch (e) { return { ok: false, status: 500, error: `couldn't write console-presses.json: ${(e as Error).message}` }; }
+  return { ok: true, at: row.at as string, kind, target };
+}
+
+/* ---- what each chat costs the PC (the manager's piece E) ---- */
+
+type CostKind = "shell" | "host" | "node" | "browser" | "other";
+const COST_KIND: Record<string, CostKind> = { shell: "shell", "terminal-tab": "shell", console: "host", node: "node", "dev-server": "node", build: "node", test: "node", npm: "node", browser: "browser" };
+type PcLike = { at?: unknown; memory?: { totalBytes?: unknown }; groups?: unknown };
+type ItemLike = { kind?: unknown; cpu?: unknown; memBytes?: unknown; created?: unknown; startedBy?: unknown };
+export type CostOwner = { key: string; title: string; memBytes: number; cpu: number | null; startedAt: number; kinds: { kind: CostKind; count: number; memBytes: number; cpu: number | null }[] };
+/**
+ * The PC view (helper/pc) as the Builder's manager gets it: one row per
+ * owner (a chat's session by its id and title; a labelled job by its label's
+ * `session` word, so the tray is TRAY and never "no session"), each with its
+ * memory, CPU, oldest start and its processes counted by kind. No pid, port,
+ * folder, command line or label text leaves: the Builder's page is shared
+ * with an imported site's scripts, and sums are all the panes show.
+ */
+export function costFor(pc: unknown): { at: number; memTotal: number; owners: CostOwner[] } {
+  const p = (pc ?? {}) as PcLike;
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : 0);
+  const owners = new Map<string, CostOwner>();
+  const add = (key: string, title: string, it: ItemLike) => {
+    let o = owners.get(key);
+    if (!o) { o = { key, title, memBytes: 0, cpu: null, startedAt: 0, kinds: [] }; owners.set(key, o); }
+    const kind = COST_KIND[String(it.kind)] ?? "other", mem = num(it.memBytes), cpu = typeof it.cpu === "number" ? num(it.cpu) : null, at = num(it.created);
+    o.memBytes += mem;
+    if (cpu !== null) o.cpu = (o.cpu ?? 0) + cpu;
+    if (at && (!o.startedAt || at < o.startedAt)) o.startedAt = at;
+    let k = o.kinds.find((x) => x.kind === kind);
+    if (!k) { k = { kind, count: 0, memBytes: 0, cpu: null }; o.kinds.push(k); }
+    k.count++; k.memBytes += mem;
+    if (cpu !== null) k.cpu = (k.cpu ?? 0) + cpu;
+  };
+  for (const g of Array.isArray(p.groups) ? (p.groups as { id?: unknown; kind?: unknown; title?: unknown; items?: unknown }[]) : []) {
+    if (!g || !Array.isArray(g.items)) continue;
+    for (const it of g.items as ItemLike[]) {
+      if (!it) continue;
+      /* A labelled job inside a session's tree still counts under its label's word when that is a badge of its own. */
+      if (g.kind === "session" && typeof g.id === "string") add(g.id, typeof g.title === "string" ? g.title : "", it);
+      /* Left running: a labelled job belongs to its label's session word; an unlabelled orphan to nobody by name. */
+      else if (g.kind === "left") add(typeof it.startedBy === "string" && !/^no session/i.test(it.startedBy) ? it.startedBy : "unlabelled", "", it);
+    }
+  }
+  for (const o of owners.values()) o.kinds.sort((a, b) => b.memBytes - a.memBytes);
+  return { at: num(p.at), memTotal: num(p.memory?.totalBytes), owners: [...owners.values()] };
 }

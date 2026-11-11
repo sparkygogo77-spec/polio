@@ -37,6 +37,15 @@ export interface LaneChat {
   answered?: boolean;
   /** Its name as written, kept for matching a question's `about` while the drawn name is its badge. */
   realName?: string;
+  /** The Agents manager (J's columns, 2026-11-11): what kind of chat it is ("coordinator" or "lane"), which coordinator runs it, its turns so far, what it runs on, and whether J hid or archived it. */
+  kind?: string;
+  runBy?: string;
+  turns?: number;
+  model?: string;
+  effort?: string;
+  hidden?: boolean;
+  archived?: boolean;
+  report?: string;
 }
 export interface HistoryStep { at: string; text: string }
 /** Names and states only: the helper keeps notes off the Builder's page (`helper/server/lanes.ts`). */
@@ -52,8 +61,12 @@ export interface Decision {
   /** Piece O: the retired lane that first asked it, and when it was carried to `about`, the live lane that owns it now. */
   askedBy: string; carried: string;
 }
+/** One thing to look at that is not a question (`checks[]`), and one picture round (`iterations[]`): what a chat's cube counts. */
+export interface Check { id: string; lane: string; what: string; checked: boolean }
+export interface RoundOption { key: string; label: string; picture: string }
+export interface PictureRound { id: string; lane: string; title: string; options: RoundOption[]; pick: string; chosen: string }
 /** `decisions` is how many questions wait on J; `questions` are those questions, answered ones included. */
-export interface LanesFeed { coordinators: LaneCoordinator[]; decisions: number; questions: Decision[] }
+export interface LanesFeed { coordinators: LaneCoordinator[]; decisions: number; questions: Decision[]; checks?: Check[]; rounds?: PictureRound[] }
 export interface LaneBeat { session: string; name: string; at: number }
 
 export const STATE_COLOUR: Record<ChatState, string> = { need: "#ff4d4d", work: "#35c8ff", done: "#3dffae", park: "#6f7f99" };
@@ -75,7 +88,8 @@ export function readFeed(raw: unknown): LanesFeed | null {
     const chats: LaneChat[] = [];
     for (const x of c.chats as Record<string, unknown>[]) {
       if (!x || typeof x.id !== "string" || !STATES.has(x.state as string)) continue;
-      chats.push({ id: x.id, name: words(x.name) || x.id, lane: words(x.lane), state: x.state as ChatState, sentAt: typeof x.sentAt === "number" ? x.sentAt : null, lastSeen: words(x.lastSeen), history: readHistory(x.history), helper: x.helper === true, code: words(x.code), emoji: words(x.emoji), note: words(x.note), last: words(x.last) });
+      chats.push({ id: x.id, name: words(x.name) || x.id, lane: words(x.lane), state: x.state as ChatState, sentAt: typeof x.sentAt === "number" ? x.sentAt : null, lastSeen: words(x.lastSeen), history: readHistory(x.history), helper: x.helper === true, code: words(x.code), emoji: words(x.emoji), note: words(x.note), last: words(x.last),
+        kind: words(x.kind), runBy: words(x.runBy), ...(typeof x.turns === "number" ? { turns: x.turns } : {}), model: words(x.model), effort: words(x.effort), hidden: x.hidden === true, archived: x.archived === true, report: words(x.report) });
     }
     coordinators.push({ id: c.id, name: words(c.name) || c.id, chats, retired: c.retired === true || (chats.length > 0 && chats.every((x) => x.state === "done")), note: words(c.note) });
   }
@@ -83,7 +97,28 @@ export function readFeed(raw: unknown): LanesFeed | null {
   /* The questions themselves, or (as the feed began) only their count, or else the red chats. */
   const questions = readDecisions(r.decisions);
   const decisions = Array.isArray(r.decisions) ? questions.filter(isOpen).length : typeof r.decisions === "number" ? r.decisions : need;
-  return settleAnswered({ coordinators, decisions, questions });
+  const r2 = raw as { checks?: unknown; iterations?: unknown };
+  return settleAnswered({ coordinators, decisions, questions, checks: readChecks(r2.checks), rounds: readRounds(r2.iterations) });
+}
+
+/** The feed's `checks[]` as written; a row without an id or words is left out. */
+export function readChecks(raw: unknown): Check[] {
+  if (!Array.isArray(raw)) return [];
+  return (raw as Record<string, unknown>[]).flatMap((c) => (c && typeof c.id === "string" && typeof c.what === "string" ? [{ id: c.id, lane: words(c.lane), what: c.what, checked: c.checked === true }] : []));
+}
+/** A round's pictures are written from the Pleo root ("handovers/open/x/a.png"); the picture door starts inside handovers/. */
+export const underHandovers = (p: string) => p.replace(/^handovers[/]/, "");
+/** The feed's `iterations[]`: the options that have a picture; a round with none is left out. */
+export function readRounds(raw: unknown): PictureRound[] {
+  if (!Array.isArray(raw)) return [];
+  return (raw as Record<string, unknown>[]).flatMap((r) => {
+    if (!r || typeof r.id !== "string" || !Array.isArray(r.options)) return [];
+    const options = (r.options as Record<string, unknown>[]).flatMap((o) => {
+      const picture = underHandovers(words(o?.picture));
+      return o && typeof o.key === "string" && pictureKind(picture) ? [{ key: o.key, label: words(o.label) || o.key, picture }] : [];
+    });
+    return options.length ? [{ id: r.id, lane: words(r.lane), title: words(r.title) || r.id, options, pick: words(r.pick), chosen: words(r.chosen) }] : [];
+  });
 }
 
 /** The questions as the coordinator wrote them, by `order`. One without an id, a question or options to press is left out. */
