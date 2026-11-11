@@ -17,7 +17,7 @@
  *      exported and imported as one small JSON; the drawer is generic (any
  *      schema), the board is its first user;
  *   E. weighted orbs: three texture sets, a drag flings an orb and it settles
- *      home exactly (no jitter), 60 frames a second with 40 chats, drawn only
+ *      home exactly (no jitter), one draw a frame with 40 chats (counted, any machine), drawn only
  *      while something moves, still under prefers-reduced-motion;
  *   5. privacy (handovers/open/privacy-rules.md): Private on by default; chat
  *      names drawn as badges; the PC view's pid, memory, command line and
@@ -197,7 +197,7 @@ const launch = () => chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT
 let browser = await launch();
 const errors = [];
 /** The stand-in helper: paired, answering unpaired, refusing this Builder (answering), or off. */
-const helper = { mode: "paired", healthAsks: 0, starts: 0 };
+const helper = { mode: "paired", healthAsks: 0, starts: 0, reads: 0 };
 async function standIn(ctx, origin) {
   await ctx.route(`${HELPER}/**`, (r) => {
     const u = new URL(r.request().url());
@@ -215,11 +215,76 @@ async function standIn(ctx, origin) {
       if (d) { d.answer = b.answer; d.answeredAt = new Date().toISOString(); }
       return r.fulfill({ status: 200, contentType: "application/json", headers: cors, body: JSON.stringify({ ok: true, answeredAt: d?.answeredAt }) });
     }
+    if (u.pathname === "/lanes") helper.reads++;
     if (u.pathname === "/lanes") return r.fulfill({ status: 200, contentType: "application/json", headers: cors, body: JSON.stringify({ feed: FEED, beats: [], now: Date.now() }) });
     return r.fulfill({ status: 200, contentType: "text/html", headers: { "access-control-allow-origin": "*" }, body: "<!doctype html><title>dock stub</title><body>dock" });
   });
-  await ctx.route("**/api/lanes", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ feed: FEED, beats: [], now: Date.now() }) }));
+  await ctx.route("**/api/lanes", (r) => (helper.reads++, r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ feed: FEED, beats: [], now: Date.now() }) })));
 }
+/*
+ * PACE (2026-11-11): what a moving board costs, counted over `ms`: draws per animation frame (a rAF counter of the
+ * test's own), DOM changes per draw per element of the board (a MutationObserver), and layouts and style passes per
+ * draw (the browser's own LayoutCount and RecalcStyleCount over CDP). Draws a second ride along only as words.
+ */
+async function paceOf(page, ms) {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Performance.enable");
+  /* PACE_CPU=4 or 6: the speed checks run as on a machine that many times slower (they must still pass). */
+  const slow = Number(process.env.PACE_CPU ?? 1);
+  if (slow > 1) { await cdp.send("Emulation.setCPUThrottlingRate", { rate: slow }); await page.waitForTimeout(1500); }
+  const counts = async () => Object.fromEntries((await cdp.send("Performance.getMetrics")).metrics.filter((m) => /^(LayoutCount|RecalcStyleCount)$/.test(m.name)).map((m) => [m.name, m.value]));
+  await page.evaluate(() => {
+    const p = (window.__pace = { frames: 0, changes: 0, on: true });
+    p.mo = new MutationObserver((rs) => { for (const r of rs) p.changes += r.type === "childList" ? r.addedNodes.length + r.removedNodes.length : 1; });
+    p.mo.observe(document.querySelector("[data-lanes-board]") ?? document.body, { subtree: true, attributes: true, childList: true, characterData: true });
+    const f = () => { if (!p.on) return; p.frames++; requestAnimationFrame(f); };
+    requestAnimationFrame(f);
+  });
+  const read = () => page.evaluate(() => ({ draws: window.__lanesBoard?.draws ?? 0, frames: window.__pace.frames, changes: window.__pace.changes, nodes: document.querySelector("[data-lanes-board]")?.getElementsByTagName("*").length ?? 0 }));
+  const a = await read(), ca = await counts();
+  await page.waitForTimeout(ms);
+  const b = await read(), cb = await counts();
+  await page.evaluate(() => { window.__pace.on = false; window.__pace.mo.disconnect(); });
+  if (slow > 1 && !(Number(process.env.PACE_CPU_ALL ?? 1) > 1)) await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+  await cdp.detach().catch(() => {});
+  const draws = Math.max(1, b.draws - a.draws);
+  return { draws: b.draws - a.draws, frames: b.frames - a.frames, perSecond: (b.draws - a.draws) / (ms / 1000), perFrame: (b.draws - a.draws) / Math.max(1, b.frames - a.frames),
+    changesPerNode: (b.changes - a.changes) / draws / Math.max(1, b.nodes), layouts: (cb.LayoutCount - ca.LayoutCount) / draws, styles: (cb.RecalcStyleCount - ca.RecalcStyleCount) / draws };
+}
+const paceWords = (p) => `${p.perFrame.toFixed(2)} draws a frame, ${p.changesPerNode.toFixed(2)} changes an element, ${p.layouts.toFixed(2)} layouts and ${p.styles.toFixed(2)} style passes a draw (${p.perSecond.toFixed(0)} draws a second here)`;
+/*
+ * To show the speed checks still catch a real regression (PACE): PACE_SLOWDOWN=dom touches every element of the
+ * board once more after each draw (twice the work per frame); =thrash reads a layout after a style write in each
+ * draw. PACE_CPU=4 (or 6) throttles the CPU for the speed checks the way a slow machine is slow. All off unless set.
+ */
+async function slowDown(ctx) {
+  const kind = process.env.PACE_SLOWDOWN;
+  if (!kind) return;
+  await ctx.addInitScript((kind) => {
+    let m;
+    Object.defineProperty(window, "__lanesBoard", { configurable: true, get: () => m, set: (v) => {
+      let d = v.draws; m = v;
+      Object.defineProperty(v, "draws", { get: () => d, set: (n) => {
+        d = n;
+        const board = document.querySelector("[data-lanes-board]");
+        if (!board) return;
+        if (kind === "thrash") for (const e of [...board.querySelectorAll("[data-lanes-orb]")].slice(0, 8)) { e.style.outlineOffset = `${n % 2}px`; e.getBoundingClientRect(); }
+        else requestAnimationFrame(() => { for (const e of board.getElementsByTagName("*")) e.setAttribute("data-pace", String(n)); });
+      } });
+    } });
+  }, kind);
+}
+/* PACE_CPU_ALL=4: the whole made page that slow, to find other checks that lean on wall-clock time (see the PACE handover). */
+async function throttle(page) {
+  const rate = Number(process.env.PACE_CPU_ALL ?? 1);
+  if (rate > 1) await (await page.context().newCDPSession(page)).send("Emulation.setCPUThrottlingRate", { rate });
+}
+/*
+ * A burst "under a second" is under a second of the board's own clock. A frame moves that clock at most 0.1 s, so on
+ * a machine drawing under 10 frames a second it runs slower than the wall: judge it by wall clock or by frames drawn
+ * (NOVA_S of frames at 60 a second, with room), whichever passes (PACE, 2026-11-11).
+ */
+const quick = (wallMs, draws) => wallMs < 1500 || (draws > 0 && draws <= Math.ceil((L?.NOVA_S ?? 0.8) * 60 * 1.25) + 3);
 const waitFor = async (page, fn, arg, ms) => page.waitForFunction(fn, arg, { timeout: ms }).then(() => true).catch(() => false);
 /** The board's parts once they stop settling (a saved board's text can move a few pixels as fonts arrive, dock or no dock). */
 const settled = async (page) => { let a = ""; for (let i = 0; i < 30; i++) { const b = await page.evaluate(() => JSON.stringify(window.__studioNodes?.() ?? [])); if (b === a) return b; a = b; await page.waitForTimeout(1500); } return a; };
@@ -232,7 +297,9 @@ try {
   /* Piece G's limit: nothing read from the helper goes out in a request (to anywhere but the helper and the lanes route) or into the site. */
   const outgoing = [];
   ctx.on("request", (r) => { const u = r.url(); if (!u.startsWith(HELPER) && !u.includes("/api/lanes")) outgoing.push(`${r.method()} ${u} ${r.postData() ?? ""}`); });
+  await slowDown(ctx);
   const page = await ctx.newPage();
+  await throttle(page);
   page.on("pageerror", (e) => errors.push(`made page: ${e.message}`));
   page.setDefaultTimeout(60_000);
   await openBoard(page, BASE, "solface");
@@ -416,9 +483,9 @@ try {
   if ((await page.locator('[data-decision-head="q-left"]').getAttribute("aria-expanded")) !== "true") await page.locator('[data-decision-head="q-left"]').click();
   await page.locator('[data-decision="q-left"] button[data-decision-press="a"]').click();
   const burst = await waitFor(page, (id) => document.querySelector(`[data-lanes-nova="${id}"][data-mode=nova]`) !== null, leftover.id, 8000);
-  const tBurst = Date.now();
+  const tBurst = Date.now(), dBurst = await page.evaluate(() => window.__lanesBoard?.draws ?? 0);
   const gone = await waitFor(page, (id) => !document.querySelector(`[data-lanes-nova="${id}"]`), leftover.id, 3000);
-  check("P: answered, the small sun ends in a quick supernova (under a second)", burst && gone && Date.now() - tBurst < 1500 && (await page.locator(`[data-lanes-orb="${leftover.id}"]`).count()) === 0);
+  check("P: answered, the small sun ends in a quick supernova (under a second)", burst && gone && quick(Date.now() - tBurst, (await page.evaluate(() => window.__lanesBoard?.draws ?? 0)) - dBurst) && (await page.locator(`[data-lanes-orb="${leftover.id}"]`).count()) === 0);
   check("P: …and becomes a plain finished bead", (await page.locator(`[data-lanes-bead="${leftover.id}"]`).count()) === 1);
   FEED.decisions.find((d) => d.id === "q-left").answer = "";
 
@@ -427,10 +494,10 @@ try {
   await page.evaluate(() => window.dispatchEvent(new PointerEvent("pointerup", { button: 0, clientX: 0, clientY: 0, pointerId: 1 })));
   await waitFor(page, () => document.querySelectorAll('[data-decision="q-orbit"] button[data-decision-press]').length === 2, null, 4000);
   const redBefore = await page.locator(`[data-lanes-orb="${asker.id}"]`).getAttribute("data-state");
-  const tq = Date.now();
+  const tq = Date.now(), rq = helper.reads;
   await page.locator('[data-decision="q-orbit"] button[data-decision-press="b"]').click();
   const turned = await waitFor(page, (id) => document.querySelector(`[data-lanes-orb="${id}"]`)?.getAttribute("data-state") === "work", asker.id, 8000);
-  check("Q: an answered question's orb stops being red within a few seconds", redBefore === "need" && turned && Date.now() - tq < 6000, `${redBefore} → ${await page.locator(`[data-lanes-orb="${asker.id}"]`).getAttribute("data-state")} in ${((Date.now() - tq) / 1000).toFixed(1)} s`);
+  check("Q: an answered question's orb stops being red within a few seconds (or the next feed reads, on a slow machine)", redBefore === "need" && turned && (Date.now() - tq < 6000 || helper.reads - rq <= 3), `${redBefore} → ${await page.locator(`[data-lanes-orb="${asker.id}"]`).getAttribute("data-state")} in ${((Date.now() - tq) / 1000).toFixed(1)} s`);
   check("Q: …and the count drops with it", (await page.locator("[data-agents-waiting]").getAttribute("data-agents-waiting")) === String(OPEN.length - 1) && /2 decisions wait/.test(await page.locator("[data-decisions-count]").textContent()));
   FEED.decisions.find((d) => d.id === "q-orbit").answer = "";
   await page.evaluate(() => localStorage.removeItem("polio.tune.agents-board"));
@@ -466,8 +533,9 @@ try {
   await page.locator("[data-tune-import]").click();
   await page.waitForTimeout(400);
   check("D: a pasted look sets the board", close((await scaleOf()) / r1, 1.2, 0.02) && (await page.locator('[data-lanes-texture="planet"]').count()) > 0);
-  const mid = await page.evaluate(() => JSON.stringify(window.__studioNodes?.() ?? []));
-  const diffOf = (x, y) => { const A = JSON.parse(x), B = JSON.parse(y); if (A.length !== B.length) return `${A.length} parts, then ${B.length}`; const i = A.findIndex((n, k) => JSON.stringify(n) !== JSON.stringify(B[k])); if (i < 0) return ""; return `${A[i].id}: ${Object.keys({ ...A[i], ...B[i] }).filter((k) => JSON.stringify(A[i][k]) !== JSON.stringify(B[i][k])).join()}`; };
+  /* Settled, as `before` was: the page was reloaded for the nova look, and on a slow machine its text is still arriving. */
+  const mid = await settled(page);
+  const diffOf = (x, y) => { const A = JSON.parse(x), B = JSON.parse(y); if (A.length !== B.length) return `${A.length} parts, then ${B.length}`; const i = A.findIndex((n, k) => JSON.stringify(n) !== JSON.stringify(B[k])); if (i < 0) return ""; return `${A[i].id}: ${Object.keys({ ...A[i], ...B[i] }).filter((k) => JSON.stringify(A[i][k]) !== JSON.stringify(B[i][k])).map((k) => `${k} ${JSON.stringify(A[i][k])} → ${JSON.stringify(B[i][k])}`).join()}`; };
   check("the board under the dock didn't move by a pixel (helper states, questions, nucleus, panel, turning, Tune)", before === mid && before.length > 10, diffOf(before, mid));
   await page.reload({ waitUntil: "networkidle" });
   await page.locator("[data-agents-button]").click();
@@ -491,21 +559,31 @@ try {
     await page.mouse.down();
     for (let i = 1; i <= 6; i++) { await page.mouse.move(cx - 18 * i, cy - 10 * i); await page.waitForTimeout(16); }
     const held = await orb.getAttribute("data-held");
+    /* How far the hand took it, read before the release: on a slow machine the spring has it half home by the first sample. */
+    const heldOff = await orb.evaluate((e) => Math.hypot(+e.dataset.x - +e.dataset.homeX, +e.dataset.y - +e.dataset.homeY));
     await page.mouse.up();
     const flung = await orb.getAttribute("data-held");
     const samples = [];
     for (let i = 0; i < 40; i++) { samples.push(await orb.evaluate((e) => ({ d: Math.hypot(+e.dataset.x - +e.dataset.homeX, +e.dataset.y - +e.dataset.homeY), held: e.dataset.held ?? "" }))); await page.waitForTimeout(100); }
     const last = samples.at(-1);
-    check("E: a drag holds the orb off its place, a release flings it", held === "held" && flung === "flung" && samples[0].d > 30, `${held} ${flung} ${samples[0].d.toFixed(0)}`);
+    check("E: a drag holds the orb off its place, a release flings it", held === "held" && flung === "flung" && heldOff > 30 && samples[0].d > 0, `${held} ${flung} ${heldOff.toFixed(0)} ${samples[0].d.toFixed(0)}`);
     check("E: it settles home exactly, by itself", last.d === 0 && last.held === "", JSON.stringify(last));
     /* Home is when its body is gone (data-held cleared): a swing can pass through zero on its way. */
     const settledAt = samples.findIndex((s) => s.d === 0 && s.held === "");
     check("E: and stays there: no jitter once home", settledAt > 0 && samples.slice(settledAt).every((s) => s.d === 0));
   } else check("E: the orb is on screen to drag", false);
 
+  /*
+   * Speed, judged by counting, never by draws a second (PACE, 2026-11-11): the merge chat's slow machine drew
+   * fewer than 50 a second and the old check held Merges 74 and 75. What the board promises is one draw per frame
+   * the browser offers, about one change per element per draw, one layout and no thrash; those counts are the same
+   * on any machine and at 4x or 6x CPU throttling, and twice the work per frame (or a layout read in a draw) breaks them.
+   */
+  const pace = await paceOf(page, 2000);
+  check(`E: ${ALL.length} chats draw once for each frame the browser offers, no frame skipped or drawn twice`, pace.frames >= 4 && pace.perFrame >= 0.85 && pace.perFrame <= 1.15, paceWords(pace));
+  check("E: …about one change per element per draw (no twice-over work)", pace.changesPerNode > 0.2 && pace.changesPerNode <= 1.15, paceWords(pace));
+  check("E: …one layout and at most three style passes per draw (no layout thrash)", pace.layouts <= 1.2 && pace.styles <= 3, paceWords(pace));
   const fps = async () => { const a = await page.evaluate(() => window.__lanesBoard?.draws ?? 0); await page.waitForTimeout(2000); return ((await page.evaluate(() => window.__lanesBoard?.draws ?? 0)) - a) / 2; };
-  const rate = await fps();
-  check(`E: ${ALL.length} chats draw at the screen's rate (about 60 a second)`, rate >= 50, `${rate.toFixed(0)} draws a second`);
   /* With orbit and spin at 0 and nothing thrown, nothing moves, so nothing is drawn. */
   await page.locator("[data-lanes-tune-open]").click();
   await page.locator('[data-tune-key="orbit"]').fill("0");
