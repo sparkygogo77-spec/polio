@@ -36,6 +36,7 @@ import {
   ringLine, ringPoint, ringSegments, ringState, ringTarget, searchArchive, startTilt, stepBody, thinkingShare, tumbleAt, tumbleSpeed, veilFeed, whenOf,
   type Body, type Decision, type LaneChat, type LaneCoordinator, type LanesFeed, type Rgb, type Seen,
 } from "./lanes";
+import { hitRadius, keepInside } from "./manager";
 
 /** J may drop the chat panel's field and Send; the rest of the panel stays. */
 const CHAT_BOX_SEND = true;
@@ -142,7 +143,17 @@ export interface BesideColumns {
   lit: string | null;
   onPoint: (id: string | null) => void;
   onPress: (id: string) => void;
+  /**
+   * BAM (J's drawing, 2026-11-11): each chat on a ring has its own place by when it began (mark 18), moons take no
+   * pointer and every orb's press area is at least 32 px across (mark 19), nothing loose nears the edge (mark 13),
+   * and the sun is the nucleus: a press shows the archived chats behind it (mark 16).
+   */
+  slots?: Map<string, number>;
+  archived?: number;
+  onNucleus?: () => void;
 }
+/** Beside the columns the board has room round it, so a ring at its tallest and its orbs stay inside the box (mark 13). */
+const BESIDE_VIEW = { x: VIEW.x - 50, y: VIEW.y - 50, w: VIEW.w + 100, h: VIEW.h + 100 };
 const hexRgb = (h: string): Rgb => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 
 export function LanesBoard({ beside }: { beside?: BesideColumns } = {}) {
@@ -183,6 +194,20 @@ export function LanesBoard({ beside }: { beside?: BesideColumns } = {}) {
   const grab = React.useRef<Grab | null>(null);
   /* Where each orb sits before its body's pull, so a drag knows where home is. */
   const homes = React.useRef(new Map<string, Seen>());
+  /* Screen pixels per board unit, so a press area can be sized on screen (mark 19). */
+  const [pxPerUnit, setPxPerUnit] = React.useState(0);
+  React.useEffect(() => {
+    const el = svg.current;
+    /* Only beside the columns: the dock's own board keeps its press areas as they were, and never redraws for this. */
+    if (!el || !beside || typeof ResizeObserver === "undefined") return;
+    const v = BESIDE_VIEW;
+    const read = () => { const r = el.getBoundingClientRect(); setPxPerUnit(Math.min(r.width / v.w, r.height / v.h)); };
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    return () => ro.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!beside]);
 
   React.useEffect(() => {
     const sim = simRef.current;
@@ -214,7 +239,7 @@ export function LanesBoard({ beside }: { beside?: BesideColumns } = {}) {
   const pointer = hover ?? (beside ? beside.lit : picked);
   const scene: Item[] = [], glows: React.ReactNode[] = [], rest: React.ReactNode[] = [];
   /* Where a press lands, above every ring piece: nucleus and sun first, orbs over them, moons on top. */
-  const hits: React.ReactNode[] = [], moonHits: React.ReactNode[] = [];
+  const hits: React.ReactNode[] = [], moonHits: React.ReactNode[] = [], beadHits: React.ReactNode[] = [];
   const speeds = new Map<string, number>();
   const left = leftovers(feed);
 
@@ -273,7 +298,7 @@ export function LanesBoard({ beside }: { beside?: BesideColumns } = {}) {
     const colour = kind === "sun" ? "rgb(255,214,120)" : rgbText(drift(sim, x.id, orbTarget(x.state, tw, x.name.length), dt));
     const held = sim.bodies.get(x.id);
     hits.push(
-      <circle key={x.id} data-lanes-hit={x.id} cx={fmt(p.x)} cy={fmt(p.y)} r={(R0 * scale + 3).toFixed(1)} fill="transparent"
+      <circle key={x.id} data-lanes-hit={x.id} cx={fmt(p.x)} cy={fmt(p.y)} r={(beside ? hitRadius(R0 * scale + 3, pxPerUnit) : R0 * scale + 3).toFixed(1)} fill="transparent"
         style={{ cursor: grab.current?.id === x.id ? "grabbing" : "grab", touchAction: "none" }}
         onMouseEnter={() => setHover(x.id)} onMouseLeave={() => setHover((h) => (h === x.id ? null : h))} onPointerDown={(e) => startGrab(e, x.id)} />,
     );
@@ -291,7 +316,8 @@ export function LanesBoard({ beside }: { beside?: BesideColumns } = {}) {
           </g>
         ),
       });
-      moonHits.push(<circle key={`moon:${x.id}:${d.id}`} data-lanes-moon-hit={d.id} cx={fmt(mx)} cy={fmt(my)} r={9} fill="transparent" style={{ cursor: "pointer" }} aria-label={`Question: ${d.question}`}
+      /* Beside the columns a moon takes no pointer: it never stands between J and an orb (mark 19). */
+      if (!beside) moonHits.push(<circle key={`moon:${x.id}:${d.id}`} data-lanes-moon-hit={d.id} cx={fmt(mx)} cy={fmt(my)} r={9} fill="transparent" style={{ cursor: "pointer" }} aria-label={`Question: ${d.question}`}
         onMouseEnter={() => setHover(x.id)} onMouseLeave={() => setHover((h) => (h === x.id ? null : h))} onClick={() => openQuestion(d.id)} />);
     });
     scene.push({
@@ -345,7 +371,7 @@ export function LanesBoard({ beside }: { beside?: BesideColumns } = {}) {
   /** A finished chat of a live ring: a small bead, not an orb (J: "far too many chats"). */
   const bead = (x: LaneChat, p: Seen) => {
     const on = pointer === x.id || focus.includes(x.id);
-    hits.push(<circle key={x.id} data-lanes-hit={x.id} cx={fmt(p.x)} cy={fmt(p.y)} r={BEAD_R + 4} fill="transparent" style={{ cursor: "pointer" }}
+    beadHits.push(<circle key={x.id} data-lanes-hit={x.id} cx={fmt(p.x)} cy={fmt(p.y)} r={BEAD_R + 4} fill="transparent" style={{ cursor: "pointer" }}
       onMouseEnter={() => setHover(x.id)} onMouseLeave={() => setHover((h) => (h === x.id ? null : h))} onClick={() => press(x.id)} />);
     scene.push({ key: x.id, z: p.z, el: (
       <g key={x.id} data-lanes-bead={x.id} data-state="done" data-z={p.z.toFixed(2)} transform={`translate(${fmt(p.x)} ${fmt(p.y)})`} style={{ pointerEvents: "none" }} opacity={(0.6 + 0.3 * Math.max(-1, Math.min(1, p.z / 60))).toFixed(2)}>
@@ -430,6 +456,8 @@ export function LanesBoard({ beside }: { beside?: BesideColumns } = {}) {
     }));
 
     /* The chats still on the ring gather at the front in Tune's order; a revived ring holds all its chats evenly round. */
+    /* Beside the columns the whole ring's chats turn slowly round it together (mark 18); still when motion is reduced. */
+    const turnBy = beside?.slots && !sim.still && look.orbit > 0 ? tw * 0.05 : 0;
     const front = purple ? c.chats : orderChats(c.chats.filter((x) => !isArchived(x) && (sim.laps.get(x.id)?.share ?? 1) >= 1), look.order);
     const beads = c.chats.filter((x) => isArchived(x) && !left.has(x.id));
     for (const x of c.chats) {
@@ -437,19 +465,24 @@ export function LanesBoard({ beside }: { beside?: BesideColumns } = {}) {
       if (purple) { const k = front.indexOf(x); orb(x, ringPoint(R, lapAngle(1) + (k / Math.max(1, front.length)) * 2 * Math.PI, tilt, axis, wob.float), 1); continue; }
       if (isArchived(x) && left.has(x.id)) {
         /* Retired with a question still open (piece P): a small sun, out from its ring and drifting further as it ages, or (nova) by its ring. */
-        const a = lapAngle(0.5) + ((hashOf(x.id) % 100) / 100 - 0.5) * 1.6;
-        const out = look.leftover === "drift" ? 1.2 + 0.9 * driftOut((now - (Date.parse(x.lastSeen) || now)) / 3600_000) : 1.06;
+        const a = lapAngle(0.5) + ((hashOf(x.id) % 100) / 100 - 0.5) * 1.6 + turnBy;
+        /* Beside the columns it stays by its ring, well inside the board, so it never nears the screen's edge (mark 13). */
+        const out = beside ? 1.08 : look.leftover === "drift" ? 1.2 + 0.9 * driftOut((now - (Date.parse(x.lastSeen) || now)) / 3600_000) : 1.06;
         const p = ringPoint(R * out, a, tilt, axis, wob.float);
-        const cl = { x: Math.max(VIEW.x + 30, Math.min(VIEW.x + VIEW.w - 30, p.x)), y: Math.max(VIEW.y + 30, Math.min(VIEW.y + VIEW.h - 30, p.y)), z: p.z };
+        const cl = beside ? keepInside(p, VIEW, 60) : { x: Math.max(VIEW.x + 30, Math.min(VIEW.x + VIEW.w - 30, p.x)), y: Math.max(VIEW.y + 30, Math.min(VIEW.y + VIEW.h - 30, p.y)), z: p.z };
         sim.left.set(x.id, cl);
         orb(x, cl, 1, "sun");
         continue;
       }
       if (isArchived(x)) {
         const k = beads.indexOf(x);
-        bead(x, ringPoint(R, lapAngle(0.5) + (k - (beads.length - 1) / 2) * (BEAD_R * 3.2) / R, tilt, axis, wob.float));
+        bead(x, ringPoint(R, lapAngle(0.5) + (k - (beads.length - 1) / 2) * (BEAD_R * 3.2) / R + turnBy, tilt, axis, wob.float));
         continue;
       }
+      /* Beside the columns: its own place by when it began, the ring turning slowly so it is never still (mark 18). */
+      const own = beside?.slots?.get(x.id);
+      /* The back fifth of the ring is the finished chats' (beads, leftover suns); the working ones share the rest, all turning together. */
+      if (own !== undefined) { if (!sim.still && look.orbit > 0) sim.moving = true; orb(x, ringPoint(R, lapAngle(0.6 + 0.8 * own) + turnBy, tilt, axis, wob.float), 1); continue; }
       const slot = front.indexOf(x);
       const a = L.share >= 1 ? lapAngle(1) + (slot < 0 ? 0 : fanAngle(slot, front.length, R)) : lapAngle(lapPos(L.share));
       orb(x, ringPoint(R, a, tilt, axis, wob.float), L.share);
@@ -476,6 +509,12 @@ export function LanesBoard({ beside }: { beside?: BesideColumns } = {}) {
   const sunAt = project(0, 0, 0, 0, 0);
   const breath = sim.still ? 0 : Math.sin(tw * 1.4);
   if (!sim.still && look.orbit > 0) sim.moving = true;
+  if (beside?.onNucleus) {
+    const open = beside.onNucleus;
+    hits.unshift(<circle key="nucleus" data-lanes-hit="nucleus" data-lanes-nucleus={beside.archived ?? 0} cx={fmt(sunAt.x)} cy={fmt(sunAt.y)} r={hitRadius(SUN_R * 1.3, pxPerUnit).toFixed(1)} fill="transparent" style={{ cursor: "pointer" }}
+      role="button" tabIndex={0} aria-label={`The nucleus: ${beside.archived ?? 0} archived chats behind it. Press to show them.`}
+      onClick={open} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } }} />);
+  }
   scene.push({ key: "sun", z: sunAt.z, el: (
     <g key="sun" data-lanes-sun="" transform={`translate(${fmt(sunAt.x)} ${fmt(sunAt.y)})`} style={{ pointerEvents: "none" }}>
       <circle r={SUN_R * (3.4 + 0.15 * breath)} fill="url(#lanes-sun-corona)" opacity={Math.min(1, 0.55 * look.glow + 0.25)} />
@@ -612,7 +651,7 @@ export function LanesBoard({ beside }: { beside?: BesideColumns } = {}) {
   const finished = archiveOf(feed);
 
   const board = (
-    <svg ref={svg} viewBox={`${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}`} role="group" aria-label="The sun, a ring per coordinator with its chats, and the retired coordinators by the sun" style={{ display: "block", width: "100%", height: beside ? "100%" : "auto", touchAction: "none" }}
+    <svg ref={svg} viewBox={beside ? `${BESIDE_VIEW.x} ${BESIDE_VIEW.y} ${BESIDE_VIEW.w} ${BESIDE_VIEW.h}` : `${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}`} role="group" aria-label="The sun, a ring per coordinator with its chats, and the retired coordinators by the sun" style={{ display: "block", width: "100%", height: beside ? "100%" : "auto", touchAction: "none" }}
       data-camera={`${camera.pitch.toFixed(0)},${camera.yaw.toFixed(0)}`} onMouseLeave={() => setHover(null)}>
       <defs>
         <radialGradient id="lanes-sphere" cx="0.33" cy="0.28" r="0.8">
@@ -640,6 +679,7 @@ export function LanesBoard({ beside }: { beside?: BesideColumns } = {}) {
       <rect data-lanes-turn="" x={VIEW.x} y={VIEW.y} width={VIEW.w} height={VIEW.h} fill="transparent" style={{ cursor: turn.current ? "grabbing" : "move" }} onPointerDown={startTurn} onMouseEnter={() => setHover(null)} />
       {glows}
       {scene.map((it) => <React.Fragment key={it.key}>{it.el}</React.Fragment>)}
+      {beadHits}
       {hits}
       {moonHits}
       {rest}

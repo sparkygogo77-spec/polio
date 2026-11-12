@@ -70,7 +70,7 @@ export function publicHistory(raw: unknown): { at: unknown; text: unknown }[] {
   return (raw as unknown[]).flatMap((h) => (h && typeof h === "object" && (h as { public?: unknown }).public === true ? [{ at: (h as { at?: unknown }).at, text: (h as { text?: unknown }).text }] : []));
 }
 /** What a chat shows the Builder. Since piece G its note and latest line too; anything else on it (a model, a pid) stays here. */
-const CHAT_KEYS = ["id", "name", "lane", "code", "emoji", "state", "sentAt", "lastSeen", "helper", "note", "last", "kind", "runBy", "turns", "model", "effort", "hidden", "archived", "archivedAt", "report"];
+const CHAT_KEYS = ["id", "name", "lane", "code", "emoji", "state", "sentAt", "lastSeen", "helper", "note", "last", "kind", "runBy", "turns", "model", "effort", "hidden", "archived", "archivedAt", "report", "messages"];
 /** The whole timeline (piece G): every line, as its time and words. */
 export function allHistory(raw: unknown): { at: unknown; text: unknown }[] {
   if (!Array.isArray(raw)) return [];
@@ -235,8 +235,13 @@ export function archiveLanes(file: string, body: unknown, now = new Date()): Arc
   return swapIn(file, text, feed) ?? { ok: true, id: b.id, archived: b.archived, archivedAt: at };
 }
 
-/** The presses the Builder may save for the coordinator, and nothing else: a model asked for, a picture chosen, a check ticked. */
-export const PRESS_KINDS = ["model", "choose", "check"] as const;
+/**
+ * The presses the Builder may save for the coordinator, and nothing else: a model asked for, a picture chosen, a
+ * check ticked; and, from the manager's terminal (BAM, J 2026-11-11: "a terminal … is how you chat"), words: said
+ * to the coordinator, a note on a question or a chat, or the brief of a new chat.
+ */
+export const PRESS_KINDS = ["model", "choose", "check", "say", "note", "new-chat"] as const;
+export const MAX_SAY = 4000;
 export const PRESS_MODELS = ["Fable 5.2", "Opus 5.5", "Sonnet 5.5", "Haiku 5.5"];
 export const PRESS_EFFORTS = ["low", "medium", "high", "xhigh", "max"];
 export type PressResult = { ok: true; at: string; kind: string; target: string } | { ok: false; status: number; error: string };
@@ -263,6 +268,12 @@ export function pressLanes(file: string, body: unknown, now = new Date()): Press
     const option = word(b.option, 40);
     if (!option) return { ok: false, status: 400, error: "a choose press names the option" };
     row.option = option;
+  }
+  if (kind === "say" || kind === "note" || kind === "new-chat") {
+    const text = typeof b.text === "string" ? b.text.replace(/\r\n?/g, "\n").replace(/\0/g, "").trim() : "";
+    if (!text) return { ok: false, status: 400, error: "there are no words to save" };
+    if (text.length > MAX_SAY) return { ok: false, status: 400, error: `at most ${MAX_SAY} characters` };
+    row.text = text;
   }
   let list: unknown[] = [];
   if (existsSync(file)) {

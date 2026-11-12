@@ -330,3 +330,102 @@ export function columnWidth(space: number, count: number, gap = 8): number {
   const n = Math.max(1, count);
   return Math.max(300, Math.min(640, Math.floor((space - gap * (n - 1)) / n)));
 }
+
+/* ------------------------------------------------------------ BAM: the manager as J drew it (2026-11-11, `21.webp`) */
+
+/** "🎛️ STAGE · Console stage" (mark 22): the console's badge beside the plain name, so a pane is matched across the two; the name alone when the code says the same. */
+export function labelOf(x: { name: string; code?: string; emoji?: string; realName?: string }): string {
+  const name = x.realName ?? x.name, code = (x.code ?? "").trim();
+  const badge = [x.emoji ?? "", code].filter(Boolean).join(" ").trim();
+  if (!code || plain(code) === plain(name) || plain(x.name) === plain(badge)) return x.name;
+  return `${badge} · ${name}`;
+}
+
+/** Mark 17 (GUESS, built first): a finished chat is archived once it finished more than a day ago and nothing about it waits on J. */
+export const ARCHIVE_AFTER_MS = 24 * 3600_000;
+const seen = (x: LaneChat) => { const t = Date.parse(x.lastSeen); return Number.isFinite(t) ? t : x.sentAt ?? 0; };
+export function isOldDone(feed: LanesFeed, x: LaneChat, now: number): boolean {
+  if (x.state !== "done") return false;
+  if (feed.questions.some((d) => isOpen(d) && chatsAbout(feed, d.about).some((y) => y.id === x.id))) return false;
+  if (cubeOf(feed, x).count > 0) return false;
+  const t = seen(x);
+  return !t || now - t > ARCHIVE_AFTER_MS;
+}
+/** Mark 16: what leaves the ring for the nucleus: archived by J, or finished a day ago with nothing waiting. Newest first. */
+export function nucleusChats(feed: LanesFeed | null, now: number): LaneChat[] {
+  if (!feed) return [];
+  return byLatest(feed.coordinators.flatMap((c) => c.chats).filter((x) => !isCoordinatorChat(x) && (x.archived === true || isOldDone(feed, x, now))));
+}
+
+/**
+ * Mark 18: each chat still on a ring has its own place, by when it began: the
+ * oldest at the front and the rest evenly round, so two are never in one place
+ * (`20.webp`: two working chats read as one big orb). A fraction of a turn.
+ */
+export function ringSlots(chats: LaneChat[]): Map<string, number> {
+  const list = chats.map((x, i) => ({ x, i })).sort((a, b) => (a.x.begun ?? 0) - (b.x.begun ?? 0) || a.i - b.i);
+  return new Map(list.map((o, k) => [o.x.id, k / Math.max(1, list.length)]));
+}
+
+/** Mark 19: an orb's press area, in board units: its own size, and never under `minPx` across the radius on screen. */
+export const hitRadius = (drawn: number, pxPerUnit: number, minPx = 16) => Math.max(drawn, pxPerUnit > 0 ? minPx / pxPerUnit : drawn);
+
+/**
+ * Marks 12 and 13: the layout J drew. The column stands off the left wall
+ * (`gap`), the ring sits in a rail at the top right with the terminal under
+ * it (`rail`), and the nebula shows between them. Under 760 px everything
+ * stacks.
+ */
+export interface Layout { stacked: boolean; gap: number; rail: number; col: number; orbsH: number }
+export function layoutOf(width: number, height: number, cols: number): Layout {
+  const stack = (): Layout => ({ stacked: true, gap: 8, rail: width - 16, col: width - 16, orbsH: Math.round(Math.min(width - 16, 420)) });
+  if (width > 0 && width < 760) return stack();
+  const n = Math.max(1, cols), cramped = 8 + 8 * n + 8;
+  let gap = Math.max(40, Math.round(width * 0.04));
+  let rail = Math.max(340, Math.min(620, Math.round(width * 0.34)));
+  /* Where the columns at their narrowest and the rail don't fit, the rail gives way first (to 300), then the gap (to 16): nothing ever overlaps. */
+  const over = () => gap + n * 300 + rail + cramped - width;
+  if (width > 0 && over() > 0) rail = Math.max(300, rail - over());
+  if (width > 0 && over() > 0) gap = Math.max(16, gap - over());
+  if (width > 0 && over() > 0) return stack();
+  const col = columnWidth(width - gap - rail - cramped, n, 0);
+  const orbsH = Math.round(Math.max(260, Math.min(height * 0.56, rail * 0.9)));
+  return { stacked: false, gap, rail, col, orbsH };
+}
+
+/**
+ * Mark 11, and the console's mark 19: one question button per head, and its
+ * page grouped: new since J last looked, then by chat, then older ones carried
+ * over (asked more than a day ago, or carried from another chat). Newest first
+ * inside each group. `seen` holds the ids J has opened in this browser.
+ */
+export interface QuestionGroups { fresh: Decision[]; byChat: { who: string; list: Decision[] }[]; older: Decision[] }
+const askedAt = (d: Decision) => { const t = Date.parse(d.asked || d.askedAt); return Number.isFinite(t) ? t : 0; };
+export const newestFirst = (list: Decision[]) => list.map((d, i) => ({ d, i })).sort((a, b) => askedAt(b.d) - askedAt(a.d) || b.d.order - a.d.order || b.i - a.i).map((o) => o.d);
+export const isCarried = (d: Decision, now: number) => !!d.carried.trim() || (!!d.askedBy && plain(d.askedBy) !== plain(d.about)) || (askedAt(d) > 0 && now - askedAt(d) > ARCHIVE_AFTER_MS);
+export function questionGroups(feed: LanesFeed, list: Decision[], seenIds: Set<string>, now: number): QuestionGroups {
+  const out: QuestionGroups = { fresh: [], byChat: [], older: [] };
+  for (const d of newestFirst(list)) {
+    if (isCarried(d, now)) { out.older.push(d); continue; }
+    if (!seenIds.has(d.id)) { out.fresh.push(d); continue; }
+    const x = chatsAbout(feed, d.about)[0];
+    const who = x ? labelOf(x) : d.about || "the coordinator";
+    let g = out.byChat.find((b) => b.who === who);
+    if (!g) { g = { who, list: [] }; out.byChat.push(g); }
+    g.list.push(d);
+  }
+  return out;
+}
+/** "3 new · 10 older" for the head's button. */
+export function countWords(g: QuestionGroups): string {
+  const mid = g.byChat.reduce((n, b) => n + b.list.length, 0);
+  return [g.fresh.length ? `${g.fresh.length} new` : "", mid ? `${mid} seen` : "", g.older.length ? `${g.older.length} older` : ""].filter(Boolean).join(" · ");
+}
+
+/** Mark 13: a point kept inside the board with room to spare, so nothing loose (a leftover sun) nears the screen's edge. */
+export const keepInside = (p: { x: number; y: number; z: number }, view: { x: number; y: number; w: number; h: number }, margin: number) =>
+  ({ x: Math.max(view.x + margin, Math.min(view.x + view.w - margin, p.x)), y: Math.max(view.y + margin, Math.min(view.y + view.h - margin, p.y)), z: p.z });
+
+/** What J types in the terminal becomes one of these presses, saved for the coordinator (marks 1 and 9). */
+export type SayKind = "say" | "note" | "new-chat";
+export const SAY_WHEN = "Saved on your PC. The coordinator reads it on its next turn: nothing can reach a chat sooner.";
