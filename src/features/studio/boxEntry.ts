@@ -2,7 +2,7 @@
 /**
  * A page's worth of boxes arriving one after another, not all in one frame.
  *
- * HIS RULE, already written down for the timeline and quoted in AGENTS.md:
+ * HIS RULE, already written down for the timeline and quoted in docs/BUILDER-HISTORY.md:
  * "everything not seen yet is all loaded in sequentially but each box starts
  * maybe .2 seconds apart, not once the previous is finished". A captured
  * page is the other place boxes arrive in a crowd — `FromASite` lands every
