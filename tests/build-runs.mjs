@@ -206,7 +206,11 @@ seed({ ...OWNER, "index.html": "<h1>Home, static</h1>", "about/index.html": "<h1
 {
   const built = { "package.json": "{}\n", "vercel.json": '{"framework":"nextjs"}\n', "app/page.tsx": "export default function Page() { return null; }\n", "components/parts/HeroA1B2.tsx": "export function HeroA1B2() { return null; }\n", "components/parts/OldC3D4.tsx": "export function OldC3D4() { return null; }\n" };
   const { a, nulls } = await push(appPush(built));
-  check("3a it publishes, writing Build's files as sent: no record on the branch yet", a.ok === true && a.kept === undefined && textAt("app/page.tsx") === built["app/page.tsx"] && textAt("vercel.json") === built["vercel.json"], J(a));
+  check("3a it publishes, writing Build's files as sent: no record on the branch yet", a.ok === true && a.kept === undefined && textAt("app/page.tsx") === built["app/page.tsx"], J(a));
+  /* The one file the route adds to: vercel.json says only the branch it went to deploys, and Build's record follows it (`deployBranch.ts`). */
+  const vj = JSON.parse(textAt("vercel.json") ?? "{}");
+  check("3a vercel.json keeps Build's settings and says only main deploys on a push", vj.framework === "nextjs" && J(vj.git?.deploymentEnabled) === J({ "**": false, main: true }), textAt("vercel.json"));
+  check("3a …and Build's record names vercel.json as it went up, so the next push still knows it as Build's", JSON.parse(textAt("site/build.json") ?? "{}").files?.["vercel.json"] === sha(textAt("vercel.json") ?? ""), textAt("site/build.json"));
   check("3a the pages' copies at the root come off, the record now naming them in public/", J(nulls) === J(["about/index.html", "index.html"]) && textAt("public/index.html") === "<h1>Home</h1>" && J(JSON.parse(textAt("site/pages.json")).pages) === J(["public/index.html"]), J(nulls));
   check("3a the branch gets Build's record", J(Object.keys(JSON.parse(textAt("site/build.json") ?? "{}").files ?? {})) === J(Object.keys(built).sort()), textAt("site/build.json"));
   check("3a the owner's own files stay", Object.keys(OWNER).every((p) => textAt(p) === OWNER[p]));

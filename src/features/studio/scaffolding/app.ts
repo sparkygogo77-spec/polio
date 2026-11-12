@@ -16,6 +16,7 @@
  * Pure, and the same document gives the same five files every time.
  */
 import type { ScaffoldFile, ScaffoldInput } from "./types.ts";
+import { onlyBranchDeploys } from "../send-out/deployBranch.ts";
 
 /** The packages a built site needs, at the Builder's own versions: what renders a part on the board renders it on the site. */
 export const APP_PACKAGES = {
@@ -87,7 +88,8 @@ export default config;
 `,
     },
     /* The repository is a Next.js app: this wins over the Vercel project's own setting, which Go live made for static pages. */
-    { path: "vercel.json", content: json({ $schema: "https://openapi.vercel.sh/vercel.json", framework: "nextjs" }) },
+    /* Only the published branch deploys on a push (`deployBranch.ts`); the publish route names the branch. */
+    { path: "vercel.json", content: json({ $schema: "https://openapi.vercel.sh/vercel.json", framework: "nextjs", git: onlyBranchDeploys() }) },
     { path: ".gitignore", content: ["# What installing and building make, never committed.", "/node_modules", "/.next/", "/out/", "next-env.d.ts", "*.tsbuildinfo", ".vercel", ".env*", ".DS_Store", ""].join("\n") },
   ];
 }

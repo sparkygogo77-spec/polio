@@ -3,7 +3,7 @@ import { gunzipSync } from "node:zlib";
 import { NextResponse } from "next/server";
 import { MERGED_FILES, mergeBlock } from "@/features/studio/shelf";
 import { keyFor } from "@/app/api/keyFor";
-import { BUILD_RECORD, PAGES_RECORD, buildKeeps, builtIn, pagesGone } from "@/features/studio/send-out";
+import { BUILD_RECORD, PAGES_RECORD, buildKeeps, buildRecordFile, builtIn, deployOnlyFrom, pagesGone } from "@/features/studio/send-out";
 import { CaptureUnknown, holdsCapture, sourceAmong } from "./capture";
 
 /**
@@ -370,6 +370,25 @@ function stampDoc(f: FileOut, repo: string, branch: string): void {
   } catch { /* not a document: pushed as it came */ }
 }
 
+/**
+ * The site's vercel.json says only the branch it is published to deploys on
+ * a push (`deployBranch.ts`): the Builder writes it for main, and a site
+ * published to another branch has that branch named instead, so its own
+ * push still deploys and no other branch's does. Build's record follows the
+ * file, so the next push still knows it as Build's (`buildRecord.ts`).
+ */
+function stampVercel(files: FileOut[], branch: string): void {
+  const f = files.find((x) => x.path === "vercel.json" && x.encoding === "utf-8");
+  if (!f) return;
+  const now = deployOnlyFrom(f.content, branch);
+  if (now === null || now === f.content) return;
+  const was = blobSha(f);
+  f.content = now;
+  const record = files.find((x) => x.path === BUILD_RECORD && x.encoding === "utf-8");
+  const built = record ? builtIn(record.content) : null;
+  if (record && built?.["vercel.json"] === was) record.content = buildRecordFile({ ...built, "vercel.json": blobSha(f) }).content;
+}
+
 /** The sha git gives a file's bytes, worked out here: the same bytes already in the repository need not go up again. */
 function blobSha(f: FileOut): string {
   const bytes = Buffer.from(f.content, f.encoding === "base64" ? "base64" : "utf8");
@@ -703,6 +722,7 @@ export async function POST(request: Request) {
   const repo = target;
   /* The document says where it was published (`stampDoc`); one put back together from pieces is stamped as it is joined. */
   for (const f of files) stampDoc(f, repo, branch);
+  stampVercel(files, branch);
   /* A repository this call made a moment ago is empty; any other is looked in first. */
   if (!created) {
     try {

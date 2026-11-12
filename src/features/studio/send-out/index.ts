@@ -9,6 +9,7 @@ export { DESIGN_DIR, changesJson, changesMarkdown, deletedOnBoard, designBranch,
 export type { ChangeNode, HookChanges, HookMap, HookRef, RemovedHook } from "./designBranch.ts";
 export { PAGES_RECORD, pagesGone, pagesRecord } from "./pagesRecord.ts";
 export { BUILD_RECORD, buildKeeps, buildRecordFile, builtIn, intoPublic } from "./buildRecord.ts";
+export { PUBLISH_BRANCH, deployOnlyFrom, onlyBranchDeploys } from "./deployBranch.ts";
 export type { Built } from "./buildRecord.ts";
 export { KIND_OUT, POLIO_HEADER, TOKEN_FILES, TOKENS_DIR, colourCss, cssColour, cssDuration, cssEasing, cssFaces, cssShadow, durationCss, easingCss, facesCss, shadowCss, slug, tailwindCss, tokenCss, tokenNames, tokensCssFile, tokensJson, tokensOut, tokensTs, topLevel, w3cValue } from "./tokensOut.ts";
 export type { TokenFile, TokenName, W3cColour, W3cDimension, W3cDuration, W3cShadow } from "./tokensOut.ts";
