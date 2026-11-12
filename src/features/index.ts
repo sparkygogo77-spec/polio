@@ -10,6 +10,7 @@ import { agents } from "./agents";
 import { audit } from "./audit";
 import { builds } from "./builds";
 import { keys } from "./keys";
+import { markup } from "./markup";
 import { models } from "./models";
 import { showcase } from "./showcase";
 import { studio } from "./studio";
@@ -17,4 +18,4 @@ import { tour } from "./tour";
 import { tweets } from "./tweets";
 import { whatsnew } from "./whatsnew";
 
-export const modules: FeatureModule[] = [builds, studio, showcase, tweets, keys, account, tour, whatsnew, agents, audit, models];
+export const modules: FeatureModule[] = [builds, studio, showcase, tweets, keys, account, tour, whatsnew, agents, markup, audit, models];
