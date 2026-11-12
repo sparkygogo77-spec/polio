@@ -71,7 +71,9 @@ export interface Check { id: string; lane: string; what: string; checked: boolea
 export interface RoundOption { key: string; label: string; picture: string }
 export interface PictureRound { id: string; lane: string; title: string; options: RoundOption[]; pick: string; chosen: string }
 /** `decisions` is how many questions wait on J; `questions` are those questions, answered ones included. */
-export interface LanesFeed { coordinators: LaneCoordinator[]; decisions: number; questions: Decision[]; checks?: Check[]; rounds?: PictureRound[] }
+/** BAM mark 40: one line of the merges list (`merges[]` in lanes.json): its number, title and state ("ready", "sent", "live", …). */
+export interface MergeLine { n: number; title: string; state: string; at: string; note: string }
+export interface LanesFeed { coordinators: LaneCoordinator[]; decisions: number; questions: Decision[]; checks?: Check[]; rounds?: PictureRound[]; merges?: MergeLine[] }
 export interface LaneBeat { session: string; name: string; at: number }
 
 export const STATE_COLOUR: Record<ChatState, string> = { need: "#ff4d4d", work: "#35c8ff", done: "#3dffae", park: "#6f7f99" };
@@ -103,10 +105,15 @@ export function readFeed(raw: unknown): LanesFeed | null {
   /* The questions themselves, or (as the feed began) only their count, or else the red chats. */
   const questions = readDecisions(r.decisions);
   const decisions = Array.isArray(r.decisions) ? questions.filter(isOpen).length : typeof r.decisions === "number" ? r.decisions : need;
-  const r2 = raw as { checks?: unknown; iterations?: unknown };
-  return settleAnswered({ coordinators, decisions, questions, checks: readChecks(r2.checks), rounds: readRounds(r2.iterations) });
+  const r2 = raw as { checks?: unknown; iterations?: unknown; merges?: unknown };
+  return settleAnswered({ coordinators, decisions, questions, checks: readChecks(r2.checks), rounds: readRounds(r2.iterations), merges: readMerges(r2.merges) });
 }
 
+/** The feed's `merges[]`, newest first; a line without a number is left out. */
+export function readMerges(raw: unknown): MergeLine[] {
+  if (!Array.isArray(raw)) return [];
+  return (raw as Record<string, unknown>[]).flatMap((m) => (m && typeof m.n === "number" ? [{ n: m.n, title: words(m.title), state: words(m.state), at: words(m.at), note: words(m.note) }] : [])).sort((a, b) => b.n - a.n);
+}
 /** The feed's `checks[]` as written; a row without an id or words is left out. */
 export function readChecks(raw: unknown): Check[] {
   if (!Array.isArray(raw)) return [];

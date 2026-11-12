@@ -95,6 +95,8 @@ export function forBuilder(raw: unknown): unknown {
     decisions: r.decisions,
     ...("checks" in r ? { checks: (r as { checks?: unknown }).checks } : {}),
     ...("iterations" in r ? { iterations: (r as { iterations?: unknown }).iterations } : {}),
+    /* BAM mark 40: the merges list for the Builder's Merges button: number, title, state, when and a note; nothing else. */
+    ...(Array.isArray((r as { merges?: unknown }).merges) ? { merges: ((r as { merges: unknown[] }).merges).map((m) => (m && typeof m === "object" ? pick(m as Record<string, unknown>, ["n", "title", "state", "at", "note", "lane"]) : null)).filter(Boolean) } : {}),
     coordinators: (r.coordinators as unknown[]).map((c) => {
       if (!c || typeof c !== "object") return c;
       const k = c as Record<string, unknown>;
@@ -240,7 +242,7 @@ export function archiveLanes(file: string, body: unknown, now = new Date()): Arc
  * check ticked; and, from the manager's terminal (BAM, J 2026-11-11: "a terminal … is how you chat"), words: said
  * to the coordinator, a note on a question or a chat, or the brief of a new chat.
  */
-export const PRESS_KINDS = ["model", "choose", "check", "say", "note", "new-chat", "delete", "end", "continue", "new-coordinator"] as const;
+export const PRESS_KINDS = ["model", "choose", "check", "say", "note", "new-chat", "delete", "end", "continue", "new-coordinator", "merge"] as const;
 /**
  * BAM (J, 2026-11-11: "I should be able to delete questions and end the orbs from the builder"): `delete` a question or
  * a picture round (the coordinator closes it in lanes.json with a backup), `end` a chat (the coordinator stops or

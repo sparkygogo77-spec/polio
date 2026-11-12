@@ -31,7 +31,7 @@
  * The rules, with sizes: Pleo/handovers/open/columns-rules.md.
  */
 import * as React from "react";
-import { AppWindow, Archive, Box, Circle, Globe, Hexagon, PanelRight, SquareTerminal, Undo2, X } from "lucide-react";
+import { AppWindow, Archive, Box, Circle, Globe, Hexagon, MoreHorizontal, PanelRight, SquareTerminal, Undo2, X } from "lucide-react";
 import { cn } from "@/core/lib/cn";
 import { moltenClass, moltenKeyClass, moltenSeed, type MoltenKind } from "@/core/ui/molten";
 import { HELPER_ORIGIN } from "./context";
@@ -43,7 +43,7 @@ import { badgeOf, scrub } from "./privacy";
 import { closeDock, closeManager, useAgents } from "./store";
 import {
   HELPER_COLOUR, STATE_COLOUR, STATE_WORD, ageOf, carriedWords, chatLink, chatsAbout, helperWords, pictureKind, pictureUrl, veilFeed, whenOf,
-  type ChatState, type Decision, type LaneChat, type LaneCoordinator, type LanesFeed,
+  type ChatState, type Decision, type LaneChat, type LaneCoordinator, type LanesFeed, type MergeLine,
 } from "./lanes";
 import {
   EFFORTS, KIND_WORD, MODELS, PANE_BLOCK, RING, asksOf, chipWords, columnCost, columnWidth, columnsOf, costOf, cpuWords, cubeOf, cutAt, hasPictures, memWords, modelOf, pillShare, shareLines,
@@ -59,6 +59,8 @@ const RED = STATE_COLOUR.need;
 const GONE_KEY = "polio.manager.gone", MODEL_KEY = "polio.manager.models", OPEN_KEY = "polio.manager.open";
 /** BAM: the questions J has opened here (what "new since you last looked" is measured from), and what J typed in the terminal. */
 const SEEN_KEY = "polio.manager.seen", SAID_KEY = "polio.manager.said", DELETED_KEY = "polio.manager.deleted";
+/** BAM mark 40: Words on or off (the console's switch), and the order J gave the head's blocks (mark 10/41). */
+const WORDS_KEY = "polio.manager.words", BLOCKS_KEY = "polio.manager.headBlocks";
 const LIVE_BUILDER = "https://polio-two.vercel.app";
 
 const kept = <T,>(key: string, fallback: T): T => { try { const v = JSON.parse(localStorage.getItem(key) ?? "null"); return v && typeof v === "object" ? (v as T) : fallback; } catch { return fallback; } };
@@ -180,6 +182,71 @@ function QuestionsButton({ count, total, words, label, big, onOpen }: { count: n
     </button>
   );
 }
+/** Mark 40: the turns ring of the console: how far through its five turns a chat is, as a ring with its words. */
+function TurnsRing({ turns }: { turns: { words: string; tone: "ok" | "full" | "over" } }) {
+  const n = Number(turns.words.split("/")[0]) || 0, share = Math.min(1, n / 5), r = 6, c = 2 * Math.PI * r;
+  const tint = turns.tone === "over" ? "#ff8a8a" : turns.tone === "full" ? "#ffd166" : "#9fe3ff";
+  return (
+    <span data-manager-turns={turns.tone} data-manager-turns-ring={n} title="Turns so far, of the five a chat is good for" className="inline-flex shrink-0 items-center gap-1" style={{ fontSize: 10.5, fontWeight: 700, color: tint }}>
+      <svg width={16} height={16} viewBox="0 0 16 16" aria-hidden><circle cx={8} cy={8} r={r} fill="none" stroke="rgba(255,255,255,.25)" strokeWidth={2.5} /><circle cx={8} cy={8} r={r} fill="none" stroke={tint} strokeWidth={2.5} strokeDasharray={`${(c * share).toFixed(2)} ${c.toFixed(2)}`} transform="rotate(-90 8 8)" /></svg>
+      {turns.words}
+    </span>
+  );
+}
+
+/**
+ * Marks 10 and 41: the head's details are blocks J moves himself: what it is doing, its latest line, what it runs on.
+ * A block is dragged onto another, or moved with its ▲ ▼; the order is kept in this browser.
+ */
+export type HeadBlock = "doing" | "latest" | "model";
+const HEAD_BLOCKS: HeadBlock[] = ["doing", "latest", "model"];
+const BLOCK_WORDS: Record<HeadBlock, string> = { doing: "Doing now", latest: "Latest", model: "Runs on" };
+function HeadBlocks({ order, onOrder, render }: { order: HeadBlock[]; onOrder: (o: HeadBlock[]) => void; render: (b: HeadBlock) => React.ReactNode }) {
+  const drag = React.useRef<HeadBlock | null>(null);
+  const move = (b: HeadBlock, to: number) => { const o = order.filter((x) => x !== b); o.splice(Math.max(0, Math.min(o.length, to)), 0, b); onOrder(o); };
+  return (
+    <div data-manager-head-blocks={order.join(",")} className="mt-1 flex flex-col gap-1">
+      {order.map((b, i) => {
+        const body = render(b);
+        if (!body) return null;
+        return (
+          <div key={b} data-manager-head-block={b} draggable onDragStart={() => { drag.current = b; }} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); if (drag.current && drag.current !== b) move(drag.current, i); drag.current = null; }}
+            className="flex items-start gap-1.5 rounded-md" style={{ background: "rgba(0,0,0,.28)", border: "1px solid rgba(255,255,255,.14)", padding: "3px 6px", cursor: "grab", fontSize: 11, color: SOFT }}>
+            <b className="shrink-0" style={{ color: "#fff", fontSize: 10.5 }}>{BLOCK_WORDS[b]}</b>
+            <div className="min-w-0 flex-1">{body}</div>
+            <span className="flex shrink-0 gap-0.5">
+              <button type="button" data-manager-block-up={b} aria-label={`Move ${BLOCK_WORDS[b]} up`} disabled={i === 0} onClick={() => move(b, i - 1)} style={{ opacity: i === 0 ? 0.3 : 1, color: INK }}>▲</button>
+              <button type="button" data-manager-block-down={b} aria-label={`Move ${BLOCK_WORDS[b]} down`} disabled={i === order.length - 1} onClick={() => move(b, i + 1)} style={{ opacity: i === order.length - 1 ? 0.3 : 1, color: INK }}>▼</button>
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Mark 40: the Merges list from the feed, each line saying its state in words; a ready one has Merge now (a press). */
+function MergesList({ merges, onMerge, onClose }: { merges: MergeLine[]; onMerge: (m: MergeLine) => Promise<string>; onClose: () => void }) {
+  const [said, setSaid] = React.useState<Record<number, string>>({});
+  const word = (st: string) => (st === "ready" ? "ready" : st === "sent" ? "sent, waiting for the merge chat" : st === "live" ? "live" : st || "noted");
+  return (
+    <div data-manager-merges-list={merges.length} className="absolute right-3 top-10 z-50 flex max-h-[70%] w-[min(460px,90vw)] flex-col overflow-hidden rounded-xl" style={{ background: "rgba(8,4,16,.96)", border: "1px solid rgba(255,255,255,.25)", fontSize: 12 }}>
+      <div className="flex items-center gap-2 px-3 py-1.5" style={{ borderBottom: "1px solid rgba(255,255,255,.12)" }}><b style={{ color: "#fff" }}>Merges · {merges.length}</b><button type="button" data-manager-merges-close="" className="ml-auto rounded px-2" style={{ color: INK, background: "rgba(255,255,255,.12)" }} onClick={onClose}>Close</button></div>
+      <ul className="m-0 flex min-h-0 list-none flex-col gap-1 overflow-y-auto p-2">
+        {merges.map((m) => (
+          <li key={m.n} data-manager-merge={m.n} data-state={m.state} className="flex flex-wrap items-baseline gap-2 px-1">
+            <b style={{ color: "#fff" }}>Merges {m.n}</b><span className="min-w-0 flex-1" style={{ color: SOFT }}>{m.title}</span>
+            <span data-manager-merge-state="" style={{ color: m.state === "ready" ? "#3dffae" : DIM }}>{word(m.state)}</span>
+            {m.state === "ready" ? <button type="button" data-manager-merge-now={m.n} className="rounded-md font-black" style={{ padding: "1px 9px", fontSize: 11, color: "#04121c", background: "#fff" }} onClick={() => void onMerge(m).then((x) => setSaid((o) => ({ ...o, [m.n]: x || "Saved: the coordinator sends it to the merge chat." })))}>Merge now</button> : null}
+            {said[m.n] ? <span role="status" className="w-full" style={{ color: DIM, fontSize: 11 }}>{said[m.n]}</span> : null}
+          </li>
+        ))}
+        {!merges.length ? <li style={{ color: SOFT }}>The Helper on your PC passes the merges once it is updated.</li> : null}
+      </ul>
+    </div>
+  );
+}
+
 /** Mark 42: Delete on a question or a picture round: it leaves the view at once; the coordinator closes it with a backup. */
 function DeleteButton({ id, what, onDelete }: { id: string; what: string; onDelete: (id: string) => void }) {
   return (
@@ -258,13 +325,16 @@ type PaneProps = {
   onFlip: () => void; onPoint: (id: string | null) => void; onAsk: (id: string) => void; onCube: () => void; onArchive: () => void; onModel: (model: string, effort: string) => Promise<string>;
   onFold?: () => void; onAnswered?: (d: Decision) => void; onSay?: (words: string) => Promise<string>; onSlides?: (id: string) => void;
   onDelete?: (id: string) => void; onEnd?: () => void; pcKnown?: boolean;
+  /** Mark 40: Words off hides the chat's sentences; `onPress` saves the line as a note or a new chat's brief. */
+  words?: boolean; onPress?: (kind: "note" | "new-chat", text: string) => Promise<string>;
 };
 /**
  * One chat, compact (rules §4): the head row, two lines of words, the bar.
  * A closed pane is the head row alone. Its ring is its state's colour, its
  * fill its state's design block.
  */
-function Pane({ chat, asks, cube, cost, heaviest, now, priv, at, open, shown, pinned, peek, asked, qOpen = null, nudge = 0, width = 300, onFlip, onPoint, onAsk, onCube, onArchive, onModel, onFold, onAnswered, onSay, onSlides, onDelete, onEnd, pcKnown = false }: PaneProps) {
+function Pane({ chat, asks, cube, cost, heaviest, now, priv, at, open, shown, pinned, peek, asked, qOpen = null, nudge = 0, width = 300, onFlip, onPoint, onAsk, onCube, onArchive, onModel, onFold, onAnswered, onSay, onSlides, onDelete, onEnd, pcKnown = false, words = true, onPress }: PaneProps) {
+  const [asMenu, setAsMenu] = React.useState(false);
   const [past, setPast] = React.useState(false);
   const [shares, setShares] = React.useState<CostKind | "all" | null>(null);
   const [more, setMore] = React.useState(false);
@@ -340,8 +410,8 @@ function Pane({ chat, asks, cube, cost, heaviest, now, priv, at, open, shown, pi
               {newest.question}
             </button>
           ) : null}
-          {one.words ? <p data-manager-line="1" className="m-0" style={{ fontSize: 12, lineHeight: 1.3, color: INK }}>{one.words}{one.more ? <button type="button" data-manager-more="" className="ml-1 font-bold" style={{ color: "#9fe3ff" }} onClick={() => setMore(true)}>▸ more</button> : null}</p> : null}
-          {two.words ? <p data-manager-line="2" className="m-0" style={{ fontSize: 11.5, lineHeight: 1.3, color: SOFT }}>{two.words}{two.more ? <button type="button" className="ml-1 font-bold" style={{ color: "#9fe3ff" }} onClick={() => setMore(true)}>▸ more</button> : null}</p> : null}
+          {words && one.words ? <p data-manager-line="1" className="m-0" style={{ fontSize: 12, lineHeight: 1.3, color: INK }}>{one.words}{one.more ? <button type="button" data-manager-more="" className="ml-1 font-bold" style={{ color: "#9fe3ff" }} onClick={() => setMore(true)}>▸ more</button> : null}</p> : null}
+          {words && two.words ? <p data-manager-line="2" className="m-0" style={{ fontSize: 11.5, lineHeight: 1.3, color: SOFT }}>{two.words}{two.more ? <button type="button" className="ml-1 font-bold" style={{ color: "#9fe3ff" }} onClick={() => setMore(true)}>▸ more</button> : null}</p> : null}
           <div className="flex flex-wrap items-start gap-x-2 gap-y-1" style={{ display: chat.history.length && (shown || more) ? undefined : "none" }}>
             {chat.history.length && (shown || more) ? (
               <details data-manager-history="" style={{ fontSize: 11, color: SOFT }} onClick={(e) => e.stopPropagation()}>
@@ -353,7 +423,7 @@ function Pane({ chat, asks, cube, cost, heaviest, now, priv, at, open, shown, pi
           {/* The chat's own things in one small row: the model chip, its turns, archive, its link. */}
           <div data-manager-meta="" className="flex flex-wrap items-center gap-x-1.5 gap-y-1" onClick={(e) => e.stopPropagation()}>
             <ModelChip chat={chat} asked={asked} priv={priv} onAsk={onModel} />
-            {turns ? <span data-manager-turns={turns.tone} title="Turns so far, of the five a chat is good for" className="shrink-0" style={{ fontSize: 10.5, fontWeight: 700, color: turns.tone === "over" ? "#ff8a8a" : turns.tone === "full" ? "#ffd166" : SOFT }}>{turns.words}</span> : null}
+            {turns ? <TurnsRing turns={turns} /> : null}
             <button type="button" data-manager-archive={chat.id} title="Archive: off the board, kept in the feed, one press to undo. Never deleted." aria-label={`Archive ${chat.name}`} onClick={(e) => { e.stopPropagation(); onArchive(); }}
               className="inline-flex shrink-0 items-center justify-center rounded" style={{ width: 18, height: 18, color: INK, background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.3)" }}>
               <Archive style={{ width: 11, height: 11 }} />
@@ -364,7 +434,7 @@ function Pane({ chat, asks, cube, cost, heaviest, now, priv, at, open, shown, pi
               className="shrink-0 rounded font-bold" style={{ height: 18, padding: "0 6px", fontSize: 10.5, color: "#ffd0d0", background: "rgba(0,0,0,.35)", border: "1px solid rgba(255,140,140,.55)" }}>End</button> : null}
           </div>
           {/* Mark 27: the chat's previous messages, above its line once J presses the line. */}
-          {past && earlier.length ? (
+          {words && past && earlier.length ? (
             <ol data-manager-pane-past={earlier.length} className="m-0 flex list-none flex-col gap-0.5 p-0" style={{ fontSize: 11, lineHeight: 1.35, color: SOFT, background: "#000", borderRadius: 4, padding: "4px 7px", fontFamily: mono, textShadow: "none" }} onClick={(e) => e.stopPropagation()}>
               {earlier.map((h, i) => <li key={i} style={{ overflowWrap: "anywhere" }}><span style={{ color: DIM }}>{whenOf(h.at)}</span> {scrub(priv, h.text)}</li>)}
             </ol>
@@ -375,9 +445,21 @@ function Pane({ chat, asks, cube, cost, heaviest, now, priv, at, open, shown, pi
             <input data-manager-say="" aria-label={`Say something to ${chat.name}`} value={text} onChange={(e) => setText(e.target.value)} onFocus={() => setPast(true)}
               onKeyDown={(e) => e.stopPropagation()} onKeyUp={(e) => e.stopPropagation()}
               className="min-w-0 flex-1" style={{ boxSizing: "border-box", height: 22, padding: "0 6px", border: 0, outlineOffset: -1, background: "transparent", color: "#fff", font: `11.5px ${mono}` }} />
+            {/* Mark 40: the console's other ways to send the line, under ⋯: Note, New chat, Answer (the open question). */}
+            <button type="button" data-manager-say-more="" aria-expanded={asMenu} aria-label="Other ways to send" onClick={(e) => { e.stopPropagation(); setAsMenu((o) => !o); }} className="inline-flex shrink-0 items-center justify-center" style={{ width: 18, height: 20, fontSize: 12, color: "#9fe3ff", background: "transparent", border: 0 }}><MoreHorizontal style={{ width: 14, height: 14 }} /></button>
             <button type="submit" data-manager-say-send="" aria-label={`Send to ${chat.name}`} title="Send: saved for this chat, read on its next turn" disabled={!text.trim()}
               className="inline-flex shrink-0 items-center justify-center" style={{ width: 20, height: 20, fontSize: 11, color: text.trim() ? "#9fe3ff" : "#5b6472", background: "transparent", border: 0 }}>➤</button>
           </form>
+          {asMenu ? (
+            <span data-manager-say-menu="" className="flex flex-wrap gap-1" onClick={(e) => e.stopPropagation()}>
+              {([["note", "Save as a note"], ["new-chat", "Start a new chat with it"]] as const).map(([k, w]) => (
+                <button key={k} type="button" data-manager-say-as={k} disabled={!text.trim() || !onPress} className="rounded font-bold" style={{ height: 20, padding: "0 7px", fontSize: 10.5, color: INK, background: "rgba(255,255,255,.12)", border: "1px solid rgba(255,255,255,.3)", opacity: text.trim() ? 1 : 0.5 }}
+                  onClick={() => void onPress?.(k, text.trim()).then((r) => { setSaid(r || SAY_WHEN); if (!r) { setText(""); setAsMenu(false); } })}>{w}</button>
+              ))}
+              {q ? <button type="button" data-manager-say-as="answer" disabled={!text.trim()} className="rounded font-bold" style={{ height: 20, padding: "0 7px", fontSize: 10.5, color: "#04121c", background: "#9fe3ff", opacity: text.trim() ? 1 : 0.5 }}
+                onClick={() => void post(ANSWER_URL, { id: q.id, answer: text.trim() }).then((r) => { if (!r.ok) { setSaid(r.says); return; } setSaid("Answered. The coordinator reads it on its next turn."); setText(""); setAsMenu(false); onAnswered?.(q); })}>Answer the open question</button> : null}
+            </span>
+          ) : null}
           {said ? <div data-manager-said="" role="status" style={{ fontSize: 10.5, color: DIM }}>{said}</div> : null}
         </>
       ) : null}
@@ -813,6 +895,12 @@ export function AgentsManager() {
   const [deleted, setDeleted] = React.useState<Record<string, boolean>>(() => kept(DELETED_KEY, {}));
   /* Mark 44: the chat waiting for a second press before it is ended. */
   const [ending, setEnding] = React.useState<LaneChat | null>(null);
+  /* Mark 40: Words on or off, the merges list, the head's ⋯, and the head blocks' order. */
+  const [words, setWords] = React.useState<boolean>(() => kept<{ on?: boolean }>(WORDS_KEY, { on: true }).on !== false);
+  const [mergesOpen, setMergesOpen] = React.useState(false);
+  const [headMore, setHeadMore] = React.useState<string | null>(null);
+  const [headNote, setHeadNote] = React.useState("");
+  const [blocks, setBlocks] = React.useState<HeadBlock[]>(() => { const v = kept<HeadBlock[]>(BLOCKS_KEY, HEAD_BLOCKS); return Array.isArray(v) && v.length === HEAD_BLOCKS.length && HEAD_BLOCKS.every((b) => v.includes(b)) ? v : HEAD_BLOCKS; });
   const markSeen = React.useCallback((id: string) => setSeenIds((x) => { if (x.has(id)) return x; const n = new Set(x); n.add(id); keep(SEEN_KEY, [...n].slice(-400)); return n; }), []);
 
   const feed = React.useMemo(() => withoutDeleted(read ? veilFeed(read, priv, badgeOf) : null, deleted), [read, priv, deleted]);
@@ -959,6 +1047,8 @@ export function AgentsManager() {
     void post(`${HELPER_ORIGIN}/lanes/press`, { kind: "end", target: x.id }, true).then((r) => setSaid(r.ok ? `Ended ${labelOf(x)}: off the ring now; its open questions stay with the coordinator.` : `Off this screen only. ${r.says}`));
   };
   const continueIn = async (d: Decision): Promise<string> => { const r = await post(`${HELPER_ORIGIN}/lanes/press`, { kind: "continue", target: d.id, text: "" }, true); return r.ok ? "Saved: the coordinator starts a chat to carry it on." : r.says; };
+  const pressFor = async (kind: string, target: string, text: string): Promise<string> => { const r = await post(`${HELPER_ORIGIN}/lanes/press`, { kind, target, text }, true); return r.ok ? "" : r.says; };
+  const firstRound = slides.findIndex((x) => x.kind === "round");
   const sayTo = async (x: LaneChat, words: string): Promise<string> => { const r = await post(`${HELPER_ORIGIN}/lanes/press`, { kind: "say", target: x.id, text: words }, true); return r.ok ? "" : r.says; };
   const loose = unowned(pc, cols);
   const flip = (x: LaneChat, was: boolean) => setFlipped((f) => { const n = { ...f, [x.id]: !was }; keep(OPEN_KEY, n); return n; });
@@ -979,6 +1069,10 @@ export function AgentsManager() {
           {cost.asked && !pc ? <span data-manager-no-cost="">PC cost shows once the Helper on your PC is on and updated</span> : null}
         </span>
         <span className="ml-auto flex items-center gap-1.5">
+          {/* Mark 40: the console's bar, what the Helper can serve: Words, Rounds, Merges. */}
+          <button type="button" data-manager-words={words ? "on" : "off"} aria-pressed={words} style={head} title={words ? "Words on: every chat's sentences show. Press to hide them." : "Words off: press to show every chat's sentences."} onClick={() => setWords((w) => { keep(WORDS_KEY, { on: !w }); return !w; })}>{words ? "Words on" : "Words off"}</button>
+          <button type="button" data-manager-rounds={slides.filter((x) => x.kind === "round").length} style={{ ...head, opacity: firstRound >= 0 ? 1 : 0.5 }} disabled={firstRound < 0} title="Every open picture round, across the screen" onClick={() => setSlideAt(firstRound)}>Rounds · {slides.filter((x) => x.kind === "round").length}</button>
+          <button type="button" data-manager-merges={feed?.merges?.length ?? 0} aria-expanded={mergesOpen} style={head} onClick={() => setMergesOpen((o) => !o)}>Merges{feed?.merges?.[0] ? ` · ${feed.merges[0].n} ${feed.merges[0].state}` : ""}</button>
           <button type="button" data-manager-private={priv ? "on" : "off"} aria-pressed={priv} style={head} title={priv ? "Private: names are badges, memory and models are hidden. Press to show them." : "Private is off: press to hide names, memory and models for a screenshot."} onClick={() => setPrivate(!priv)}>{priv ? "🫥 Private" : "Private off"}</button>
           <button type="button" data-manager-to-dock="" style={head} title="Back to the dock at the side" onClick={closeManager}><PanelRight className="mr-1 inline size-3.5" />Dock</button>
           <button type="button" data-manager-close="" aria-label="Close agents" style={{ ...head, padding: "0 6px" }} onClick={closeDock}><X className="size-3.5" /></button>
@@ -1036,10 +1130,29 @@ export function AgentsManager() {
                     </span>
                   </div>
                   {col.coord ? (
-                    <div className="mt-1 flex flex-wrap items-start gap-x-2 gap-y-1" style={{ fontSize: 10.5, color: SOFT }}>
-                      <ModelChip chat={col.coord} asked={models[col.coord.id] ?? null} priv={priv} onAsk={(m, e) => askModel(col.coord!, m, e)} />
-                      {col.coord.note ? <details data-manager-head-details="" className="min-w-0"><summary className="cursor-pointer" style={{ color: "#9fe3ff" }}>Details</summary><p className="m-0 mt-0.5" style={{ fontSize: 11.5, color: INK }}>{scrub(priv, col.coord.note)}</p>{col.coord.last ? <p className="m-0" style={{ fontSize: 11 }}>{scrub(priv, col.coord.last)}</p> : null}</details> : null}
-                    </div>
+                    <>
+                      {/* Marks 10 and 41: the head's details as blocks J moves himself. */}
+                      <HeadBlocks order={blocks} onOrder={(o) => { setBlocks(o); keep(BLOCKS_KEY, o); }} render={(b) => {
+                        const k = col.coord!;
+                        if (b === "model") return <ModelChip chat={k} asked={models[k.id] ?? null} priv={priv} onAsk={(m, e) => askModel(k, m, e)} />;
+                        const t = b === "doing" ? k.note : k.last;
+                        return words && t ? <p data-manager-head-details="" className="m-0" style={{ fontSize: 11.5, color: INK, overflowWrap: "anywhere" }}>{scrub(priv, t)}</p> : null;
+                      }} />
+                      {/* Mark 40: the head's ⋯: a note for the coordinator, fold or open every chat. */}
+                      <div className="mt-1 flex flex-wrap items-center gap-1" style={{ fontSize: 10.5 }}>
+                        <button type="button" data-manager-head-more={col.id} aria-expanded={headMore === col.id} className="rounded px-1.5 font-bold" style={{ color: INK, background: "rgba(255,255,255,.12)", border: "1px solid rgba(255,255,255,.3)" }} onClick={() => setHeadMore((h) => (h === col.id ? null : col.id))}>⋯</button>
+                        {headMore === col.id ? (
+                          <>
+                            <input data-manager-head-note-text="" aria-label={`A note for ${coordLabel(col)}`} value={headNote} onChange={(e) => setHeadNote(e.target.value)} onKeyDown={(e) => e.stopPropagation()} onKeyUp={(e) => e.stopPropagation()}
+                              className="min-w-0 flex-1" style={{ height: 20, padding: "0 6px", borderRadius: 4, border: "1px solid rgba(255,255,255,.25)", background: "#000", color: "#fff", font: `11px ${mono}` }} />
+                            <button type="button" data-manager-head-note="" disabled={!headNote.trim()} className="rounded px-1.5 font-bold" style={{ color: INK, background: "rgba(255,255,255,.12)", border: "1px solid rgba(255,255,255,.3)" }}
+                              onClick={() => void pressFor("note", col.coord!.id, headNote.trim()).then((r) => { setSaid(r || "Note saved for the coordinator."); if (!r) setHeadNote(""); })}>Note</button>
+                            <button type="button" data-manager-fold-all="" className="rounded px-1.5 font-bold" style={{ color: INK, background: "rgba(255,255,255,.12)", border: "1px solid rgba(255,255,255,.3)" }} onClick={() => setFlipped((f) => { const n = { ...f, ...Object.fromEntries(col.panes.map((x) => [x.id, false])) }; keep(OPEN_KEY, n); return n; })}>Fold every chat</button>
+                            <button type="button" data-manager-open-all="" className="rounded px-1.5 font-bold" style={{ color: INK, background: "rgba(255,255,255,.12)", border: "1px solid rgba(255,255,255,.3)" }} onClick={() => setFlipped((f) => { const n = { ...f, ...Object.fromEntries(col.panes.map((x) => [x.id, true])) }; keep(OPEN_KEY, n); return n; })}>Open every chat</button>
+                          </>
+                        ) : null}
+                      </div>
+                    </>
                   ) : null}
                 </Block>
                 {/* The body: the chats, or the question that opened over them. */}
@@ -1079,7 +1192,7 @@ export function AgentsManager() {
                           open={openNow} shown={point === x.id || pin === x.id} pinned={pin === x.id} asked={models[x.id] ?? null}
                           qOpen={qOpen} nudge={nudges[x.id] ?? 0} width={colW - 2 * (RING.outer + RING.inner + RING.pad) - 46}
                           onFlip={() => flip(x, openNow)} onPoint={setPoint} onAsk={(id) => openQuestionHere(id)} onCube={() => setOpened({ col: col.id, kind: "cube", chat: x.id })} onArchive={() => void archive(x, true)} onModel={(m, e) => askModel(x, m, e)}
-                          onFold={() => { setInPane((m) => ({ ...m, [x.id]: null })); setFocusQ((f) => (f && asks.some((d) => d.id === f) ? null : f)); }} onAnswered={(d) => { markSeen(d.id); setInPane((m) => ({ ...m, [x.id]: undefined as unknown as string })); setTimeout(() => void readLanes(), 300); }} onSay={(w) => sayTo(x, w)} onDelete={deleteItem} onEnd={() => endChat(x)} pcKnown={!!pc} onSlides={(id) => { const at = slides.findIndex((sl) => sl.id === id); if (at >= 0) { markSeen(id); setSlideAt(at); } }} />;
+                          onFold={() => { setInPane((m) => ({ ...m, [x.id]: null })); setFocusQ((f) => (f && asks.some((d) => d.id === f) ? null : f)); }} onAnswered={(d) => { markSeen(d.id); setInPane((m) => ({ ...m, [x.id]: undefined as unknown as string })); setTimeout(() => void readLanes(), 300); }} onSay={(w) => sayTo(x, w)} words={words} onPress={(k, t) => pressFor(k, x.id, t)} onDelete={deleteItem} onEnd={() => endChat(x)} pcKnown={!!pc} onSlides={(id) => { const at = slides.findIndex((sl) => sl.id === id); if (at >= 0) { markSeen(id); setSlideAt(at); } }} />;
                       })}
                       {/* Mark 33/34: a gone chat's open questions, carried to this coordinator, each a pane with Continue. */}
                       {col.carried.map(({ d, from }) => (
@@ -1160,6 +1273,7 @@ export function AgentsManager() {
           <Slides onDelete={deleteItem} slides={slides} at={Math.min(slideAt, slides.length - 1)} base={base} onStep={(by) => setSlideAt((a) => stepSlide(Math.min(a ?? 0, slides.length - 1), by, slides.length))} onBack={() => setSlideAt(null)} onChoose={choose} />
         ) : null}
       </div>
+      {mergesOpen && feed ? <MergesList merges={feed.merges ?? []} onClose={() => setMergesOpen(false)} onMerge={(m) => pressFor("merge", String(m.n), m.title)} /> : null}
       {ending ? (
         <div data-manager-end-confirm={ending.id} role="alertdialog" aria-label={endWords(ending)} className="absolute left-1/2 top-16 z-50 flex -translate-x-1/2 items-center gap-3 rounded-xl px-4 py-2" style={{ background: "rgba(10,6,20,.96)", border: "1px solid rgba(255,140,140,.6)", fontSize: 12.5 }}>
           <span>{endWords(ending)}</span>
