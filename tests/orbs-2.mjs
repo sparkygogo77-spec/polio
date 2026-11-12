@@ -622,11 +622,14 @@ try {
   await openBoard(p2, BASE, "solface");
   await p2.locator("[data-agents-button]").click();
   await p2.waitForSelector("[data-lanes-orb]", { timeout: 20000 }).catch(() => {});
+  /* Opening it draws a few frames (the feed, the fonts); wait for those to end, not a fixed 800 ms a slow machine overruns (PACE). */
+  await waitFor(p2, () => window.__lanesBoard && !window.__lanesBoard.moving, null, 10000);
   await p2.waitForTimeout(800);
   const pos = () => p2.evaluate(() => [...document.querySelectorAll("[data-lanes-orb],[data-lanes-moon],[data-lanes-retired]")].map((e) => e.getAttribute("transform")).join("|"));
   const a1 = await pos(), d1 = await p2.evaluate(() => window.__lanesBoard?.draws ?? 0);
   await p2.waitForTimeout(1500);
-  check("E: under prefers-reduced-motion everything is still and nothing redraws", a1 === (await pos()) && a1.length > 0 && (await p2.evaluate(() => window.__lanesBoard?.draws ?? 0)) - d1 < 3);
+  const a2 = await pos(), d2 = await p2.evaluate(() => window.__lanesBoard?.draws ?? 0);
+  check("E: under prefers-reduced-motion everything is still and nothing redraws", a1 === a2 && a1.length > 0 && d2 - d1 < 3, `${a1 === a2 ? "still" : "moved"}, ${d2 - d1} draws in 1.5 s`);
   await p2.locator(`[data-lanes-hit="retired:${FEED.coordinators[0].id}"]`).dispatchEvent("click");
   await p2.waitForTimeout(300);
   check("M: …and a retired coordinator still comes back as a ring, at once", (await p2.locator(`[data-lanes-ring="${FEED.coordinators[0].id}"]`).count()) === 1);
