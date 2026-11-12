@@ -65,6 +65,7 @@ import { problems, type Message, type Plan } from "../contract.ts";
 import type { ControlResult } from "../agents/runner.ts";
 import { describeCall, type BridgeLog } from "./bridgeLog.ts";
 import { answerLanes, archiveLanes, askLanes, costFor, lanesFileAt, lanesFileHeaders, pressLanes, readLanes, type LanesFiles } from "./lanes.ts";
+import { MARKUP_MAX_BODY } from "./markup.ts";
 import type { Pairing } from "./pairing.ts";
 import type { SiteTickets } from "./tickets.ts";
 
@@ -141,10 +142,10 @@ export async function startHelperServer(opts: {
     const h = req.headers.authorization ?? "";
     return h.startsWith("Bearer ") ? h.slice(7) : null;
   };
-  const body = (req: IncomingMessage) => new Promise<unknown>((resolve, reject) => {
+  const body = (req: IncomingMessage, max = MAX_BODY) => new Promise<unknown>((resolve, reject) => {
     let size = 0;
     const parts: Buffer[] = [];
-    req.on("data", (c: Buffer) => { size += c.length; if (size > MAX_BODY) { reject(new Error("too big")); req.destroy(); } else parts.push(c); });
+    req.on("data", (c: Buffer) => { size += c.length; if (size > max) { reject(new Error("too big")); req.destroy(); } else parts.push(c); });
     req.on("end", () => { try { resolve(parts.length ? JSON.parse(Buffer.concat(parts).toString("utf8")) : {}); } catch { reject(new Error("not JSON")); } });
     req.on("error", reject);
   });
@@ -190,7 +191,7 @@ export async function startHelperServer(opts: {
       if (WRITES.includes(path) && method === "POST") {
         if (!opts.lanes) return send(res, 404, { ok: false, error: "this helper has no lanes.json" }, cors);
         let b: unknown;
-        try { b = await body(req); } catch (e) { return send(res, 400, { ok: false, error: String((e as Error).message) }, cors); }
+        try { b = await body(req, path === "/lanes/press" ? MARKUP_MAX_BODY : MAX_BODY); } catch (e) { return send(res, 400, { ok: false, error: String((e as Error).message) }, cors); }
         const r = path === "/lanes/ask" ? askLanes(opts.lanes.file, b)
           : path === "/lanes/archive" ? archiveLanes(opts.lanes.file, b)
           : path === "/lanes/press" ? pressLanes(join(dirname(opts.lanes.file), "console-presses.json"), b)

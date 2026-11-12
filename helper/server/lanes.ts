@@ -35,7 +35,8 @@
  * costs the PC (`costFor`): sums and kinds, never a pid, a path or a command.
  */
 import { existsSync, readdirSync, readFileSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
-import { extname, join, resolve, sep } from "node:path";
+import { dirname, extname, join, resolve, sep } from "node:path";
+import { MARKUP_KINDS, markupRow } from "./markup.ts";
 
 export type LanesFiles = { file: string; beats: string };
 export type LanesRead = { feed: unknown; beats: { session: string; name: string; at: number }[]; now: number };
@@ -242,7 +243,7 @@ export function archiveLanes(file: string, body: unknown, now = new Date()): Arc
  * check ticked; and, from the manager's terminal (BAM, J 2026-11-11: "a terminal … is how you chat"), words: said
  * to the coordinator, a note on a question or a chat, or the brief of a new chat.
  */
-export const PRESS_KINDS = ["model", "choose", "check", "say", "note", "new-chat", "delete", "end", "continue", "new-coordinator", "merge"] as const;
+export const PRESS_KINDS = ["model", "choose", "check", "say", "note", "new-chat", "delete", "end", "continue", "new-coordinator", "merge", ...MARKUP_KINDS] as const;
 /**
  * BAM (J, 2026-11-11: "I should be able to delete questions and end the orbs from the builder"): `delete` a question or
  * a picture round (the coordinator closes it in lanes.json with a backup), `end` a chat (the coordinator stops or
@@ -293,6 +294,13 @@ export function pressLanes(file: string, body: unknown, now = new Date()): Press
     if (!COORD_MODES.includes(b.mode as string)) return { ok: false, status: 400, error: "a new coordinator is fresh or carry" };
     if (!PRESS_MODELS.includes(b.model as string) || !PRESS_EFFORTS.includes(b.effort as string)) return { ok: false, status: 400, error: "a new coordinator names one of the four models and an effort" };
     row.mode = b.mode; row.model = b.model; row.effort = b.effort;
+  }
+  /* ✍️ MARKUP: what J drew, each stroke with the elements it touched; its pictures are written beside, the words go in the row. */
+  if (kind === "markup" || kind === "snapshot") {
+    if (existsSync(file)) { try { if (!Array.isArray(JSON.parse(readFileSync(file, "utf8").trim() || "[]"))) throw 0; } catch { return { ok: false, status: 409, error: "console-presses.json does not parse, so nothing was saved: ask the coordinator to fix it" }; } }
+    const m = markupRow(dirname(file), kind, b, now);
+    if (!m.ok) return m;
+    Object.assign(row, m.extra);
   }
   let list: unknown[] = [];
   if (existsSync(file)) {

@@ -34,6 +34,7 @@ import * as React from "react";
 import { AppWindow, Archive, Box, Circle, Globe, Hexagon, MoreHorizontal, PanelRight, SquareTerminal, Undo2, X } from "lucide-react";
 import { cn } from "@/core/lib/cn";
 import { moltenClass, moltenKeyClass, moltenSeed, type MoltenKind } from "@/core/ui/molten";
+import { openMarkup } from "@/features/markup/store";
 import { HELPER_ORIGIN } from "./context";
 import { ANSWER_URL, ASK_URL, PageFrame } from "./Decisions";
 import { LanesBoard } from "./LanesBoard";
@@ -1073,6 +1074,7 @@ export function AgentsManager() {
           <button type="button" data-manager-words={words ? "on" : "off"} aria-pressed={words} style={head} title={words ? "Words on: every chat's sentences show. Press to hide them." : "Words off: press to show every chat's sentences."} onClick={() => setWords((w) => { keep(WORDS_KEY, { on: !w }); return !w; })}>{words ? "Words on" : "Words off"}</button>
           <button type="button" data-manager-rounds={slides.filter((x) => x.kind === "round").length} style={{ ...head, opacity: firstRound >= 0 ? 1 : 0.5 }} disabled={firstRound < 0} title="Every open picture round, across the screen" onClick={() => setSlideAt(firstRound)}>Rounds · {slides.filter((x) => x.kind === "round").length}</button>
           <button type="button" data-manager-merges={feed?.merges?.length ?? 0} aria-expanded={mergesOpen} style={head} onClick={() => setMergesOpen((o) => !o)}>Merges{feed?.merges?.[0] ? ` · ${feed.merges[0].n} ${feed.merges[0].state}` : ""}</button>
+          <button type="button" data-manager-markup="" style={head} title="Mark up: draw on the screen to show the coordinator what is wrong; each stroke names what it touches" onClick={openMarkup}>✍️ Mark up</button>
           <button type="button" data-manager-private={priv ? "on" : "off"} aria-pressed={priv} style={head} title={priv ? "Private: names are badges, memory and models are hidden. Press to show them." : "Private is off: press to hide names, memory and models for a screenshot."} onClick={() => setPrivate(!priv)}>{priv ? "🫥 Private" : "Private off"}</button>
           <button type="button" data-manager-to-dock="" style={head} title="Back to the dock at the side" onClick={closeManager}><PanelRight className="mr-1 inline size-3.5" />Dock</button>
           <button type="button" data-manager-close="" aria-label="Close agents" style={{ ...head, padding: "0 6px" }} onClick={closeDock}><X className="size-3.5" /></button>
