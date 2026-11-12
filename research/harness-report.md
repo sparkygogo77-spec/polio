@@ -17,8 +17,8 @@ Only `.claude/settings.json`, `.claude/hooks/catch-up.sh` and `scripts/` are nam
 - How: hooks get no context size, but the status line script does (`context_window.used_percentage`). It writes the number to a file; the `Stop` hook from change 1 reads it and says "hand over now". A `PreCompact` hook tells the summary to keep `STATE.md`.
 
 **3. A merge request is five lines and a pointer**
-- What: branch, one line on what changed, the checks file, what J should look at, what is not done. Detail lives in a file on the branch.
-- Why: requests ran to 3,800 characters. Anthropic's research system has workers save their work and "pass lightweight references back".
+- What: branch and the commit it started from, the files it was allowed to touch, the checks file, what J should look at, what is not done. Detail lives in a file on the branch.
+- Why: requests ran to 3,800 characters. Anthropic has workers save their work and "pass lightweight references back"; Telerik's handoff is four fields: scope, interface, base, evidence.
 - How: a `PreToolUse` hook on whatever sends the request (`.claude/hooks/merge-request-size.sh`) denies anything over 800 characters and names the file to move the rest into.
 
 **4. A checks file per lane, tied to the commit, with the widths in it**
@@ -88,12 +88,12 @@ Only `.claude/settings.json`, `.claude/hooks/catch-up.sh` and `scripts/` are nam
 - Agentation: click a part, get its selector and position; needs React 18 and a desktop browser, no phone. https://github.com/benjitaylor/agentation
 - nit: click to annotate, stores element, route and viewport; before and after pictures; Verified, Reopen, Skip. AGPL. https://github.com/SpaceParrots/nit
 - Vibe Annotations: browser extension for local pages; its README doesn't say what each note stores. https://github.com/RaphaelRegnier/vibe-annotations
-- Telerik, Multi-agent orchestration patterns: NOT read, site blocked here. Search summary only: treat the handoff as a versioned file reviewed like code. https://www.telerik.com/blogs/multi-agent-orchestration-software-delivery-patterns-multi-repository-workflows
-- Augment, Multi-agent orchestration guide: NOT read, site blocked here. Search summary only: coordinator, implementers, a verifier that checks against the spec. https://www.augmentcode.com/guides/multi-agent-orchestration-architecture-guide
-- Cursor, Design Mode: NOT read, site blocked here. Search summary only: click a part and the chat gets the part and its code. https://cursor.com/docs/agent/design-mode
+- Telerik, Multi-agent orchestration patterns (Adam Bertram, 23 Sep 2026): the handoff is a versioned file with scope, interface, base commit and evidence; test the combined state; the merge decision stays with a person. https://www.telerik.com/blogs/multi-agent-orchestration-software-delivery-patterns-multi-repository-workflows
+- Augment, Multi-agent orchestration guide (4 May 2026): split, route, shared state, recovery; a hub that owns the state is easiest to debug; a third of failures in the studies it cites are coordination failures. https://www.augmentcode.com/guides/multi-agent-orchestration-architecture-guide
+- Cursor, Design Mode: each note carries what you picked plus a screenshot; notes can be collected as numbered pins and sent in one go. https://cursor.com/docs/agent/design-mode
 
 ## Message
 
 - You get: ten changes, each tied to something that cost time on 11 Nov; change 1 (STATE.md with its Stop hook) and change 4 (checks file with widths) are the two to do first.
 - Look at: change 7 and change 9. Both need work in your phone page and console, not in Claude Code, so they are yours to say yes to.
-- Not done: nothing was built or tested on the PC. Telerik, Augment and Cursor pages were blocked here, so those three lines rest on search summaries.
+- Not done: nothing was built or tested on the PC, and the file names under "How" are proposals until someone checks them against the real harness.
