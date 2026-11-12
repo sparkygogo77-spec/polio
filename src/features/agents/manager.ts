@@ -76,6 +76,8 @@ export interface Column {
   questions: Decision[];
   /** The open questions no pane carries: the coordinator's own, and those of hidden or unknown chats. They sit on the head. */
   own: Decision[];
+  /** BAM mark 33: open questions of a chat that is gone (ended, archived, hidden), rolled over to the current coordinator, each with the chat it came from. */
+  carried: { d: Decision; from: LaneChat }[];
 }
 
 const plain = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -113,7 +115,7 @@ export function columnsOf(feed: LanesFeed | null, gone: Record<string, boolean> 
     const footIds = new Set(col.foot.map((x) => x.id));
     col.panes = byLatest(shown.filter((x) => !footIds.has(x.id))).map((x, i) => ({ x, i })).sort((a, b) => STATE_RANK[a.x.state] - STATE_RANK[b.x.state] || a.i - b.i).map((o) => o.x);
   };
-  const blank = (id: string, n: number, name: string, coord: LaneChat | null): Column => ({ id, n, label: `C${n}`, name, coord, current: false, colours: coloursOf(n), panes: [], foot: [], archived: [], retired: [], questions: [], own: [] });
+  const blank = (id: string, n: number, name: string, coord: LaneChat | null): Column => ({ id, n, label: `C${n}`, name, coord, current: false, colours: coloursOf(n), panes: [], foot: [], archived: [], retired: [], questions: [], own: [], carried: [] });
 
   let cols: Column[];
   if (coords.length) {
@@ -143,6 +145,12 @@ export function columnsOf(feed: LanesFeed | null, gone: Record<string, boolean> 
     if (!col) continue;
     col.questions.push(d);
     if (!about.some((x) => col.panes.some((p) => p.id === x.id))) col.own.push(d);
+    /* Mark 33: a question whose chats are all gone stands under the current coordinator, carried, never lost. */
+    const cur = cols.find((c) => c.current) ?? col;
+    if (about.length && about.every((x) => isGone(x) || x.hidden) && !about.some((x) => isCoordinatorChat(x))) {
+      if (cur !== col) { col.questions.splice(col.questions.indexOf(d), 1); col.own = col.own.filter((q) => q !== d); cur.questions.push(d); cur.own.push(d); }
+      cur.carried.push({ d, from: about[0]! });
+    }
   }
   /* Marks 30 and 31: shown oldest first, coloured by that place (green, purple, amber); the newest stays the current one. */
   const shown = [...cols].sort((a, b) => a.n - b.n);
@@ -428,7 +436,8 @@ export function layoutOf(width: number, height: number, cols: number): Layout {
   if (width > 0 && over() > 0) gap = Math.max(16, gap - over());
   if (width > 0 && over() > 0) return stack();
   const col = columnWidth(width - gap - rail - cramped, n, 0);
-  const orbsH = Math.round(Math.max(260, Math.min(height * 0.56, rail * 0.9)));
+  /* The terminal and New coordinator under the ring keep about 400 px; the ring gives way first, never under 220. */
+  const orbsH = Math.round(Math.max(220, Math.min(height * 0.56, rail * 0.9, height > 0 ? height - 400 : Infinity)));
   return { stacked: false, gap, rail, col, orbsH };
 }
 
@@ -468,3 +477,24 @@ export const keepInside = (p: { x: number; y: number; z: number }, view: { x: nu
 /** What J types in the terminal becomes one of these presses, saved for the coordinator (marks 1 and 9). */
 export type SayKind = "say" | "note" | "new-chat";
 export const SAY_WHEN = "Saved on your PC. The coordinator reads it on its next turn: nothing can reach a chat sooner.";
+
+/* ------------------------------------------------------------ BAM turn 4: delete, end, carried questions (marks 33, 41, 42, 43) */
+
+/** Mark 42: a deleted question or picture round leaves the view at once; the coordinator closes it in lanes.json. */
+export function withoutDeleted(feed: LanesFeed | null, deleted: Record<string, boolean>): LanesFeed | null {
+  if (!feed) return feed;
+  const gone = (id: string) => deleted[id] === true;
+  if (!feed.questions.some((d) => gone(d.id)) && !(feed.rounds ?? []).some((r) => gone(r.id))) return feed;
+  const questions = feed.questions.filter((d) => !gone(d.id));
+  return { ...feed, questions, rounds: (feed.rounds ?? []).filter((r) => !gone(r.id)), decisions: questions.filter(isOpen).length };
+}
+/** Mark 41 (GUESS): the head counts the questions on the column's chat panes (its carried ones too), not the coordinator's own list. */
+export function paneCount(feed: LanesFeed, col: Column): number {
+  const onPanes = col.questions.filter((d) => chatsAbout(feed, d.about).some((x) => col.panes.some((p) => p.id === x.id)));
+  return onPanes.length + col.carried.length;
+}
+/** Mark 44 (GUESS): ask once before ending a chat that is still working. */
+export const endWords = (x: { name: string; code?: string; emoji?: string; state: ChatState; realName?: string }) =>
+  x.state === "work" ? `End ${labelParts(x).emoji ? `${labelParts(x).emoji} ` : ""}${labelParts(x).words}? It is working now.` : "";
+/** Mark 38: the legend under the ring, as the console says it. */
+export const LEGEND: { state: ChatState; words: string }[] = [{ state: "work", words: "working" }, { state: "need", words: "waiting for you" }, { state: "done", words: "done" }];

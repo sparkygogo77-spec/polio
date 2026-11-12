@@ -139,6 +139,8 @@ export interface BesideColumns {
   colours: Record<string, [string, string]>;
   /** A ring's name on hover ("C7 · PIONEER"). */
   names: Record<string, string>;
+  /** BAM mark 36: the question count on the ring's label (the ring is the coordinator). */
+  counts?: Record<string, number>;
   /** The coordinator whose column is under the pointer, or the chat whose pane is. */
   lit: string | null;
   onPoint: (id: string | null) => void;
@@ -239,7 +241,7 @@ export function LanesBoard({ beside }: { beside?: BesideColumns } = {}) {
   const pointer = hover ?? (beside ? beside.lit : picked);
   const scene: Item[] = [], glows: React.ReactNode[] = [], rest: React.ReactNode[] = [];
   /* Where a press lands, above every ring piece: nucleus and sun first, orbs over them, moons on top. */
-  const hits: React.ReactNode[] = [], moonHits: React.ReactNode[] = [], beadHits: React.ReactNode[] = [];
+  const hits: React.ReactNode[] = [], moonHits: React.ReactNode[] = [], beadHits: React.ReactNode[] = [], labels: React.ReactNode[] = [];
   const speeds = new Map<string, number>();
   const left = leftovers(feed);
 
@@ -425,12 +427,20 @@ export function LanesBoard({ beside }: { beside?: BesideColumns } = {}) {
         {look.texture === "planet" ? <path d={line} fill="none" stroke={colour} strokeOpacity={0.3} strokeWidth={(on ? 26 : 19) * w} strokeDasharray="1 3" /> : null}
       </g>,
     );
-    if (beside && on && !purple) {
-      /* Named on hover, at the ring's highest point on screen. */
+    if (beside && !purple) {
+      /* BAM mark 36: the ring is the coordinator, so it is always named at its highest point, with its question count; hovering the name shows the coordinator. */
       const top = [0, 1, 2, 3, 4, 5, 6, 7].map((k) => ringPoint(R, (k / 8) * 2 * Math.PI, tilt, axis, wob.float)).sort((a, b) => a.y - b.y)[0]!;
-      rest.push(
-        <g key={`${key}:name`} data-lanes-ring-name={key} transform={`translate(${fmt(top.x)} ${fmt(Math.max(VIEW.y + 26, top.y - 18))})`} style={{ pointerEvents: "none" }}>
-          <text textAnchor="middle" stroke="#05030a" strokeWidth={5} paintOrder="stroke" fill={own?.[1] ?? colour} style={{ font: "800 20px ui-monospace, Menlo, Consolas, monospace" }}>{beside.names[key] ?? c.name}</text>
+      const count = beside.counts?.[key] ?? 0, name = beside.names[key] ?? c.name, half = name.length * 6.2;
+      /* Under every press area: an orb or a bead on the ring's top still takes its own hover. */
+      labels.push(
+        <g key={`${key}:name`} data-lanes-ring-name={key} data-count={count} transform={`translate(${fmt(top.x)} ${fmt(Math.max(VIEW.y + 26, top.y - 18))})`} style={{ cursor: "pointer" }} onMouseEnter={() => setHover(key)} onMouseLeave={() => setHover((h) => (h === key ? null : h))}>
+          <text textAnchor="middle" stroke="#05030a" strokeWidth={5} paintOrder="stroke" fill={own?.[1] ?? colour} opacity={on ? 1 : 0.85} style={{ font: "800 20px ui-monospace, Menlo, Consolas, monospace" }}>{name}</text>
+          {count ? (
+            <g data-lanes-ring-count={count} transform={`translate(${fmt(half + 16)} -7)`}>
+              <circle r={12} fill="#ffffff" stroke={STATE_COLOUR.need} strokeWidth={3} />
+              <text y={5} textAnchor="middle" fill="#7a0010" style={{ font: "800 13px ui-monospace, Menlo, Consolas, monospace" }}>{count}</text>
+            </g>
+          ) : null}
         </g>,
       );
     }
@@ -681,6 +691,7 @@ export function LanesBoard({ beside }: { beside?: BesideColumns } = {}) {
       <rect data-lanes-turn="" x={VIEW.x} y={VIEW.y} width={VIEW.w} height={VIEW.h} fill="transparent" style={{ cursor: turn.current ? "grabbing" : "move" }} onPointerDown={startTurn} onMouseEnter={() => setHover(null)} />
       {glows}
       {scene.map((it) => <React.Fragment key={it.key}>{it.el}</React.Fragment>)}
+      {labels}
       {beadHits}
       {hits}
       {moonHits}

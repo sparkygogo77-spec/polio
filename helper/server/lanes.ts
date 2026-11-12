@@ -240,7 +240,14 @@ export function archiveLanes(file: string, body: unknown, now = new Date()): Arc
  * check ticked; and, from the manager's terminal (BAM, J 2026-11-11: "a terminal … is how you chat"), words: said
  * to the coordinator, a note on a question or a chat, or the brief of a new chat.
  */
-export const PRESS_KINDS = ["model", "choose", "check", "say", "note", "new-chat"] as const;
+export const PRESS_KINDS = ["model", "choose", "check", "say", "note", "new-chat", "delete", "end", "continue", "new-coordinator"] as const;
+/**
+ * BAM (J, 2026-11-11: "I should be able to delete questions and end the orbs from the builder"): `delete` a question or
+ * a picture round (the coordinator closes it in lanes.json with a backup), `end` a chat (the coordinator stops or
+ * retires it), `continue` a carried question in a new chat (`text` optional), and `new-coordinator` with `mode` fresh or
+ * carry, a model and an effort (`text` optional), as the console writes it.
+ */
+export const COORD_MODES = ["fresh", "carry"];
 export const MAX_SAY = 4000;
 export const PRESS_MODELS = ["Fable 5.2", "Opus 5.5", "Sonnet 5.5", "Haiku 5.5"];
 export const PRESS_EFFORTS = ["low", "medium", "high", "xhigh", "max"];
@@ -274,6 +281,16 @@ export function pressLanes(file: string, body: unknown, now = new Date()): Press
     if (!text) return { ok: false, status: 400, error: "there are no words to save" };
     if (text.length > MAX_SAY) return { ok: false, status: 400, error: `at most ${MAX_SAY} characters` };
     row.text = text;
+  }
+  if (kind === "continue" || kind === "new-coordinator") {
+    const text = typeof b.text === "string" ? b.text.replace(/\r\n?/g, "\n").replace(/\0/g, "").trim() : "";
+    if (text.length > MAX_SAY) return { ok: false, status: 400, error: `at most ${MAX_SAY} characters` };
+    row.text = text;
+  }
+  if (kind === "new-coordinator") {
+    if (!COORD_MODES.includes(b.mode as string)) return { ok: false, status: 400, error: "a new coordinator is fresh or carry" };
+    if (!PRESS_MODELS.includes(b.model as string) || !PRESS_EFFORTS.includes(b.effort as string)) return { ok: false, status: 400, error: "a new coordinator names one of the four models and an effort" };
+    row.mode = b.mode; row.model = b.model; row.effort = b.effort;
   }
   let list: unknown[] = [];
   if (existsSync(file)) {

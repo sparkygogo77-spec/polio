@@ -25,6 +25,13 @@
  *   28.   no "behind" or "built on" version words on any pane or orb;
  *   29-31. two and three live coordinators: a column each, oldest first, green, purple, amber (columns and rings);
  *   32.   the manager stands on the same nebula as the board (the workspace's own ground).
+ *   33/34. a gone chat's open questions roll over to the current coordinator, as a pane with Continue (a press);
+ *   36-39. the ring is the coordinator (no coordinator orb), named with its count; every orb named on hover with End; a legend;
+ *   41.   the head's button has the count of its chat panes' questions and no "N new · N older"; the foot stays open; the
+ *         memory pill always shows;
+ *   42.   Delete on every question and picture round: gone at once, the count drops, a press;
+ *   43/44. End on every chat (pane and orb): off the ring at once, a press; a working chat asks first;
+ *   45.   a pressed cube is one wide column, pictures on its right half; New coordinator open under the terminal.
  *
  * No wall-clock limits (the speed-check rule): only counts, places and words.
  *
@@ -68,7 +75,7 @@ const FEED = {
     { id: "q-carried", order: 4, about: "old-one-with-a-question", question: "An old one, carried over", options: [{ key: "a", label: "Fine" }], answer: "", answeredAt: "", asked: ago(3 * 24 * 60), carried: "From coordinator 7 (8 Nov). Still open." },
     { id: "q-gone", order: 0, about: "console-stage", question: "Answered already", options: [{ key: "a", label: "Yes" }], answer: "a", answeredAt: ago(5) },
   ],
-  checks: [], iterations: [],
+  checks: [], iterations: [{ id: "r-stage", lane: "console-stage", title: "Two looks of the side panel", options: [{ key: "a", label: "Slim", picture: "handovers/open/x/a.png" }, { key: "b", label: "Wide", picture: "handovers/open/x/b.png" }], pick: "a", chosen: "" }],
   coordinators: [{ id: "c-all", name: "Coordinator 4", chats: [C8, STAGE, OSC, TRYIT, OLD, FRESH, OLDASK, C7] }],
 };
 
@@ -128,7 +135,11 @@ if (HL?.pressLanes && HL?.forBuilder) {
   const e = HL.pressLanes(presses, { kind: "say", target: C8.id, text: "x".repeat(HL.MAX_SAY + 1) });
   const rows = JSON.parse(readFileSync(presses, "utf8"));
   check("9: say, note and new-chat presses are saved as words, one row each, from the Builder", a.ok && b.ok && c.ok && rows.length === 3 && rows[0].text === "Hello\nthere" && rows[0].kind === "say" && rows[0].from === "builder" && rows[1].target === "q-try-1" && rows[2].kind === "new-chat", JSON.stringify(rows));
-  check("9: empty words or too many are refused, nothing saved", !d.ok && d.status === 400 && !e.ok && e.status === 400 && JSON.parse(readFileSync(presses, "utf8")).length === 3);
+  const g = HL.pressLanes(presses, { kind: "delete", target: "q-try-1" }), h = HL.pressLanes(presses, { kind: "end", target: STAGE.id }), i2 = HL.pressLanes(presses, { kind: "continue", target: "q-try-1" });
+  const j2 = HL.pressLanes(presses, { kind: "new-coordinator", target: "new", mode: "carry", model: "Opus 5.5", effort: "medium", text: "" }), k2 = HL.pressLanes(presses, { kind: "new-coordinator", target: "new", mode: "odd", model: "Opus 5.5", effort: "medium" });
+  const rows2 = JSON.parse(readFileSync(presses, "utf8"));
+  check("42/43/34/45: the helper saves delete, end, continue and new-coordinator presses; a wrong mode is refused", g.ok && h.ok && i2.ok && j2.ok && !k2.ok && rows2.slice(-4).map((r) => r.kind).join() === "delete,end,continue,new-coordinator" && rows2[rows2.length - 1].mode === "carry", rows2.slice(-4).map((r) => r.kind).join());
+  check("9: empty words or too many are refused, nothing saved", !d.ok && d.status === 400 && !e.ok && e.status === 400 && JSON.parse(readFileSync(presses, "utf8")).length === 7);
 }
 rmSync(tmp, { recursive: true, force: true });
 
@@ -234,7 +245,7 @@ try {
 
     /* 11 */
     const head = await page.evaluate((id) => { const h = document.querySelector(`[data-manager-head="${id}"]`); return { buttons: h.querySelectorAll("[data-manager-questions]").length, count: h.querySelector("[data-manager-questions]")?.getAttribute("data-manager-questions"), pills: document.querySelectorAll("[data-manager-ask]").length, words: h.querySelector("[data-manager-questions-words]")?.textContent }; }, C8.id);
-    check("11: one question button on the head with the column's count, and no '!n' pills anywhere", head.buttons === 1 && head.count === "4" && head.pills === 0 && /3 new · 1 older/.test(head.words ?? ""), JSON.stringify(head));
+    check("11/41: one question button on the head with the count of its chat panes' questions, no words beside it, no '!n' pills", head.buttons === 1 && head.count === "3" /* mark 41: its chat panes' questions */ && head.pills === 0 && !head.words /* mark 41: no "N new · N older" */, JSON.stringify(head));
     await page.locator(`[data-manager-head="${C8.id}"] [data-manager-questions]`).click();
     await page.waitForTimeout(300);
     const groups = await page.evaluate(() => [...document.querySelectorAll("[data-manager-all-group]")].map((g) => `${g.getAttribute("data-manager-all-group")}:${[...g.querySelectorAll("[data-manager-all-row]")].map((r) => r.getAttribute("data-manager-all-row")).join("+")}`).join(" | "));
@@ -321,7 +332,8 @@ try {
     check("27: Enter on the line saves the words for that chat (read on its next turn)", said?.text === "Go on with 0.26", JSON.stringify(said));
 
     /* 1, 9 */
-    check("9: the terminal sits under the ring and takes the rest of the height", !!term && term.y >= orbs.b - 1 && Math.abs(term.x - orbs.x) <= 2 && body.b - term.b <= 16 && term.h >= 200, JSON.stringify(term));
+    const nc = await box(page, "[data-manager-new-coord]");
+    check("9/45: the terminal sits under the ring, New coordinator open under it to the bottom", !!term && !!nc && term.y >= orbs.b - 1 && Math.abs(term.x - orbs.x) <= 2 && nc.y >= term.b - 1 && body.b - nc.b <= 16 && term.h >= 150, JSON.stringify({ term, nc }));
     const lines = await page.evaluate(() => [...document.querySelectorAll("[data-manager-term-line]")].map((l) => `${l.getAttribute("data-manager-term-line")}:${l.textContent}`));
     check("1: the coordinator's messages in line, oldest above newest, named by its badge", lines.length === 3 && /First/.test(lines[0]) && /Third/.test(lines[2]) && /PIONEER/.test(lines[0]) && (await page.locator("[data-manager-term-name]").textContent()) === "C8 · 🧽 PIONEER", lines.join(" | "));
     const term1 = page.locator("[data-manager-term-input]");
@@ -358,6 +370,76 @@ try {
     await page.keyboard.press("Enter");
     await page.waitForTimeout(500);
     check("9: with a question open, Enter answers it", posts.some((p) => p.path === "/lanes/answer" && p.id === "q-own" && p.answer === "yes"));
+    /* ---------------- turn 4: marks 36 to 45, then 33 and 34 ---------------- */
+    const ringNow = await page.evaluate((c8) => ({ coordOrb: document.querySelectorAll(`[data-manager-orbs] [data-lanes-orb="${c8}"]`).length, name: document.querySelector(`[data-lanes-ring-name="${c8}"]`)?.textContent, count: document.querySelector(`[data-lanes-ring-name="${c8}"]`)?.getAttribute("data-count"), own: document.querySelector(`[data-lanes-ring="${c8}"]`)?.getAttribute("data-own"), outer: document.querySelector(`[data-manager-column="${c8}"]`)?.getAttribute("data-outer"), legend: [...document.querySelectorAll("[data-manager-legend-item]")].map((e) => e.textContent).join(" · ") }), C8.id);
+    check("36/39: the ring is the coordinator: no coordinator orb on it; it is always named, with its question count", ringNow.coordOrb === 0 && /^C8 · 🧽 PIONEER/.test(ringNow.name ?? "") && ringNow.count === "3", JSON.stringify(ringNow));
+    check("37: the ring wears the coordinator's colour (its column's)", !!ringNow.own && ringNow.own === ringNow.outer, `${ringNow.own} ${ringNow.outer}`);
+    check("38: a legend under the ring: working, waiting for you, done", ringNow.legend === "working · waiting for you · done", ringNow.legend);
+    await page.locator(`[data-lanes-ring-name="${C8.id}"]`).dispatchEvent("mouseover", { bubbles: true });
+    await page.waitForTimeout(250);
+    const ringCard = await page.locator('[data-manager-orb-card="ring"]').textContent().catch(() => "");
+    check("36: hovering the ring's name shows the coordinator", /C8 · 🧽 PIONEER/.test(ringCard ?? "") && /the coordinator/.test(ringCard ?? ""), ringCard);
+    await page.locator(`[data-manager-orbs] [data-lanes-hit="${STAGE.id}"]`).hover({ force: true });
+    await page.waitForTimeout(250);
+    const card = await page.locator(`[data-manager-orb-card="${STAGE.id}"]`).textContent().catch(() => "");
+    check("38/43: an orb under the pointer is named (emoji, code, state), with End", /🎛️ STAGE · Console stage/.test(card ?? "") && /working/.test(card ?? "") && (await page.locator(`[data-manager-orb-end="${STAGE.id}"]`).count()) === 1, card);
+    await page.mouse.move(5, 500);
+
+    /* 41: the foot open, the pill always shown */
+    const f41 = await page.evaluate((c8) => ({ foot: document.querySelector(`[data-manager-foot="${c8}"]`)?.getAttribute("data-open"), empty: document.querySelectorAll("[data-manager-pane] [data-manager-pill][data-empty]").length, panes: document.querySelectorAll("[data-manager-pane]").length }), C8.id);
+    check("41: finished chats stay in view in the column (the foot open), and every pane shows its memory pill", f41.foot === "1" && f41.empty === f41.panes && f41.panes >= 4, JSON.stringify(f41));
+
+    /* 42: Delete a question, a round */
+    const countBefore = await page.locator(`[data-manager-head="${C8.id}"] [data-manager-questions]`).getAttribute("data-manager-questions");
+    if (!(await page.locator(`${pane(TRYIT.id)} [data-in-place="1"]`).count())) await page.locator(`${pane(TRYIT.id)} [data-manager-questions]`).click();
+    await page.waitForTimeout(200);
+    await page.locator(`${pane(TRYIT.id)} [data-manager-delete="q-try-2"]`).click();
+    await page.waitForTimeout(400);
+    const del = await page.evaluate(([t, c8]) => ({ gone: !document.querySelector('[data-manager-question="q-try-2"]'), next: document.querySelector(`[data-manager-pane="${t}"] [data-manager-question]`)?.getAttribute("data-manager-question"), count: document.querySelector(`[data-manager-head="${c8}"] [data-manager-questions]`)?.getAttribute("data-manager-questions") }), [TRYIT.id, C8.id]);
+    const delPress = posts.find((x) => x.kind === "delete" && x.target === "q-try-2");
+    check("42: Delete on a question: gone at once, the chat's next question shows, the count drops, a delete press is saved", del.gone && del.next === "q-try-1" && countBefore === "3" && del.count === "2" && !!delPress, JSON.stringify({ ...del, countBefore, delPress }));
+    await page.locator(`${pane(STAGE.id)} [data-manager-cube]`).click();
+    await page.waitForTimeout(300);
+    const wide = await page.evaluate((c8) => { const c = document.querySelector(`[data-manager-column="${c8}"]`), r = document.querySelector('[data-manager-round="r-stage"]'), w = r?.querySelector("[data-manager-round-words]")?.getBoundingClientRect(), pc = r?.querySelector("[data-manager-round-pictures]")?.getBoundingClientRect(), rr = r?.getBoundingClientRect();
+      return { wide: c?.getAttribute("data-wide"), w: Math.round(c?.getBoundingClientRect().width ?? 0), right: !!w && !!pc && pc.left >= w.right - 1 && pc.left >= rr.left + rr.width * 0.45, pics: r?.querySelectorAll("[data-manager-round-pictures] img").length, chooses: r?.querySelectorAll("[data-manager-round-choose]").length }; }, C8.id);
+    check("45: a pressed cube is one wide column: the round's choices on the left, its pictures on the right half", wide.wide === "1" && wide.w > 700 && wide.right && wide.pics === 2 && wide.chooses === 2, JSON.stringify(wide));
+    await page.locator('[data-manager-round="r-stage"] [data-manager-delete="r-stage"]').click();
+    await page.waitForTimeout(300);
+    check("42: Delete on a picture round: gone at once, a delete press is saved", (await page.locator('[data-manager-round="r-stage"]').count()) === 0 && posts.some((x) => x.kind === "delete" && x.target === "r-stage"));
+    await page.locator("[data-manager-column-body] > article [data-manager-back]").first().click().catch(() => {});
+    await page.waitForTimeout(200);
+
+    /* 43/44: End a working chat asks first; End a waiting one at once; 33/34: its questions roll over */
+    await page.locator(`${pane(OSC.id)} [data-manager-end="${OSC.id}"]`).click();
+    await page.waitForTimeout(200);
+    const ask = await page.locator("[data-manager-end-confirm]").textContent().catch(() => "");
+    await page.locator("[data-manager-end-keep]").click();
+    await page.waitForTimeout(200);
+    const kept1 = (await page.locator(`[data-manager-orbs] [data-lanes-orb="${OSC.id}"]`).count()) === 1 && !posts.some((x) => x.kind === "end");
+    check("44: ending a chat that is working asks once first; Keep it leaves it", /End ⏱️ OSC · Orbs speed check\? It is working now\./.test(ask ?? "") && kept1, ask);
+    await page.locator(`${pane(OSC.id)} [data-manager-end="${OSC.id}"]`).click();
+    await page.locator("[data-manager-end-sure]").click();
+    await page.waitForTimeout(400);
+    const ended = await page.evaluate((id) => ({ orb: document.querySelectorAll(`[data-manager-orbs] [data-lanes-orb="${id}"]`).length, pane: document.querySelectorAll(`[data-manager-pane="${id}"]`).length }), OSC.id);
+    check("43: End: the orb leaves the ring and the pane the column at once; an end press is saved", ended.orb === 0 && ended.pane === 0 && posts.some((x) => x.kind === "end" && x.target === OSC.id), JSON.stringify(ended));
+    await page.locator(`${pane(TRYIT.id)} [data-manager-end="${TRYIT.id}"]`).click();
+    await page.waitForTimeout(400);
+    const carried = await page.evaluate(([c8]) => { const c = document.querySelector(`[data-manager-column="${c8}"] [data-manager-carried="q-try-1"]`); return c ? { from: c.textContent?.includes("Carried from 🧊 TRYIT"), q: !!c.querySelector('[data-manager-question="q-try-1"]'), count: document.querySelector(`[data-manager-head="${c8}"] [data-manager-questions]`)?.getAttribute("data-manager-questions") } : null; }, [C8.id]);
+    check("33: a chat that ends with an open question: the question rolls over to the coordinator, shown in its column", posts.some((x) => x.kind === "end" && x.target === TRYIT.id) && !!carried?.from && carried.q && carried.count === "2", JSON.stringify(carried));
+    await page.locator('[data-manager-continue="q-try-1"]').click();
+    await page.waitForTimeout(300);
+    check("34: the carried question has Continue: a continue press is saved for the coordinator to start a chat", posts.some((x) => x.kind === "continue" && x.target === "q-try-1"));
+
+    /* 45: New coordinator */
+    await page.locator("[data-manager-new-coord-text]").click();
+    await page.keyboard.type("Carry on from C8");
+    await page.locator('[data-manager-new-coord-mode="fresh"]').click();
+    await page.locator('[data-manager-new-coord-model="Fable 5.2"]').click();
+    await page.locator("[data-manager-new-coord-start]").click();
+    await page.waitForTimeout(300);
+    const ncp = posts.find((x) => x.kind === "new-coordinator");
+    check("45: New coordinator saves its press: mode, words, model and effort", ncp?.mode === "fresh" && ncp.text === "Carry on from C8" && ncp.model === "Fable 5.2" && ncp.effort === "medium", JSON.stringify(ncp));
+
     /* Narrow: a long model chip ("→ … asked") and every pane wrap inside their pane; the columns and the rail never overlap. */
     await page.locator(`${pane(STAGE.id)} [data-manager-chip-open]`).click();
     await page.locator(`${pane(STAGE.id)} [data-manager-model="Fable 5.2"]`).click();
