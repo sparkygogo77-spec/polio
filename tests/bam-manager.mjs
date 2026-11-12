@@ -32,6 +32,9 @@
  *   42.   Delete on every question and picture round: gone at once, the count drops, a press;
  *   43/44. End on every chat (pane and orb): off the ring at once, a press; a working chat asks first;
  *   45.   a pressed cube is one wide column, pictures on its right half; New coordinator open under the terminal.
+ *   40.   the console's controls the Helper can serve: Words on/off, Rounds, Merges (with Merge now for a ready one),
+ *         the head's ⋯ (Note for the coordinator, Fold / Open every chat), the pane line's ⋯ (Note, New chat, Answer),
+ *         the turns ring; 10/41: the head's details as blocks J moves, kept in this browser.
  *
  * No wall-clock limits (the speed-check rule): only counts, places and words.
  *
@@ -57,7 +60,7 @@ const tryImport = async (p) => { try { return await import(p); } catch (e) { che
 const ago = (m) => new Date(Date.now() - m * 60_000).toISOString();
 const uid = (k) => `local_${String(k).padStart(8, "0")}-0000-4000-8000-000000000000`;
 const row = (k, name, state, extra = {}) => ({ id: uid(k), name, lane: name.toLowerCase().replace(/\s+/g, "-"), state, kind: "lane", lastSeen: ago(k), turns: 1, ...extra });
-const C8 = row(8, "Coordinator 8", "work", { kind: "coordinator", lane: "coordinator", code: "PIONEER", emoji: "🧽", turns: 9, model: "Fable 5.2", effort: "medium",
+const C8 = row(8, "Coordinator 8", "work", { kind: "coordinator", lane: "coordinator", code: "PIONEER", emoji: "🧽", turns: 9, model: "Fable 5.2", effort: "medium", note: "Steering the lanes.", last: "Merges 79 is live.",
   messages: [{ at: ago(30), text: "First: TRYIT finished." }, { at: ago(20), text: "Second: STAGE put console 0.25 in the mod." }, { at: ago(5), text: "Third: BAM started at your word." }] });
 const STAGE = row(11, "Console stage", "work", { area: "Console", builtOn: 75, code: "STAGE", emoji: "🎛️", model: "Opus 5.5", effort: "medium", runBy: C8.id, history: [{ at: ago(90), text: "Started.", public: true }], note: "Building the side panel." });
 const OSC = row(12, "Orbs speed check", "work", { area: "Tests", builtOn: 74, code: "OSC", emoji: "⏱️", model: "Opus 5.5", effort: "medium", runBy: C8.id, history: [{ at: ago(80), text: "Started.", public: true }], note: "Fixing the speed check." });
@@ -75,7 +78,8 @@ const FEED = {
     { id: "q-carried", order: 4, about: "old-one-with-a-question", question: "An old one, carried over", options: [{ key: "a", label: "Fine" }], answer: "", answeredAt: "", asked: ago(3 * 24 * 60), carried: "From coordinator 7 (8 Nov). Still open." },
     { id: "q-gone", order: 0, about: "console-stage", question: "Answered already", options: [{ key: "a", label: "Yes" }], answer: "a", answeredAt: ago(5) },
   ],
-  checks: [], iterations: [{ id: "r-stage", lane: "console-stage", title: "Two looks of the side panel", options: [{ key: "a", label: "Slim", picture: "handovers/open/x/a.png" }, { key: "b", label: "Wide", picture: "handovers/open/x/b.png" }], pick: "a", chosen: "" }],
+  merges: [{ n: 79, title: "Delete and End", state: "live", commit: "97d804e", at: ago(60) }, { n: 80, title: "Controls", state: "ready", at: ago(5) }],
+  checks: [], iterations: [{ id: "r-two", lane: "orbs-speed-check", title: "Two looks of the speed bar", options: [{ key: "a", label: "Bar", picture: "handovers/open/x/c.png" }, { key: "b", label: "Dial", picture: "handovers/open/x/d.png" }], pick: "a", chosen: "" }, { id: "r-stage", lane: "console-stage", title: "Two looks of the side panel", options: [{ key: "a", label: "Slim", picture: "handovers/open/x/a.png" }, { key: "b", label: "Wide", picture: "handovers/open/x/b.png" }], pick: "a", chosen: "" }],
   coordinators: [{ id: "c-all", name: "Coordinator 4", chats: [C8, STAGE, OSC, TRYIT, OLD, FRESH, OLDASK, C7] }],
 };
 
@@ -126,6 +130,7 @@ const tmp = mkdtempSync(join(tmpdir(), "bam-manager-"));
 if (HL?.pressLanes && HL?.forBuilder) {
   const served = HL.blankKeys(HL.forBuilder(FEED));
   check("1: the helper passes the coordinator's messages on", served.coordinators[0].chats[0].messages?.length === 3);
+  check("40: the helper passes the merges list (number, title, state, when), nothing else of it", served.merges?.length === 2 && served.merges[0].n === 79 && !("commit" in served.merges[0]) && served.merges[1].state === "ready");
   check("25/28: the helper passes a chat's area, never its builtOn", served.coordinators[0].chats[1].area === "Console" && !("builtOn" in served.coordinators[0].chats[1]));
   const presses = join(tmp, "console-presses.json");
   const a = HL.pressLanes(presses, { kind: "say", target: C8.id, text: "  Hello\r\nthere  " });
@@ -138,6 +143,7 @@ if (HL?.pressLanes && HL?.forBuilder) {
   const g = HL.pressLanes(presses, { kind: "delete", target: "q-try-1" }), h = HL.pressLanes(presses, { kind: "end", target: STAGE.id }), i2 = HL.pressLanes(presses, { kind: "continue", target: "q-try-1" });
   const j2 = HL.pressLanes(presses, { kind: "new-coordinator", target: "new", mode: "carry", model: "Opus 5.5", effort: "medium", text: "" }), k2 = HL.pressLanes(presses, { kind: "new-coordinator", target: "new", mode: "odd", model: "Opus 5.5", effort: "medium" });
   const rows2 = JSON.parse(readFileSync(presses, "utf8"));
+  check("40: the helper saves a merge press", HL.pressLanes(join(tmp, "merge-presses.json"), { kind: "merge", target: "80", text: "Controls" }).ok && JSON.parse(readFileSync(join(tmp, "merge-presses.json"), "utf8")).at(-1).kind === "merge");
   check("42/43/34/45: the helper saves delete, end, continue and new-coordinator presses; a wrong mode is refused", g.ok && h.ok && i2.ok && j2.ok && !k2.ok && rows2.slice(-4).map((r) => r.kind).join() === "delete,end,continue,new-coordinator" && rows2[rows2.length - 1].mode === "carry", rows2.slice(-4).map((r) => r.kind).join());
   check("9: empty words or too many are refused, nothing saved", !d.ok && d.status === 400 && !e.ok && e.status === 400 && JSON.parse(readFileSync(presses, "utf8")).length === 7);
 }
@@ -439,6 +445,69 @@ try {
     await page.waitForTimeout(300);
     const ncp = posts.find((x) => x.kind === "new-coordinator");
     check("45: New coordinator saves its press: mode, words, model and effort", ncp?.mode === "fresh" && ncp.text === "Carry on from C8" && ncp.model === "Fable 5.2" && ncp.effort === "medium", JSON.stringify(ncp));
+
+    /* ---------------- turn 5: mark 40 and the head's blocks (10/41) ---------------- */
+    const linesOn = await page.locator(`${pane(STAGE.id)} [data-manager-line]`).count();
+    await page.locator("[data-manager-words]").click();
+    await page.waitForTimeout(200);
+    const linesOff = await page.locator(`${pane(STAGE.id)} [data-manager-line]`).count();
+    await page.locator("[data-manager-words]").click();
+    await page.waitForTimeout(200);
+    check("40: Words off hides every chat's sentences; on shows them again", linesOn >= 1 && linesOff === 0 && (await page.locator(`${pane(STAGE.id)} [data-manager-line]`).count()) === linesOn, `${linesOn} ${linesOff}`);
+    const roundsN = await page.locator("[data-manager-rounds]").getAttribute("data-manager-rounds");
+    await page.locator("[data-manager-rounds]").click();
+    await page.waitForTimeout(300);
+    const slideNow = await page.locator("[data-manager-slide]").getAttribute("data-manager-slide").catch(() => null);
+    await page.locator("[data-manager-slides-back]").click().catch(() => {});
+    check("40: Rounds opens the open picture rounds across the screen", roundsN === "1" && slideNow === "r-two", `${roundsN} ${slideNow}`);
+    await page.locator("[data-manager-merges]").click();
+    await page.waitForTimeout(200);
+    const mlist = await page.evaluate(() => [...document.querySelectorAll("[data-manager-merge]")].map((m) => `${m.getAttribute("data-manager-merge")}:${m.querySelector("[data-manager-merge-state]")?.textContent}:${m.querySelectorAll("[data-manager-merge-now]").length}`).join(" | "));
+    await page.locator('[data-manager-merge-now="80"]').click();
+    await page.waitForTimeout(300);
+    check("40: Merges lists each merge in words, newest first; a ready one has Merge now, which saves a merge press", mlist === "80:ready:1 | 79:live:0" && posts.some((x) => x.kind === "merge" && x.target === "80"), mlist);
+    await page.locator("[data-manager-merges-close]").click();
+    await page.locator(`[data-manager-head-more="${C8.id}"]`).click();
+    await page.locator("[data-manager-head-note-text]").click();
+    await page.keyboard.type("Check the merges tonight");
+    await page.locator("[data-manager-head-note]").click();
+    await page.waitForTimeout(300);
+    check("40: the head's ⋯ saves a note for the coordinator", posts.some((x) => x.kind === "note" && x.target === C8.id && x.text === "Check the merges tonight"));
+    await page.locator("[data-manager-fold-all]").click();
+    await page.waitForTimeout(200);
+    const foldedAll = await page.evaluate((c) => [...document.querySelectorAll(`[data-manager-column="${c}"] [data-manager-pane]`)].map((x) => x.getAttribute("data-open")).join(""), C8.id);
+    await page.locator("[data-manager-open-all]").click();
+    await page.waitForTimeout(200);
+    const opened2 = await page.evaluate((c) => [...document.querySelectorAll(`[data-manager-column="${c}"] [data-manager-pane]`)].map((x) => x.getAttribute("data-open")).join(""), C8.id);
+    check("40: Fold every chat and Open every chat", /^0+$/.test(foldedAll) && /^1+$/.test(opened2), `${foldedAll} ${opened2}`);
+    await page.locator(`[data-manager-head-more="${C8.id}"]`).click();
+    check("40: the turns ring on a pane", (await page.locator(`${pane(STAGE.id)} [data-manager-turns-ring="1"]`).count()) === 1);
+    await page.locator(`${pane(STAGE.id)} [data-manager-say]`).click();
+    await page.keyboard.type("Keep the side panel slim");
+    await page.locator(`${pane(STAGE.id)} [data-manager-say-more]`).click();
+    await page.locator(`${pane(STAGE.id)} [data-manager-say-as="note"]`).click();
+    await page.waitForTimeout(300);
+    await page.locator(`${pane(STAGE.id)} [data-manager-say]`).click();
+    await page.keyboard.type("A chat for the dock");
+    if (!(await page.locator(`${pane(STAGE.id)} [data-manager-say-menu]`).count())) await page.locator(`${pane(STAGE.id)} [data-manager-say-more]`).click();
+    await page.locator(`${pane(STAGE.id)} [data-manager-say-as="new-chat"]`).click();
+    await page.waitForTimeout(300);
+    check("40: the pane line's ⋯ saves the words as a note or a new chat for that chat", posts.some((x) => x.kind === "note" && x.target === STAGE.id && x.text === "Keep the side panel slim") && posts.some((x) => x.kind === "new-chat" && x.target === STAGE.id && x.text === "A chat for the dock"));
+    await page.locator(`${pane(OLDASK.id)} [data-manager-say]`).click();
+    await page.keyboard.type("Fine as it is");
+    await page.locator(`${pane(OLDASK.id)} [data-manager-say-more]`).click();
+    await page.locator(`${pane(OLDASK.id)} [data-manager-say-as="answer"]`).click();
+    await page.waitForTimeout(300);
+    check("40: and Answer answers the pane's open question", posts.some((x) => x.path === "/lanes/answer" && x.id === "q-carried" && x.answer === "Fine as it is"));
+    const order0 = await page.locator(`[data-manager-head="${C8.id}"] [data-manager-head-blocks]`).getAttribute("data-manager-head-blocks");
+    await page.locator(`[data-manager-head="${C8.id}"] [data-manager-block-up="latest"]`).click();
+    await page.waitForTimeout(200);
+    const order1 = await page.locator(`[data-manager-head="${C8.id}"] [data-manager-head-blocks]`).getAttribute("data-manager-head-blocks");
+    await page.locator("[data-manager-to-dock]").click();
+    await page.locator("[data-agents-manager-open]").click();
+    await page.waitForSelector("[data-manager-head-blocks]", { timeout: 10000 }).catch(() => {});
+    const order2 = await page.locator(`[data-manager-head="${C8.id}"] [data-manager-head-blocks]`).getAttribute("data-manager-head-blocks").catch(() => "");
+    check("10/41: the head's details are blocks J moves (▲ ▼ or drag); the order stays when the manager opens again", order0 === "doing,latest,model" && order1 === "latest,doing,model" && order2 === "latest,doing,model", `${order0} -> ${order1} -> ${order2}`);
 
     /* Narrow: a long model chip ("→ … asked") and every pane wrap inside their pane; the columns and the rail never overlap. */
     await page.locator(`${pane(STAGE.id)} [data-manager-chip-open]`).click();
