@@ -48,7 +48,7 @@ import {
 import {
   EFFORTS, KIND_WORD, MODELS, PANE_BLOCK, RING, asksOf, chipWords, columnCost, columnWidth, columnsOf, costOf, cpuWords, cubeOf, cutAt, hasPictures, memWords, modelOf, pillShare, shareLines,
   slideAcross, slidesOf, stepSlide, turnsOf, unowned, upWords,
-  SAY_WHEN, areaColour, areaOf, areasIn, coordLabel, countWords, currentOf, labelOf, labelParts, layoutOf, newestFirst, nucleusChats, questionGroups, ringSlots,
+  SAY_WHEN, LEGEND, areaColour, areaOf, areasIn, coordLabel, currentOf, endWords, labelOf, labelParts, layoutOf, newestFirst, nucleusChats, paneCount, questionGroups, ringSlots, withoutDeleted,
   type Column, type CostKind, type OwnerCost, type PcCost, type QuestionGroups, type SayKind, type Slide,
 } from "./manager";
 
@@ -58,7 +58,7 @@ const EDGE = "0 1px 2px rgba(0,0,0,.95), 0 0 3px rgba(0,0,0,.7)";
 const RED = STATE_COLOUR.need;
 const GONE_KEY = "polio.manager.gone", MODEL_KEY = "polio.manager.models", OPEN_KEY = "polio.manager.open";
 /** BAM: the questions J has opened here (what "new since you last looked" is measured from), and what J typed in the terminal. */
-const SEEN_KEY = "polio.manager.seen", SAID_KEY = "polio.manager.said";
+const SEEN_KEY = "polio.manager.seen", SAID_KEY = "polio.manager.said", DELETED_KEY = "polio.manager.deleted";
 const LIVE_BUILDER = "https://polio-two.vercel.app";
 
 const kept = <T,>(key: string, fallback: T): T => { try { const v = JSON.parse(localStorage.getItem(key) ?? "null"); return v && typeof v === "object" ? (v as T) : fallback; } catch { return fallback; } };
@@ -169,16 +169,28 @@ function Shares({ cost, show, of, priv }: { cost: OwnerCost; show: CostKind | "a
  * One question button with its count (BAM mark 11, the console's marks 18 and 19): never a row of "!n" pills. On a
  * head it opens every open question of the column, grouped; on a pane, that chat's newest question.
  */
-function QuestionsButton({ count, words, label, big, onOpen }: { count: number; words: string; label: string; big?: boolean; onOpen: () => void }) {
-  if (!count) return null;
+function QuestionsButton({ count, total, words, label, big, onOpen }: { count: number; total?: number; words: string; label: string; big?: boolean; onOpen: () => void }) {
+  /* Mark 41: the count is the panes' questions; the button stays whenever the column has any, so its list is always one press away. */
+  if (!count && !total) return null;
   return (
     <button type="button" data-manager-questions={count} title={`${count} ${count === 1 ? "question" : "questions"} for ${label}${words ? `: ${words}` : ""}`} aria-label={`${count} ${count === 1 ? "question" : "questions"} for ${label}${words ? `: ${words}` : ""}`}
       onClick={(e) => { e.stopPropagation(); onOpen(); }}
       className="inline-flex shrink-0 items-center gap-1 font-black" style={{ height: big ? 26 : 22, padding: big ? "0 10px" : "0 8px", borderRadius: 999, background: RED, color: "#fff", border: "1.5px solid #fff", fontSize: big ? 13 : 11.5, textShadow: "none", boxShadow: "0 0 8px rgba(255,77,77,.7)" }}>
-      <span aria-hidden>?</span>{count}{big && words ? <span data-manager-questions-words="" style={{ fontWeight: 700, fontSize: 10.5, opacity: 0.92 }}>· {words}</span> : null}
+      <span aria-hidden>?</span>{count || "All"}{big && words ? <span data-manager-questions-words="" style={{ fontWeight: 700, fontSize: 10.5, opacity: 0.92 }}>· {words}</span> : null}
     </button>
   );
 }
+/** Mark 42: Delete on a question or a picture round: it leaves the view at once; the coordinator closes it with a backup. */
+function DeleteButton({ id, what, onDelete }: { id: string; what: string; onDelete: (id: string) => void }) {
+  return (
+    <button type="button" data-manager-delete={id} title={`Delete this ${what}: it goes from here at once; the coordinator closes it, with a backup`} aria-label={`Delete this ${what}`}
+      onClick={(e) => { e.stopPropagation(); onDelete(id); }}
+      className="inline-flex shrink-0 items-center justify-center rounded font-black" style={{ height: 22, padding: "0 7px", fontSize: 11, color: "#ffd0d0", background: "rgba(0,0,0,.4)", border: "1px solid rgba(255,140,140,.6)", textShadow: "none" }}>
+      ✕ Delete
+    </button>
+  );
+}
+
 /** Mark 26: an emoji never disappears into its pane: a light chip behind it, one step larger than the words. */
 function Emoji({ e, size }: { e: string; size: number }) {
   if (!e) return null;
@@ -245,13 +257,14 @@ type PaneProps = {
   qOpen?: string | null; nudge?: number; width?: number;
   onFlip: () => void; onPoint: (id: string | null) => void; onAsk: (id: string) => void; onCube: () => void; onArchive: () => void; onModel: (model: string, effort: string) => Promise<string>;
   onFold?: () => void; onAnswered?: (d: Decision) => void; onSay?: (words: string) => Promise<string>; onSlides?: (id: string) => void;
+  onDelete?: (id: string) => void; onEnd?: () => void; pcKnown?: boolean;
 };
 /**
  * One chat, compact (rules §4): the head row, two lines of words, the bar.
  * A closed pane is the head row alone. Its ring is its state's colour, its
  * fill its state's design block.
  */
-function Pane({ chat, asks, cube, cost, heaviest, now, priv, at, open, shown, pinned, peek, asked, qOpen = null, nudge = 0, width = 300, onFlip, onPoint, onAsk, onCube, onArchive, onModel, onFold, onAnswered, onSay, onSlides }: PaneProps) {
+function Pane({ chat, asks, cube, cost, heaviest, now, priv, at, open, shown, pinned, peek, asked, qOpen = null, nudge = 0, width = 300, onFlip, onPoint, onAsk, onCube, onArchive, onModel, onFold, onAnswered, onSay, onSlides, onDelete, onEnd, pcKnown = false }: PaneProps) {
   const [past, setPast] = React.useState(false);
   const [shares, setShares] = React.useState<CostKind | "all" | null>(null);
   const [more, setMore] = React.useState(false);
@@ -293,7 +306,10 @@ function Pane({ chat, asks, cube, cost, heaviest, now, priv, at, open, shown, pi
           <b data-manager-name="" className="min-w-0" style={{ fontSize: 14, color: "#fff", overflowWrap: "anywhere" }}><NameLabel x={chat} size={14} /></b>
           <span data-manager-dot={chat.state} role="img" aria-label={STATE_WORD[chat.state]} title={STATE_WORD[chat.state]} className="inline-block size-3 shrink-0 rounded-full" style={{ background: colour, border: "1.5px solid rgba(255,255,255,.85)", boxShadow: `0 0 7px ${colour}` }} />
           <AreaTag x={chat} />
-          {cost ? <Cost cost={cost} heaviest={heaviest} now={now} priv={priv} onShares={setShares} /> : null}
+          {cost ? <Cost cost={cost} heaviest={heaviest} now={now} priv={priv} onShares={setShares} /> : (
+            /* Mark 41: the memory pill always shows, saying when there is nothing to show. */
+            <span data-manager-pill="" data-empty="1" title={pcKnown ? "Nothing of this chat runs on your PC now" : "PC cost shows once the Helper on your PC is on and updated"} className="inline-flex shrink-0 items-center justify-center font-bold" style={{ width: 84, height: 16, borderRadius: 999, background: "#d9dbe2", color: "#5b6070", textShadow: "none", fontSize: 9.5 }}>{pcKnown ? "0 MB" : "memory ?"}</span>
+          )}
           <QuestionsButton count={asks.length} words="" label={labelOf(chat)} onOpen={() => { if (q) onFold?.(); else if (newest) onAsk(newest.id); }} />
           <CubeButton count={cube} label={chat.name} onOpen={onCube} />
         </span>
@@ -316,7 +332,7 @@ function Pane({ chat, asks, cube, cost, heaviest, now, priv, at, open, shown, pi
           {q ? (
             <div data-manager-pane-question={q.id} data-in-place="1" onClick={(e) => e.stopPropagation()} style={{ background: "rgba(0,0,0,.34)", borderRadius: 8, padding: "8px 9px", borderLeft: `3px solid ${RED}` }}>
               <QuestionPage key={q.id} d={q} at={list.indexOf(q)} of={list.length} label={chat.code || chat.name} who={labelOf(chat)} now={now} width={width} back="▴ Fold"
-                onBack={() => onFold?.()} onStep={(by) => { const n = list[list.indexOf(q) + by]; if (n) onAsk(n.id); }} onAnswered={(d) => onAnswered?.(d)} onSlides={onSlides ? () => onSlides(q.id) : undefined} />
+                onBack={() => onFold?.()} onStep={(by) => { const n = list[list.indexOf(q) + by]; if (n) onAsk(n.id); }} onAnswered={(d) => onAnswered?.(d)} onSlides={onSlides ? () => onSlides(q.id) : undefined} onDelete={onDelete} />
             </div>
           ) : newest ? (
             <button type="button" data-manager-pane-question={newest.id} title="Open this question here" onClick={(e) => { e.stopPropagation(); onAsk(newest.id); }}
@@ -343,6 +359,9 @@ function Pane({ chat, asks, cube, cost, heaviest, now, priv, at, open, shown, pi
               <Archive style={{ width: 11, height: 11 }} />
             </button>
             {link ? <a data-manager-open-chat="" href={link} title="Open this chat in the desktop app" className="shrink-0 underline" style={{ fontSize: 10.5, color: "#9fe3ff" }}>Open</a> : null}
+            {/* Mark 43: End this chat: its orb leaves the ring at once; the coordinator stops or retires it. */}
+            {onEnd ? <button type="button" data-manager-end={chat.id} title="End this chat: it leaves the ring at once (to the archive, not erased); the coordinator stops or retires it" onClick={(e) => { e.stopPropagation(); onEnd(); }}
+              className="shrink-0 rounded font-bold" style={{ height: 18, padding: "0 6px", fontSize: 10.5, color: "#ffd0d0", background: "rgba(0,0,0,.35)", border: "1px solid rgba(255,140,140,.55)" }}>End</button> : null}
           </div>
           {/* Mark 27: the chat's previous messages, above its line once J presses the line. */}
           {past && earlier.length ? (
@@ -377,7 +396,7 @@ function Pane({ chat, asks, cube, cost, heaviest, now, priv, at, open, shown, pi
 }
 
 /** A question whole, over its coordinator's column (rules §5): everything needed to answer, every Choose showing. */
-function QuestionPage({ d, at, of, label, who, now, width, back = "◂ Back to the chats", onBack, onStep, onAnswered, onSlides }: { d: Decision; at: number; of: number; label: string; who: string; now: number; width: number; back?: string; onBack: () => void; onStep: (by: number) => void; onAnswered: (d: Decision) => void; onSlides?: () => void }) {
+function QuestionPage({ d, at, of, label, who, now, width, back = "◂ Back to the chats", onBack, onStep, onAnswered, onSlides, onDelete }: { d: Decision; at: number; of: number; label: string; who: string; now: number; width: number; back?: string; onBack: () => void; onStep: (by: number) => void; onAnswered: (d: Decision) => void; onSlides?: () => void; onDelete?: (id: string) => void }) {
   const [busy, setBusy] = React.useState(false);
   const [said, setSaid] = React.useState("");
   const [text, setText] = React.useState("");
@@ -409,6 +428,7 @@ function QuestionPage({ d, at, of, label, who, now, width, back = "◂ Back to t
         <button type="button" data-manager-back="" style={small} onClick={onBack}>{back}</button>
         <span data-manager-question-at="" style={{ color: SOFT }}>Question {at + 1} of {of}{label ? ` · ${label}` : ""}</span>
         <span className="ml-auto flex gap-1">
+          {onDelete ? <DeleteButton id={d.id} what="question" onDelete={onDelete} /> : null}
           <button type="button" data-manager-prev="" disabled={at <= 0} style={{ ...small, opacity: at <= 0 ? 0.4 : 1 }} onClick={() => onStep(-1)}>◀ Prev</button>
           <button type="button" data-manager-next="" disabled={at >= of - 1} style={{ ...small, opacity: at >= of - 1 ? 0.4 : 1 }} onClick={() => onStep(1)}>Next ▶</button>
         </span>
@@ -447,7 +467,7 @@ function QuestionPage({ d, at, of, label, who, now, width, back = "◂ Back to t
 }
 
 /** The cube opened over the column: the things to look at, and the picture rounds (which open as slides). */
-function CubePage({ feed, chat, base, onBack, onSlide, onCheck }: { feed: LanesFeed; chat: LaneChat; base: string; onBack: () => void; onSlide: (id: string) => void; onCheck: (id: string) => Promise<string> }) {
+function CubePage({ feed, chat, base, onBack, onSlide, onCheck, onChoose, onDelete }: { feed: LanesFeed; chat: LaneChat; base: string; onBack: () => void; onSlide: (id: string) => void; onCheck: (id: string) => Promise<string>; onChoose: (roundId: string, key: string) => Promise<string>; onDelete: (id: string) => void }) {
   const { checks, rounds } = cubeOf(feed, chat);
   const [said, setSaid] = React.useState<Record<string, string>>({});
   const small: React.CSSProperties = { height: 26, padding: "0 10px", borderRadius: 8, fontSize: 11.5, fontWeight: 700, color: INK, background: "rgba(255,255,255,.14)", border: "1px solid rgba(255,255,255,.3)" };
@@ -462,11 +482,26 @@ function CubePage({ feed, chat, base, onBack, onSlide, onCheck }: { feed: LanesF
           {said[c.id] ? <span role="status" style={{ fontSize: 11, color: SOFT }}>{said[c.id]}</span> : null}
         </Block>
       ))}
+      {/* Mark 45: a pressed cube is one wide column: each round's words and choices on the left, its pictures on the right half. */}
       {rounds.map((r, i) => (
-        <Block key={r.id} kind="azure" seed={r.id} at={i} data-manager-round={r.id} className="flex flex-col gap-1.5 rounded-lg" style={{ padding: "11px 13px 11px" }}>
-          <span style={{ fontSize: 12.5, fontWeight: 700 }}>{r.title}</span>
-          <span className="flex gap-1.5">{r.options.slice(0, 4).map((o) => pictureKind(o.picture) === "image" ? <img key={o.key} src={pictureUrl(base, o.picture)} alt={o.label} loading="lazy" draggable={false} style={{ width: 84, height: 56, objectFit: "cover", borderRadius: 4, background: "#000" }} /> : <span key={o.key} className="grid place-items-center rounded" style={{ width: 84, height: 56, background: "rgba(0,0,0,.5)", fontSize: 10 }}>{o.label}</span>)}</span>
-          <button type="button" data-manager-open-slides={r.id} className="self-start rounded-md font-black" style={{ padding: "3px 12px", fontSize: 12, color: "#04121c", background: "#fff", textShadow: "none" }} onClick={() => onSlide(r.id)}>Compare across the screen</button>
+        <Block key={r.id} kind="azure" seed={r.id} at={i} data-manager-round={r.id} className="grid gap-3 rounded-lg" style={{ padding: "11px 13px 11px", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)" }}>
+          <div data-manager-round-words="" className="flex min-w-0 flex-col gap-1.5">
+            <span className="flex items-start gap-2"><span className="min-w-0 flex-1" style={{ fontSize: 13, fontWeight: 700 }}>{r.title}</span><DeleteButton id={r.id} what="picture round" onDelete={onDelete} /></span>
+            {r.options.map((o) => (
+              <span key={o.key} className="flex items-center gap-2" style={{ fontSize: 12 }}>
+                <b>{o.key.toUpperCase()}</b><span className="min-w-0 flex-1">{o.label}{r.pick === o.key ? <span className="ml-1 rounded-full px-1.5 font-bold" style={{ fontSize: 10, color: "#04140b", background: STATE_COLOUR.done, textShadow: "none" }}>pick</span> : null}</span>
+                <button type="button" data-manager-round-choose={o.key} className="shrink-0 rounded-md font-black" style={{ padding: "2px 10px", fontSize: 11.5, color: "#04121c", background: "#fff", textShadow: "none" }}
+                  onClick={() => void onChoose(r.id, o.key).then((x) => setSaid((m) => ({ ...m, [r.id]: x || "Chosen: saved for the coordinator." })))}>Choose</button>
+              </span>
+            ))}
+            <button type="button" data-manager-open-slides={r.id} className="self-start rounded-md font-bold underline" style={{ fontSize: 11.5, color: "#9fe3ff" }} onClick={() => onSlide(r.id)}>Across the whole screen</button>
+            {said[r.id] ? <span role="status" style={{ fontSize: 11, color: SOFT }}>{said[r.id]}</span> : null}
+          </div>
+          <div data-manager-round-pictures="" className="flex min-w-0 flex-col gap-1.5">
+            {r.options.map((o) => pictureKind(o.picture) === "image"
+              ? <figure key={o.key} className="m-0"><img src={pictureUrl(base, o.picture)} alt={o.label} loading="lazy" draggable={false} style={{ display: "block", width: "100%", aspectRatio: "3 / 2", objectFit: "contain", borderRadius: 4, background: "#000" }} /><figcaption style={{ fontSize: 10.5, color: SOFT }}>{o.key.toUpperCase()} · {o.label}</figcaption></figure>
+              : <span key={o.key} className="grid place-items-center rounded" style={{ aspectRatio: "3 / 2", background: "rgba(0,0,0,.5)", fontSize: 11 }}>{o.label}</span>)}
+          </div>
         </Block>
       ))}
       {!checks.length && !rounds.length ? <p className="m-0" style={{ fontSize: 12, color: SOFT }}>Nothing left to look at here.</p> : null}
@@ -479,7 +514,7 @@ function CubePage({ feed, chat, base, onBack, onSlide, onCheck }: { feed: LanesF
  * and down: the buttons, the arrow keys, and the wheel once the slide itself
  * has no further to scroll. Each option as large as fits, its Choose showing.
  */
-function Slides({ slides, at, base, onStep, onBack, onChoose }: { slides: Slide[]; at: number; base: string; onStep: (by: number) => void; onBack: () => void; onChoose: (s: Slide, key: string) => Promise<string> }) {
+function Slides({ slides, at, base, onStep, onBack, onChoose, onDelete }: { slides: Slide[]; at: number; base: string; onStep: (by: number) => void; onBack: () => void; onChoose: (s: Slide, key: string) => Promise<string>; onDelete: (id: string) => void }) {
   const [box, width] = useWidth<HTMLDivElement>();
   const [said, setSaid] = React.useState("");
   const s = slides[at];
@@ -513,6 +548,7 @@ function Slides({ slides, at, base, onStep, onBack, onChoose }: { slides: Slide[
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" data-manager-slides-back="" style={small} onClick={onBack}>◂ Back to the columns</button>
         <h3 data-manager-slide={s.id} className="m-0 min-w-0 flex-1 font-bold" style={{ fontSize: 17, color: "#fff" }}>{s.title}</h3>
+        <DeleteButton id={s.id} what={s.kind === "round" ? "picture round" : "question"} onDelete={onDelete} />
         <span data-manager-slide-count="" style={{ fontSize: 12, color: SOFT }}>{s.who} · picture round {at + 1} of {slides.length}</span>
         <button type="button" data-manager-slide-step="up" disabled={at <= 0} style={{ ...small, opacity: at <= 0 ? 0.4 : 1 }} onClick={() => onStep(-1)}>▲ Previous</button>
         <button type="button" data-manager-slide-step="down" disabled={at >= slides.length - 1} style={{ ...small, opacity: at >= slides.length - 1 ? 0.4 : 1 }} onClick={() => onStep(1)}>▼ Next</button>
@@ -543,14 +579,14 @@ function Slides({ slides, at, base, onStep, onBack, onChoose }: { slides: Slide[
  * Every open question of a column, from its head's one button (BAM mark 11, the console's mark 19): new since J
  * last looked, then by chat, then older ones carried over; newest first in each, each with its age and who asked.
  */
-function AllQuestions({ feed, groups, label, now, onBack, onOpen }: { feed: LanesFeed; groups: QuestionGroups; label: string; now: number; onBack: () => void; onOpen: (d: Decision, list: Decision[]) => void }) {
+function AllQuestions({ feed, groups, label, now, onBack, onOpen, onDelete }: { feed: LanesFeed; groups: QuestionGroups; label: string; now: number; onBack: () => void; onOpen: (d: Decision, list: Decision[]) => void; onDelete: (id: string) => void }) {
   const small: React.CSSProperties = { height: 26, padding: "0 10px", borderRadius: 8, fontSize: 11.5, fontWeight: 700, color: INK, background: "rgba(255,255,255,.14)", border: "1px solid rgba(255,255,255,.3)" };
   const all = [...groups.fresh, ...groups.byChat.flatMap((g) => g.list), ...groups.older];
   const row = (d: Decision, list: Decision[], isNew: boolean) => {
     const x = chatsAbout(feed, d.about)[0];
     return (
-      <li key={d.id}>
-        <button type="button" data-manager-all-row={d.id} onClick={() => onOpen(d, list)} className="flex w-full flex-col gap-0.5 rounded-lg text-left" style={{ padding: "7px 10px", background: "rgba(0,0,0,.35)", border: "1px solid rgba(255,255,255,.16)", color: INK }}>
+      <li key={d.id} className="flex items-start gap-1">
+        <button type="button" data-manager-all-row={d.id} onClick={() => onOpen(d, list)} className="flex min-w-0 flex-1 flex-col gap-0.5 rounded-lg text-left" style={{ padding: "7px 10px", background: "rgba(0,0,0,.35)", border: "1px solid rgba(255,255,255,.16)", color: INK }}>
           <span className="flex flex-wrap items-baseline gap-x-2" style={{ fontSize: 10.5, color: SOFT }}>
             {isNew ? <b data-manager-new="" style={{ color: "#04140b", background: STATE_COLOUR.done, borderRadius: 999, padding: "0 6px", textShadow: "none" }}>new</b> : null}
             <span>{x ? labelOf(x) : d.askedBy || "the coordinator"}</span>
@@ -559,6 +595,7 @@ function AllQuestions({ feed, groups, label, now, onBack, onOpen }: { feed: Lane
           </span>
           <span style={{ fontSize: 12.5, lineHeight: 1.3, fontWeight: 700, color: "#fff", overflowWrap: "anywhere" }}>{d.question}</span>
         </button>
+        <DeleteButton id={d.id} what="question" onDelete={onDelete} />
       </li>
     );
   };
@@ -661,6 +698,62 @@ function Terminal({ coord, name: named, question, qLabel, priv, now, onAnswered 
   );
 }
 
+/**
+ * Mark 45: New coordinator, open under the terminal (the console's own box): its brief, Fresh or Carry, the model, and
+ * one press that saves `{kind: "new-coordinator", mode, text, model, effort}` for the coordinator to start it.
+ */
+function NewCoordinator() {
+  const [text, setText] = React.useState("");
+  const [mode, setMode] = React.useState<"fresh" | "carry">("carry");
+  const [model, setModel] = React.useState<string>("Opus 5.5");
+  const [effort, setEffort] = React.useState<string>("medium");
+  const [says, setSays] = React.useState("");
+  const pick = (on: boolean): React.CSSProperties => ({ height: 20, padding: "0 7px", borderRadius: 999, fontSize: 10.5, fontWeight: 700, color: on ? "#04121c" : INK, background: on ? "#9fe3ff" : "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.3)" });
+  const start = async () => {
+    const r = await post(`${HELPER_ORIGIN}/lanes/press`, { kind: "new-coordinator", target: "new", mode, text: text.trim(), model, effort }, true);
+    setSays(r.ok ? "Saved: the coordinator starts the new one on its next turn." : r.says);
+    if (r.ok) setText("");
+  };
+  return (
+    <section data-manager-new-coord="" className="flex shrink-0 flex-col gap-1.5 rounded-xl p-2" style={{ background: "rgba(3,2,8,.86)", border: "1px solid rgba(159,227,255,.25)", fontSize: 11 }}>
+      <b style={{ color: "#fff", fontSize: 11.5 }}>New coordinator</b>
+      <textarea data-manager-new-coord-text="" aria-label="The new coordinator's brief (optional)" rows={2} value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.stopPropagation()} onKeyUp={(e) => e.stopPropagation()}
+        className="resize-none" style={{ boxSizing: "border-box", padding: "4px 7px", borderRadius: 6, border: "1px solid rgba(255,255,255,.22)", background: "#000", color: "#fff", font: `11.5px ${mono}` }} />
+      <span className="flex flex-wrap items-center gap-1">
+        {(["fresh", "carry"] as const).map((m) => <button key={m} type="button" data-manager-new-coord-mode={m} aria-pressed={mode === m} style={pick(mode === m)} onClick={() => setMode(m)}>{m === "fresh" ? "Fresh" : "Carry"}</button>)}
+        <span style={{ color: DIM }}>·</span>
+        {MODELS.map((m) => <button key={m} type="button" data-manager-new-coord-model={m} aria-pressed={model === m} style={pick(model === m)} onClick={() => setModel(m)}>{m}</button>)}
+        <span style={{ color: DIM }}>·</span>
+        {(["medium", "high"] as const).map((e) => <button key={e} type="button" data-manager-new-coord-effort={e} aria-pressed={effort === e} style={pick(effort === e)} onClick={() => setEffort(e)}>{e}</button>)}
+        <button type="button" data-manager-new-coord-start="" className="ml-auto rounded-md font-black" style={{ height: 22, padding: "0 10px", fontSize: 11, color: "#04121c", background: "#fff" }} onClick={() => void start()}>Start a coordinator</button>
+      </span>
+      {says ? <span data-manager-new-coord-says="" role="status" style={{ color: says.startsWith("Saved") ? DIM : "#ffc9c9" }}>{says}</span> : null}
+    </section>
+  );
+}
+
+/** Mark 38: the chat under the pointer (or pressed) on the ring, named, with End (mark 43); and the legend under the ring. */
+function OrbCard({ chat, ring, onEnd }: { chat: LaneChat | null; ring: { label: string; count: number } | null; onEnd: (x: LaneChat) => void }) {
+  return (
+    <div className="pointer-events-none absolute bottom-2 left-2 z-20 flex max-w-[70%] flex-col gap-1">
+      {chat ? (
+        <div data-manager-orb-card={chat.id} className="pointer-events-auto flex flex-wrap items-center gap-1.5 rounded-lg px-2 py-1" style={{ background: "rgba(8,4,16,.9)", border: `1px solid ${STATE_COLOUR[chat.state]}`, fontSize: 11.5 }}>
+          <b style={{ color: "#fff" }}><NameLabel x={chat} size={11.5} /></b>
+          <span style={{ color: STATE_COLOUR[chat.state] }}>· {chat.state === "need" ? "waiting for you" : STATE_WORD[chat.state]}</span>
+          <button type="button" data-manager-orb-end={chat.id} className="rounded font-bold" style={{ height: 18, padding: "0 6px", fontSize: 10.5, color: "#ffd0d0", background: "rgba(0,0,0,.35)", border: "1px solid rgba(255,140,140,.55)" }} onClick={() => onEnd(chat)}>End</button>
+        </div>
+      ) : ring ? (
+        <div data-manager-orb-card="ring" className="rounded-lg px-2 py-1" style={{ background: "rgba(8,4,16,.9)", border: "1px solid rgba(255,255,255,.3)", fontSize: 11.5, color: "#fff" }}>
+          <b>{ring.label}</b> <span style={{ color: SOFT }}>· the coordinator: this ring{ring.count ? ` · ${ring.count} ${ring.count === 1 ? "question" : "questions"}` : ""}</span>
+        </div>
+      ) : null}
+      <div data-manager-legend="" className="flex flex-wrap gap-2 rounded-lg px-2 py-0.5" style={{ background: "rgba(8,4,16,.7)", fontSize: 10.5, color: SOFT }}>
+        {LEGEND.map((l) => <span key={l.state} data-manager-legend-item={l.state} className="inline-flex items-center gap-1"><span aria-hidden className="inline-block size-2 rounded-full" style={{ background: STATE_COLOUR[l.state] }} />{l.words}</span>)}
+      </div>
+    </div>
+  );
+}
+
 /** The archived chats behind the nucleus (mark 16): loaded only when J presses the sun, newest first. */
 function NucleusList({ chats, now, onClose, onPutBack }: { chats: LaneChat[]; now: number; onClose: () => void; onPutBack: (x: LaneChat) => void }) {
   return (
@@ -716,9 +809,18 @@ export function AgentsManager() {
   const [focusQ, setFocusQ] = React.useState<string | null>(null);
   /* Mark 25: the area each column shows ("" for all). */
   const [areaPick, setAreaPick] = React.useState<Record<string, string>>({});
+  /* Mark 42: what J deleted here, gone from view until the feed drops it too. */
+  const [deleted, setDeleted] = React.useState<Record<string, boolean>>(() => kept(DELETED_KEY, {}));
+  /* Mark 44: the chat waiting for a second press before it is ended. */
+  const [ending, setEnding] = React.useState<LaneChat | null>(null);
   const markSeen = React.useCallback((id: string) => setSeenIds((x) => { if (x.has(id)) return x; const n = new Set(x); n.add(id); keep(SEEN_KEY, [...n].slice(-400)); return n; }), []);
 
-  const feed = React.useMemo(() => (read ? veilFeed(read, priv, badgeOf) : null), [read, priv]);
+  const feed = React.useMemo(() => withoutDeleted(read ? veilFeed(read, priv, badgeOf) : null, deleted), [read, priv, deleted]);
+  React.useEffect(() => {
+    if (!read) return;
+    const there = new Set([...read.questions.map((d) => d.id), ...(read.rounds ?? []).map((r) => r.id)]);
+    setDeleted((m) => { const n = Object.fromEntries(Object.entries(m).filter(([id]) => there.has(id))); if (Object.keys(n).length === Object.keys(m).length) return m; keep(DELETED_KEY, n); return n; });
+  }, [read]);
   /* What this browser archived or put back holds until the feed says the same. */
   React.useEffect(() => {
     if (!read) return;
@@ -737,10 +839,11 @@ export function AgentsManager() {
 
   /* The board beside the columns: a ring per column, in its colour; the retired coordinators by the sun. */
   const beside = React.useMemo(() => {
-    if (!feed) return { feed: null as LanesFeed | null, colours: {}, names: {}, slots: new Map<string, number>() };
+    if (!feed) return { feed: null as LanesFeed | null, colours: {}, names: {}, counts: {} as Record<string, number>, slots: new Map<string, number>() };
     /* Mark 16: the chats in the nucleus are off the rings; mark 18: the rest each have their own place by when they began. */
     const away = new Set(inNucleus.map((x) => x.id));
-    const rings: LaneCoordinator[] = cols.map((c) => ({ id: c.id, name: c.name, retired: false, chats: [...(c.coord ? [c.coord] : []), ...c.panes, ...c.foot].filter((x) => !away.has(x.id)) }));
+    /* Mark 36: the ring IS the coordinator: its own orb is not on it. */
+    const rings: LaneCoordinator[] = cols.map((c) => ({ id: c.id, name: c.name, retired: false, chats: [...c.panes, ...c.foot].filter((x) => !away.has(x.id)) }));
     const slots = new Map<string, number>();
     for (const r of rings) for (const [id, f] of ringSlots(r.chats.filter((x) => x.state !== "done"))) slots.set(id, f);
     const now0 = currentOf(cols);
@@ -749,6 +852,7 @@ export function AgentsManager() {
       feed: { ...feed, coordinators: [...rings, ...old] },
       colours: Object.fromEntries(cols.map((c) => [c.id, [c.colours.outer, c.colours.inner] as [string, string]])),
       names: Object.fromEntries(cols.map((c) => [c.id, coordLabel(c)])),
+      counts: Object.fromEntries(cols.map((c) => [c.id, paneCount(feed, c)])),
       slots,
     };
   }, [feed, cols, inNucleus]);
@@ -838,6 +942,23 @@ export function AgentsManager() {
   const allOpen = cols.flatMap((c) => c.questions);
   const openQ = (opened?.kind === "question" ? allOpen.find((d) => d.id === opened.id) : focusQ ? allOpen.find((d) => d.id === focusQ) : undefined) ?? null;
   const qLabel = opened?.kind === "question" ? opened.label : openQ && feed ? (chatsAbout(feed, openQ.about)[0]?.code ?? "") : "";
+  /* Mark 42: Delete a question or a round: gone from view at once, a press for the coordinator. */
+  const deleteItem = (id: string) => {
+    setDeleted((m) => { const n = { ...m, [id]: true }; keep(DELETED_KEY, n); return n; });
+    if (opened?.kind === "question" && opened.id === id) setOpened(null);
+    if (focusQ === id) setFocusQ(null);
+    setSlideAt((a) => (a === null ? a : slides.filter((x) => x.id !== id).length ? Math.min(a, slides.filter((x) => x.id !== id).length - 1) : null));
+    void post(`${HELPER_ORIGIN}/lanes/press`, { kind: "delete", target: id }, true).then((r) => setSaid(r.ok ? "Deleted here; the coordinator closes it in the feed, with a backup." : `Gone from here only. ${r.says}`));
+  };
+  /* Mark 43: End a chat: off the ring and the column at once (to the archive), a press for the coordinator; mark 44: ask first while it works. */
+  const endChat = (x: LaneChat, sure = false) => {
+    if (!sure && endWords(x)) { setEnding(x); return; }
+    setEnding(null);
+    setGone((g) => { const n = { ...g, [x.id]: true }; keep(GONE_KEY, n); return n; });
+    if (pin === x.id) setPin(null);
+    void post(`${HELPER_ORIGIN}/lanes/press`, { kind: "end", target: x.id }, true).then((r) => setSaid(r.ok ? `Ended ${labelOf(x)}: off the ring now; its open questions stay with the coordinator.` : `Off this screen only. ${r.says}`));
+  };
+  const continueIn = async (d: Decision): Promise<string> => { const r = await post(`${HELPER_ORIGIN}/lanes/press`, { kind: "continue", target: d.id, text: "" }, true); return r.ok ? "Saved: the coordinator starts a chat to carry it on." : r.says; };
   const sayTo = async (x: LaneChat, words: string): Promise<string> => { const r = await post(`${HELPER_ORIGIN}/lanes/press`, { kind: "say", target: x.id, text: words }, true); return r.ok ? "" : r.says; };
   const loose = unowned(pc, cols);
   const flip = (x: LaneChat, was: boolean) => setFlipped((f) => { const n = { ...f, [x.id]: !was }; keep(OPEN_KEY, n); return n; });
@@ -876,16 +997,20 @@ export function AgentsManager() {
           const coordTurns = turnsOf(col.coord);
           const coordAge = col.coord ? ageOf(col.coord.lastSeen || col.coord.sentAt, now) : "";
           const peek = [pin, point].map((id) => (id ? col.foot.find((x) => x.id === id) : undefined)).find(Boolean);
-          const foot = footOpen[col.id] ?? false;
+          const foot = footOpen[col.id] ?? true;
           const ages = col.foot.map((x) => ageOf(x.lastSeen || x.sentAt, now)).filter(Boolean);
           const groups = feed ? questionGroups(feed, col.questions, seenIds, now) : null;
           const qList = q && page?.kind === "question" ? page.list.map((id) => col.questions.find((d) => d.id === id)).filter((d): d is Decision => !!d) : [];
           const areas = areasIn(col.panes);
           const pickArea = areas.some((a) => a.area === areaPick[col.id]) ? areaPick[col.id]! : "";
+          const wideCol = opened?.kind === "cube" ? opened.col : null;
+          if (wideCol && wideCol !== col.id) return null;
+          /* Mark 45: the cube's column takes all the room left of the rail. */
+          const thisW = wideCol ? (stacked ? colW : Math.max(colW, width - lay.gap - lay.rail - 32)) : colW;
           return (
-            <section key={col.id} data-manager-column={col.id} data-label={col.label} data-current={col.current ? "1" : "0"} data-outer={cc.outer} data-inner={cc.inner} data-lit={on || over === col.id ? "1" : "0"}
+            <section key={col.id} data-manager-column={col.id} data-wide={wideCol ? "1" : undefined} data-label={col.label} data-current={col.current ? "1" : "0"} data-outer={cc.outer} data-inner={cc.inner} data-lit={on || over === col.id ? "1" : "0"}
               onMouseEnter={() => setOver(col.id)} onMouseLeave={() => setOver((o) => (o === col.id ? null : o))}
-              className="flex min-h-0 shrink-0 flex-col" style={{ boxSizing: "border-box", width: colW, minHeight: stacked ? 480 : undefined, border: `${RING.outer}px solid ${cc.outer}`, borderRadius: RING.radius, boxShadow: on || over === col.id ? `0 0 0 1px #fff, 0 0 30px ${cc.outer}` : `0 0 16px ${cc.outer}66`, transition: "box-shadow .15s" }}>
+              className="flex min-h-0 shrink-0 flex-col" style={{ boxSizing: "border-box", width: thisW, minHeight: stacked ? 480 : undefined, border: `${RING.outer}px solid ${cc.outer}`, borderRadius: RING.radius, boxShadow: on || over === col.id ? `0 0 0 1px #fff, 0 0 30px ${cc.outer}` : `0 0 16px ${cc.outer}66`, transition: "box-shadow .15s" }}>
               <div data-manager-ring-inner="" className="flex min-h-0 flex-1 flex-col overflow-hidden" style={{ boxSizing: "border-box", border: `${RING.inner}px solid ${cc.inner}`, borderRadius: RING.innerRadius, background: cc.fill, backdropFilter: "saturate(1.2)" }}>
                 {/* The head band: a design block in the column's colour, divided from the chats by a line in the ring's inner colour. */}
                 <Block kind={cc.block} turn={cc.turn} seed={col.id} at={ci} data-manager-head={col.id} className="shrink-0" style={{ borderBottom: `${RING.inner}px solid ${cc.inner}`, padding: "11px 13px 10px" }}
@@ -900,8 +1025,8 @@ export function AgentsManager() {
                     </b>
                     {sum ? <HeadCost cost={sum} heaviest={Math.max(heaviest, sum.memBytes)} now={now} priv={priv} /> : null}
                     {/* Mark 11: one question button with its count, not a row of pills. */}
-                    <span data-manager-count={col.questions.length} style={{ display: "contents" }}>
-                      <QuestionsButton big count={col.questions.length} words={groups ? countWords(groups) : ""} label={col.label} onOpen={() => setOpened({ col: col.id, kind: "all" })} />
+                    <span data-manager-count={feed ? paneCount(feed, col) : 0} style={{ display: "contents" }}>
+                      <QuestionsButton big count={feed ? paneCount(feed, col) : 0} total={col.questions.length} words="" label={col.label} onOpen={() => setOpened({ col: col.id, kind: "all" })} />
                     </span>
                     {col.coord ? <CubeButton count={coordCube} label={col.name} onOpen={() => setOpened({ col: col.id, kind: "cube", chat: col.coord!.id })} /> : null}
                     </div>
@@ -922,11 +1047,12 @@ export function AgentsManager() {
                   {q && feed ? (
                     <QuestionPage key={q.id} d={q} at={Math.max(0, qList.indexOf(q))} of={Math.max(1, qList.length)} label={page?.kind === "question" ? page.label : ""} who={chatsAbout(feed, q.about)[0] ? labelOf(chatsAbout(feed, q.about)[0]!) : ""} now={now} width={colW - 2 * (RING.outer + RING.inner + RING.pad)}
                       onBack={() => setOpened(null)} onStep={(by) => { const n = qList[qList.indexOf(q) + by]; if (n && page?.kind === "question") openQuestionHere(n.id, qList, page.label); }}
-                      onAnswered={() => { setOpened(null); setTimeout(() => void readLanes(), 300); }} />
+                      onAnswered={() => { setOpened(null); setTimeout(() => void readLanes(), 300); }} onDelete={deleteItem} />
                   ) : page?.kind === "all" && feed && groups ? (
-                    <AllQuestions feed={feed} groups={groups} label={coordLabel(col)} now={now} onBack={() => setOpened(null)} onOpen={(d, list) => openQuestionHere(d.id, list, list === groups.fresh ? "new" : list === groups.older ? "older" : (chatsAbout(feed, d.about)[0]?.code || col.label))} />
+                    <AllQuestions feed={feed} groups={groups} label={coordLabel(col)} now={now} onBack={() => setOpened(null)} onOpen={(d, list) => openQuestionHere(d.id, list, list === groups.fresh ? "new" : list === groups.older ? "older" : (chatsAbout(feed, d.about)[0]?.code || col.label))} onDelete={deleteItem} />
                   ) : cubeChat && feed ? (
-                    <CubePage feed={feed} chat={cubeChat} base={base} onBack={() => setOpened(null)} onSlide={(id) => { const at = slides.findIndex((s) => s.id === id); if (at >= 0) setSlideAt(at); }} onCheck={check} />
+                    <CubePage feed={feed} chat={cubeChat} base={base} onBack={() => setOpened(null)} onSlide={(id) => { const at = slides.findIndex((s) => s.id === id); if (at >= 0) setSlideAt(at); }} onCheck={check}
+                      onChoose={async (rid, key) => { const r = await post(`${HELPER_ORIGIN}/lanes/press`, { kind: "choose", target: rid, option: key }, true); if (r.ok) setTimeout(() => void readLanes(), 300); return r.ok ? "" : r.says; }} onDelete={deleteItem} />
                   ) : (
                     <>
                       {peek && feed ? <Pane key={`peek:${peek.id}`} peek chat={peek} asks={[]} cube={0} cost={costOf(pc, peek)} heaviest={heaviest} now={now} priv={priv} at={0} open shown pinned={pin === peek.id} asked={models[peek.id] ?? null}
@@ -953,8 +1079,24 @@ export function AgentsManager() {
                           open={openNow} shown={point === x.id || pin === x.id} pinned={pin === x.id} asked={models[x.id] ?? null}
                           qOpen={qOpen} nudge={nudges[x.id] ?? 0} width={colW - 2 * (RING.outer + RING.inner + RING.pad) - 46}
                           onFlip={() => flip(x, openNow)} onPoint={setPoint} onAsk={(id) => openQuestionHere(id)} onCube={() => setOpened({ col: col.id, kind: "cube", chat: x.id })} onArchive={() => void archive(x, true)} onModel={(m, e) => askModel(x, m, e)}
-                          onFold={() => { setInPane((m) => ({ ...m, [x.id]: null })); setFocusQ((f) => (f && asks.some((d) => d.id === f) ? null : f)); }} onAnswered={(d) => { markSeen(d.id); setInPane((m) => ({ ...m, [x.id]: undefined as unknown as string })); setTimeout(() => void readLanes(), 300); }} onSay={(w) => sayTo(x, w)} onSlides={(id) => { const at = slides.findIndex((sl) => sl.id === id); if (at >= 0) { markSeen(id); setSlideAt(at); } }} />;
+                          onFold={() => { setInPane((m) => ({ ...m, [x.id]: null })); setFocusQ((f) => (f && asks.some((d) => d.id === f) ? null : f)); }} onAnswered={(d) => { markSeen(d.id); setInPane((m) => ({ ...m, [x.id]: undefined as unknown as string })); setTimeout(() => void readLanes(), 300); }} onSay={(w) => sayTo(x, w)} onDelete={deleteItem} onEnd={() => endChat(x)} pcKnown={!!pc} onSlides={(id) => { const at = slides.findIndex((sl) => sl.id === id); if (at >= 0) { markSeen(id); setSlideAt(at); } }} />;
                       })}
+                      {/* Mark 33/34: a gone chat's open questions, carried to this coordinator, each a pane with Continue. */}
+                      {col.carried.map(({ d, from }) => (
+                        <div key={d.id} data-manager-carried={d.id} className="flex flex-col gap-1.5 rounded-lg" style={{ border: `2px dashed ${RED}`, padding: "8px 10px", background: "rgba(40,6,10,.55)" }}>
+                          <span className="flex flex-wrap items-center gap-2" style={{ fontSize: 11.5, color: "#ffd0d0" }}>
+                            <b>Carried from <NameLabel x={from} size={11.5} /></b><span style={{ color: SOFT }}>· that chat has ended; the question stays with {col.label}</span>
+                            <button type="button" data-manager-continue={d.id} className="ml-auto rounded-md font-black" style={{ height: 22, padding: "0 10px", fontSize: 11, color: "#04121c", background: "#fff", textShadow: "none" }}
+                              onClick={() => void continueIn(d).then(setSaid)}>Continue in a new chat</button>
+                          </span>
+                          {inPane[`carried:${d.id}`] === null ? (
+                            <button type="button" data-manager-carried-open={d.id} className="text-left font-bold" style={{ fontSize: 12.5, color: "#fff", overflowWrap: "anywhere" }} onClick={() => setInPane((m) => ({ ...m, [`carried:${d.id}`]: d.id }))}>{d.question}</button>
+                          ) : (
+                            <QuestionPage d={d} at={0} of={1} label={from.code || from.name} who={labelOf(from)} now={now} width={colW - 2 * (RING.outer + RING.inner + RING.pad) - 30} back="▴ Fold"
+                              onBack={() => setInPane((m) => ({ ...m, [`carried:${d.id}`]: null }))} onStep={() => {}} onAnswered={() => setTimeout(() => void readLanes(), 300)} onDelete={deleteItem} />
+                          )}
+                        </div>
+                      ))}
                       {!col.panes.length ? <p data-manager-no-panes="" className="m-0 px-1 py-2" style={{ fontSize: 12, color: SOFT }}>No chat is working under {col.label} just now.</p> : null}
                     </>
                   )}
@@ -1004,16 +1146,27 @@ export function AgentsManager() {
         {feed ? (
           <div data-manager-rail="" className="flex min-h-0 shrink-0 flex-col gap-2" style={{ width: stacked ? "100%" : lay.rail, minHeight: stacked ? 760 : undefined }}>
             <div data-manager-orbs="" className="relative shrink-0" style={{ height: lay.orbsH }}>
-              <LanesBoard beside={{ feed: beside.feed, colours: beside.colours, names: beside.names, lit: point ?? over ?? pin, onPoint: setPoint, onPress: pressOrb, slots: beside.slots, archived: inNucleus.length, onNucleus: () => setNucleusOpen((o) => !o) }} />
+              <LanesBoard beside={{ feed: beside.feed, colours: beside.colours, names: beside.names, counts: beside.counts, lit: point ?? over ?? pin, onPoint: setPoint, onPress: pressOrb, slots: beside.slots, archived: inNucleus.length, onNucleus: () => setNucleusOpen((o) => !o) }} />
+              <OrbCard chat={(() => { const id = point ?? pin; return id ? everyChat.find((x) => x.id === id && !x.kind?.includes("coordinator")) ?? null : null; })()}
+                ring={(() => { const id = point ?? over; const c = id ? cols.find((k) => k.id === id || k.coord?.id === id) : null; return c && feed ? { label: coordLabel(c), count: paneCount(feed, c) } : null; })()} onEnd={(x) => endChat(x)} />
               {nucleusOpen ? <NucleusList chats={inNucleus} now={now} onClose={() => setNucleusOpen(false)} onPutBack={(x) => void archive(x, false)} /> : null}
             </div>
+            {/* the terminal, then New coordinator open under it (mark 45) */}
             <Terminal coord={current?.coord ?? null} name={current ? coordLabel(current) : ""} question={openQ} qLabel={qLabel} priv={priv} now={now} onAnswered={() => { setOpened(null); setTimeout(() => void readLanes(), 300); }} />
+            <NewCoordinator />
           </div>
         ) : null}
         {slideAt !== null && slides.length ? (
-          <Slides slides={slides} at={Math.min(slideAt, slides.length - 1)} base={base} onStep={(by) => setSlideAt((a) => stepSlide(Math.min(a ?? 0, slides.length - 1), by, slides.length))} onBack={() => setSlideAt(null)} onChoose={choose} />
+          <Slides onDelete={deleteItem} slides={slides} at={Math.min(slideAt, slides.length - 1)} base={base} onStep={(by) => setSlideAt((a) => stepSlide(Math.min(a ?? 0, slides.length - 1), by, slides.length))} onBack={() => setSlideAt(null)} onChoose={choose} />
         ) : null}
       </div>
+      {ending ? (
+        <div data-manager-end-confirm={ending.id} role="alertdialog" aria-label={endWords(ending)} className="absolute left-1/2 top-16 z-50 flex -translate-x-1/2 items-center gap-3 rounded-xl px-4 py-2" style={{ background: "rgba(10,6,20,.96)", border: "1px solid rgba(255,140,140,.6)", fontSize: 12.5 }}>
+          <span>{endWords(ending)}</span>
+          <button type="button" data-manager-end-sure="" className="rounded-md px-2.5 py-1 font-black" style={{ color: "#fff", background: RED }} onClick={() => endChat(ending, true)}>End it</button>
+          <button type="button" data-manager-end-keep="" className="rounded-md px-2.5 py-1 font-bold" style={{ color: INK, background: "rgba(255,255,255,.14)" }} onClick={() => setEnding(null)}>Keep it</button>
+        </div>
+      ) : null}
       {undo ? (
         <div data-manager-undo={undo.id} role="status" className="absolute bottom-4 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-xl px-4 py-2" style={{ background: "rgba(10,6,20,.94)", border: "1px solid rgba(255,255,255,.3)", fontSize: 12.5, maxWidth: "80%" }}>
           <span>Archived <b>{undo.name}</b>. Nothing is deleted.{undo.says ? ` ${undo.says}` : ""}</span>
