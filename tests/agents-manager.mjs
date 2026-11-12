@@ -81,6 +81,8 @@ const PC = { ok: true, at: Date.now(), memTotal: 32 * 1024 * MB, owners: [
 ] };
 const HELPER_WORDS = ["HELPERTEXT-c7", "HELPERTEXT-void", "HELPERTEXT-last"];
 const BLUE = "#2f7bff", GREEN = "#52e36a", PURPLE = "#a06bff";
+/* BAM mark 30: live coordinators by place, oldest first: green, purple, amber. */
+const FIRST = "#2fd27a", FIRST_IN = "#b8ffd8";
 const rgb = (h) => `rgb(${parseInt(h.slice(1, 3), 16)}, ${parseInt(h.slice(3, 5), 16)}, ${parseInt(h.slice(5, 7), 16)})`;
 
 /* ------------------------------------------------------------ 1. pure */
@@ -92,8 +94,8 @@ if (L?.readFeed && M?.columnsOf) {
   const feed = L.readFeed(FEED);
   const cols = M.columnsOf(feed);
   const ids = (list) => list.map((x) => x.id).join();
-  check("B: a column per live coordinator, the current one first: C8 (newest), then C7", cols.length === 2 && cols.map((c) => c.label).join() === "C8,C7" && cols[0].current && !cols[1].current, cols.map((c) => c.label).join());
-  const c8 = cols[0], c7 = cols[1];
+  check("B (BAM mark 31): a column per live coordinator, oldest first: C7, then C8 (the newest, the current one)", cols.length === 2 && cols.map((c) => c.label).join() === "C7,C8" && cols[1].current && !cols[0].current, cols.map((c) => c.label).join());
+  const c7 = cols[0], c8 = cols[1];
   check("B: a chat stands under the coordinator that runs it (its C-number or id); the rest under the current one", ids(c8.panes).includes(ORBIT.id) && ids(c8.panes).includes(RINGS.id) && !ids(c7.panes).includes(ORBIT.id));
   /* With two live coordinators and no runBy, the rest fall to the current one (C8). */
   check("B: panes are the chats with something left, red first; finished ones with nothing left are the foot, newest first", c8.panes[0].state === "need" && ids(c8.foot) === `${FIN_A.id},${FIN_B.id}` && ids(c8.panes).includes(ROUND.id) && ids(c8.panes).includes(PARKED.id), ids(c8.panes));
@@ -101,7 +103,7 @@ if (L?.readFeed && M?.columnsOf) {
   check("B: retired coordinators J has not hidden are lines in the current column's foot; a hidden one is nowhere", ids(c8.retired) === C6.id);
   check("B: each open question stands in its chat's column; one about a coordinator is that coordinator's own, on its head", c8.questions.map((d) => d.id).join() === "q-panels,q-orbit,q-rings" && c8.own.length === 0 && c7.questions.map((d) => d.id).join() === "q-own" && c7.own.map((d) => d.id).join() === "q-own", `${c8.questions.map((d) => d.id)} own ${c7.own.map((d) => d.id)}`);
   const gone = M.columnsOf(feed, { [VOID.id]: true, [ARCHIVED.id]: false });
-  check("F: what this browser archived or put back holds until the feed says the same", gone[0].archived.some((x) => x.id === VOID.id) && !gone[0].panes.some((x) => x.id === VOID.id) && gone[0].foot.some((x) => x.id === ARCHIVED.id));
+  check("F: what this browser archived or put back holds until the feed says the same", gone[1].archived.some((x) => x.id === VOID.id) && !gone[1].panes.some((x) => x.id === VOID.id) && gone[1].foot.some((x) => x.id === ARCHIVED.id));
   check("B: a coordinator keeps its colour by its number: 7 blue and green, 6 red, 5 yellow, 8 purple", M.coloursOf(7).outer === BLUE && M.coloursOf(7).inner === GREEN && M.coloursOf(6).outer === "#ff4a3d" && M.coloursOf(5).outer === "#f2c230" && M.coloursOf(8).outer === PURPLE && M.coloursOf(13).outer === BLUE);
   check("B: the ring is a thick band: 7 px outside, 3 px inside, radius 14 and 7, over three times a pane's line", M.RING.outer === 7 && M.RING.inner === 3 && M.RING.radius === 14 && M.RING.innerRadius === 7 && M.RING.outer > 3 * M.RING.pane);
   const old = L.readFeed({ coordinators: [{ id: "a", name: "Coordinator A", chats: [{ id: "a1", name: "x", state: "done" }] }, { id: "b", name: "Coordinator B", chats: [{ id: "b1", name: "y", state: "work" }] }, { id: "c", name: "Coordinator C", chats: [{ id: "c1", name: "z", state: "need" }] }] });
@@ -267,13 +269,13 @@ try {
     const view = await box(page, "[data-agents-manager]");
     const bar = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--topbar-h")) || 44);
     check("A: it takes the whole screen under the top bar", near(view.x, 0) && near(view.w, 1500) && near(view.y, bar, 2) && near(view.b, 1000, 2), JSON.stringify(view));
-    const nebula = await page.evaluate(() => { const n = document.querySelector("[data-manager-nebula]"); return n ? getComputedStyle(n).backgroundImage : ""; });
-    check("A/V: on the Builder's nebula (J's own tiles), not a black box", /face-blue/.test(nebula) && /face-green/.test(nebula), nebula.slice(0, 120));
+    const nebula = await page.evaluate(() => { const n = document.querySelector("[data-manager-nebula]"); return n ? `${n.getAttribute("data-manager-nebula")} ${!!n.querySelector("[data-workspace-ground] [data-ground-clouds]")}` : ""; });
+    check("A/V (BAM mark 32): on the board's own nebula (the workspace ground), not a black box", nebula === "workspace true", nebula);
     check("A: one board draws at a time (the dock's own stops under the manager)", (await page.locator("[data-lanes-board]").count()) === 1 && (await page.locator('[data-lanes-board="beside"]').count()) === 1);
 
     /* B: the columns. */
     const c8 = await box(page, col(C8.id)), c7 = await box(page, col(C7.id)), body = await box(page, "[data-manager-body]");
-    check("B: two columns side by side, the current coordinator first", !!c8 && !!c7 && near(c8.y, c7.y) && c7.x >= c8.r && (await page.locator("[data-manager-column]").count()) === 2, JSON.stringify({ c8, c7 }));
+    check("B (BAM mark 31): two columns side by side, the oldest first", !!c8 && !!c7 && near(c8.y, c7.y) && c8.x >= c7.r && (await page.locator("[data-manager-column]").count()) === 2, JSON.stringify({ c8, c7 }));
     check("B: each column runs the full height of the view", c8.h >= body.h - 20 && near(c8.h, c7.h), `${c8.h} of ${body.h}`);
     const ring = await page.evaluate((ids) => ids.map((id) => {
       const o = document.querySelector(`[data-manager-column="${id}"]`), i = o.querySelector("[data-manager-ring-inner]");
@@ -281,7 +283,7 @@ try {
       return { outer: so.borderTopColor, ow: [so.borderTopWidth, so.borderRightWidth, so.borderBottomWidth, so.borderLeftWidth].join(), or: so.borderTopLeftRadius, inner: si.borderTopColor, iw: [si.borderTopWidth, si.borderRightWidth, si.borderBottomWidth, si.borderLeftWidth].join(), ir: si.borderTopLeftRadius, gap: [ri.left - ro.left, ri.top - ro.top, ro.right - ri.right, ro.bottom - ri.bottom].map((n) => Math.round(n * 10) / 10).join(), fill: si.backgroundColor };
     }), [C7.id, C8.id]);
     check("B: the outside ring: a 7 px band in the coordinator's colour and a 3 px line inside it, touching, even all round, rounded", ring.every((r) => r.ow === "7px,7px,7px,7px" && r.iw === "3px,3px,3px,3px" && r.gap === "7,7,7,7" && r.or === "14px" && r.ir === "7px"), JSON.stringify(ring[0]));
-    check("B: C7 is blue outside and green inside, as J painted it; C8 purple; each column tinted with its colour", ring[0].outer === rgb(BLUE) && ring[0].inner === rgb(GREEN) && ring[1].outer === rgb(PURPLE) && ring[0].fill !== ring[1].fill && !/rgba\(0, 0, 0, 0\)/.test(ring[0].fill), `${ring[0].outer} ${ring[0].inner} ${ring[1].outer}`);
+    check("B (BAM mark 30): C7, the oldest, green; C8 purple; each column tinted with its colour", ring[0].outer === rgb(FIRST) && ring[0].inner === rgb(FIRST_IN) && ring[1].outer === rgb(PURPLE) && ring[0].fill !== ring[1].fill && !/rgba\(0, 0, 0, 0\)/.test(ring[0].fill), `${ring[0].outer} ${ring[0].inner} ${ring[1].outer}`);
     const head = await page.evaluate((id) => { const h = document.querySelector(`[data-manager-head="${id}"]`); return { c: h.querySelector("[data-manager-cnumber]")?.textContent, size: parseFloat(getComputedStyle(h.querySelector("[data-manager-cnumber]")).fontSize), count: h.querySelector("[data-manager-count]")?.getAttribute("data-manager-count"), turns: h.querySelector("[data-manager-turns]")?.textContent, asks: [...h.querySelectorAll("[data-manager-ask]")].map((e) => e.getAttribute("data-manager-ask")).join() }; }, C8.id);
     const head7 = await page.evaluate((id) => { const h = document.querySelector(`[data-manager-head="${id}"]`); return { turns: h.querySelector("[data-manager-turns]")?.textContent, count: h.querySelector("[data-manager-count]")?.getAttribute("data-manager-count"), asks: [...h.querySelectorAll("[data-manager-ask]")].map((e) => e.getAttribute("data-manager-ask")).join() }; }, C7.id);
     check("B: the head: the C-number big, the question count as a plain red disc, the coordinator's own question as a red button, its turn out of 5", head.c === "C8" && head.size >= 26 && head.count === "3" && head.asks === "" && head.turns === "# 2/5" && head7.turns === "# 21/5" && head7.count === "1" && head7.asks === "" /* BAM mark 11: one question button, no pills */, JSON.stringify({ head, head7 }));
@@ -296,7 +298,7 @@ try {
         row: [q("[data-manager-name]"), q("[data-manager-dot]"), q("[data-manager-pill]"), q("[data-manager-age]")].every((e) => e && top(e) < 12), lines: p.querySelectorAll("[data-manager-line]").length, bar: (() => { const b = p.querySelector("[data-manager-bar]"); if (!b) return null; const r = b.getBoundingClientRect(), pr = p.getBoundingClientRect(); return { w: Math.round(r.width), pw: Math.round(pr.width), below: r.top > p.querySelector("[data-manager-line]").getBoundingClientRect().bottom - 1, bg: getComputedStyle(b).backgroundColor }; })(), line1: p.querySelector('[data-manager-line="1"]')?.textContent, pw: Math.round(p.getBoundingClientRect().width), sw: p.scrollWidth, out: (() => { const pr = p.getBoundingClientRect(); return [...p.querySelectorAll("b, span, p, input, button, a")].filter((e) => !e.hasAttribute("data-molten")).some((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && (r.left < pr.left - 1 || r.right > pr.right + 1); }); })() }; }, VOID.id);
     const p2 = await page.evaluate((id) => document.querySelector(`[data-manager-pane="${id}"] [data-manager-turns]`)?.textContent, VOID.id);
     check("B: the pane's head row, as drawn: name, state dot, memory pill, the cube, its age", /VOID/.test(parts.name) && parts.dot === "work" && parts.pill && parts.cube === "1" && /^\d+ min$/.test(parts.age) && parts.row && p2 === "2/5", JSON.stringify(parts));
-    check("B: two lines of words under it (whole, BAM mark 20), then the solid bar along the bottom, the pane's width", parts.lines === 2 && parts.line1 === VOID.note && parts.bar && parts.bar.below && parts.bar.w >= parts.bar.pw - 30 && parts.bar.bg === "rgb(4, 2, 8)", JSON.stringify(parts.bar));
+    check("B: two lines of words under it (whole, BAM mark 20), then the solid bar along the bottom, the pane's width", parts.lines === 2 && parts.line1 === VOID.note && parts.bar && parts.bar.below && parts.bar.w >= parts.bar.pw - 30 && parts.bar.bg === "rgb(0, 0, 0)" /* BAM mark 27: plain black */, JSON.stringify(parts.bar));
     check("B: nothing in a pane runs past its sides", parts.out === false);
     const askBtn = await page.evaluate((id) => { const b = document.querySelector(`[data-manager-pane="${id}"] [data-manager-questions]`); return b ? { n: b.getAttribute("data-manager-questions"), text: b.textContent, bg: getComputedStyle(b).backgroundColor } : null; }, PANELS.id);
     check("B (BAM mark 11): a chat's pane has one red question button with its count", askBtn?.n === "1" && askBtn.text === "?1" && askBtn.bg === "rgb(255, 77, 77)", JSON.stringify(askBtn));
@@ -331,7 +333,7 @@ try {
     const boardBg = await page.evaluate(() => { const b = document.querySelector('[data-lanes-board="beside"]'); return [getComputedStyle(b).backgroundColor, getComputedStyle(b.querySelector("svg")).backgroundColor].join(); });
     check("C: the orb system has its own corner at the right of the columns, with no box behind it", orbs.x >= c7.r && orbs.w >= 300 && near(orbs.r, 1500, 12) && boardBg === "rgba(0, 0, 0, 0),rgba(0, 0, 0, 0)" && (await page.locator("[data-manager-orbs] [data-lanes-sun]").count()) === 1, `${JSON.stringify(orbs)} ${boardBg}`);
     const rings = await page.evaluate(() => [...document.querySelectorAll("[data-lanes-ring]")].map((r) => `${r.getAttribute("data-lanes-ring")}=${r.getAttribute("data-own")}`).sort().join());
-    check("C/S: a ring per column, each in its coordinator's colour, whatever its chats' states", rings === [`${C7.id}=${BLUE}`, `${C8.id}=${PURPLE}`].sort().join(), rings);
+    check("C/S: a ring per column, each in its coordinator's colour, whatever its chats' states", rings === [`${C7.id}=${FIRST}`, `${C8.id}=${PURPLE}`].sort().join(), rings);
     check("C: the chats of a column are the orbs of its ring; finished ones beads; the retired coordinator by the sun; an archived chat nowhere", (await page.locator(`[data-lanes-orb="${VOID.id}"]`).count()) === 1 && (await page.locator(`[data-lanes-orb="${C7.id}"]`).count()) === 1 && (await page.locator(`[data-lanes-bead="${FIN_A.id}"]`).count()) === 1 && (await page.locator("[data-lanes-retired]").count()) === 1 && (await page.locator(`[data-lanes-orb="${ARCHIVED.id}"], [data-lanes-bead="${ARCHIVED.id}"]`).count()) === 0);
     const litOf = (id) => page.evaluate((i) => document.querySelector(`[data-lanes-ring="${i}"]`)?.getAttribute("data-lit"), id);
     await page.locator(`${col(C7.id)} [data-manager-foot]`).hover();
@@ -366,29 +368,30 @@ try {
     await waitFor(page, () => /asked/.test(document.querySelector("[data-manager-chip-open]")?.closest("[data-agents-manager]")?.textContent ?? ""), null, 4000);
     const mp = posts.find((p) => p.path === "/lanes/press" && p.kind === "model");
     check("G: Use sends one press through the helper for the coordinator: {kind: model, target, model, effort}", mp?.target === VOID.id && mp.model === "Fable 5.2" && mp.effort === "high" && Object.keys(mp).sort().join() === "effort,kind,model,path,target", JSON.stringify(mp));
-    check("G: …and the chip reads what was asked until the coordinator has applied it", ((await page.locator(`${chip} [data-manager-chip-open]`).textContent()) ?? "").trim() === "▸ Opus 5.5 · medium → Fable 5.2 · high asked");
+    const chipNow = ((await page.locator(`${chip} [data-manager-chip-open]`).textContent()) ?? "").trim();
+    check("G: …and the chip reads what was asked until the coordinator has applied it", chipNow === "▸ Opus 5.5 · medium → Fable 5.2 · high asked", chipNow);
 
-    /* D: a question opens over its column. */
+    /* D (BAM mark 27): a chat's question is open first, in place on its pane; the pane stretches down in its column. */
     const scrollBefore = await page.evaluate(() => [window.scrollY, document.querySelector(`[data-manager-body]`).scrollTop].join());
-    await page.locator(`${pane(PANELS.id)} [data-manager-questions]`).click();
     await page.waitForSelector('[data-manager-question="q-panels"]', { timeout: 4000 }).catch(() => {});
-    const q = await page.evaluate(([c8, c7]) => { const a = document.querySelector('[data-manager-question="q-panels"]'); if (!a) return null; const c = document.querySelector(`[data-manager-column="${c8}"]`), r = a.getBoundingClientRect(), cr = c.getBoundingClientRect(), hd = c.querySelector("[data-manager-head]").getBoundingClientRect();
+    const q = await page.evaluate(([c8, c7, PANELS_ID]) => { const a = document.querySelector('[data-manager-question="q-panels"]'); if (!a) return null; const c = document.querySelector(`[data-manager-column="${c8}"]`), r = a.getBoundingClientRect(), cr = c.getBoundingClientRect(), hd = c.querySelector("[data-manager-head]").getBoundingClientRect();
       const ch = [...a.querySelectorAll("[data-manager-choose]")].map((b) => { const br = b.getBoundingClientRect(); return br.top >= 0 && br.bottom <= innerHeight && br.left >= cr.left && br.right <= cr.right; });
-      return { inCol: c.contains(a) && r.left >= cr.left && r.right <= cr.right, underHead: r.top >= hd.bottom - 1 && r.top - hd.bottom < 20, chooses: ch.length, allSeen: ch.every(Boolean), panes8: c.querySelectorAll("[data-manager-pane]").length, panes7: document.querySelector(`[data-manager-column="${c7}"]`).querySelectorAll("[data-manager-pane]").length + document.querySelectorAll(`[data-manager-column="${c7}"] [data-manager-no-panes]`).length, text: a.textContent, at: a.querySelector("[data-manager-question-at]")?.textContent, across: a.querySelector("[data-manager-options]")?.getAttribute("data-manager-options"), blocks: [...a.querySelectorAll("[data-manager-option]")].every((o) => o.classList.contains("molten")) }; }, [C8.id, C7.id]);
-    check("D: a press on a red button opens the question over its coordinator's column, right under the head, in place of the chats", q?.inCol && q.underHead && q.panes8 === 0 && q.panes7 >= 1, JSON.stringify({ ...q, text: undefined }));
-    check("D: …with everything needed to answer: What, Why, How, what each option gives, the pick, and every Choose in view", /What.*Three looks/.test(q?.text ?? "") && /Why/.test(q.text) && /How/.test(q.text) && /Your timeline boxes/.test(q.text) && /pick/.test(q.text) && q.chooses === 3 && q.allSeen && q.at === "Question 1 of 1 · PANELS" /* counted in its own chat (console mark 18) */ && q.blocks, q?.at);
-    check("D/N: opening it never scrolls the page", (await page.evaluate(() => [window.scrollY, document.querySelector(`[data-manager-body]`).scrollTop].join())) === scrollBefore);
+      return { inCol: c.contains(a) && r.left >= cr.left && r.right <= cr.right, inPane: !!a.closest(`[data-manager-pane]`)?.matches('[data-manager-pane]') && a.closest("[data-manager-pane]").getAttribute("data-manager-pane") === PANELS_ID, underHead: r.top >= hd.bottom - 1, chooses: ch.length, allSeen: ch.every(Boolean), panes8: c.querySelectorAll("[data-manager-pane]").length, panes7: document.querySelector(`[data-manager-column="${c7}"]`).querySelectorAll("[data-manager-pane]").length + document.querySelectorAll(`[data-manager-column="${c7}"] [data-manager-no-panes]`).length, text: a.textContent, at: a.querySelector("[data-manager-question-at]")?.textContent, across: a.querySelector("[data-manager-options]")?.getAttribute("data-manager-options"), blocks: [...a.querySelectorAll("[data-manager-option]")].every((o) => o.classList.contains("molten")) }; }, [C8.id, C7.id, PANELS.id]);
+    check("D (BAM mark 27): its question is open first, in place on its own pane in its column, the other chats still there", q?.inCol && q.inPane && q.panes8 >= 2 && q.panes7 >= 1, JSON.stringify({ ...q, text: undefined }));
+    check("D: …with everything needed to answer: What, Why, How, what each option gives, the pick, and every Choose in view", /What.*Three looks/.test(q?.text ?? "") && /Why/.test(q.text) && /How/.test(q.text) && /Your timeline boxes/.test(q.text) && /pick/.test(q.text) && q.chooses === 3 /* the pane stretches down, so a Choose may sit below the fold (mark 27) */ && q.at === "Question 1 of 1 · PANELS" /* counted in its own chat (console mark 18) */ && q.blocks, q?.at);
+    check("D/N: having it open never scrolls the page", (await page.evaluate(() => [window.scrollY, document.querySelector(`[data-manager-body]`).scrollTop].join())) === scrollBefore);
     /* BAM mark 11 / console mark 18: a pane's button counts that chat's questions only, so its one question has no Next. */
-    check("D: Next stays within the list it was opened from (this chat has one question)", await page.locator("[data-manager-next]").isDisabled());
+    check("D: Next stays within the list it was opened from (this chat has one question)", await page.locator(`${pane(PANELS.id)} [data-manager-next]`).isDisabled());
     await page.locator('[data-manager-question="q-panels"] [data-manager-choose="c"]').click();
-    const backToChats = await waitFor(page, (id) => !document.querySelector("[data-manager-question]") && document.querySelectorAll(`[data-manager-column="${id}"] [data-manager-pane]`).length > 0, C8.id, 6000);
+    const backToChats = await waitFor(page, (id) => !document.querySelector('[data-manager-question="q-panels"]') && document.querySelectorAll(`[data-manager-column="${id}"] [data-manager-pane]`).length > 0, C8.id, 6000);
     const ans = posts.find((p) => p.path === "/lanes/answer");
     check("D: Choose sends the answer by the helper's answer route, and the column returns", backToChats && ans?.id === "q-panels" && ans.answer === "c", JSON.stringify(ans));
     const dropped = await waitFor(page, (id) => document.querySelector(`[data-manager-head="${id}"] [data-manager-count]`)?.getAttribute("data-manager-count") === "2" && !document.querySelector('[data-manager-ask="q-panels"]'), C8.id, 8000);
     check("D: …the head's count drops and the pane's red button goes", dropped);
 
     /* D: pictures take the full width, as slides. */
-    await page.locator(`${pane(RINGS.id)} [data-manager-questions]`).click();
+    /* BAM mark 27: the picture question sits open in its pane; one press takes its pictures across the whole view. */
+    await page.locator(`${pane(RINGS.id)} [data-manager-open-slides="q-rings"]`).click();
     await page.waitForSelector("[data-manager-slides]", { timeout: 4000 }).catch(() => {});
     const sl = await box(page, "[data-manager-slides]");
     const s0 = await page.evaluate(() => { const s = document.querySelector("[data-manager-slides]"); if (!s) return null; const o = [...s.querySelectorAll("[data-manager-slide-option]")].map((e) => e.getBoundingClientRect()); return { n: s.getAttribute("data-manager-slides"), at: s.getAttribute("data-slide-at"), id: s.querySelector("[data-manager-slide]")?.getAttribute("data-manager-slide"), count: s.querySelector("[data-manager-slide-count]")?.textContent, side: o.length === 2 && Math.abs(o[0].top - o[1].top) < 2 && o[1].left > o[0].right - 1, wide: o[0]?.width, chooses: s.querySelectorAll("[data-manager-slide-choose]").length, pics: s.querySelectorAll("img[data-manager-slide-picture]").length }; });
@@ -410,7 +413,8 @@ try {
     await waitFor(page, () => !document.querySelector("[data-manager-slides]"), null, 5000);
     const cp = posts.find((p) => p.path === "/lanes/press" && p.kind === "choose");
     check("D: Choose on a picture round saves the pick for the coordinator, and the columns return after the last one", cp?.target === "round-1" && cp.option === "b" && (await page.locator("[data-manager-slides]").count()) === 0, JSON.stringify(cp));
-    await page.locator(`${pane(RINGS.id)} [data-manager-questions]`).click();
+    /* BAM mark 27: the picture question sits open in its pane; one press takes its pictures across the whole view. */
+    await page.locator(`${pane(RINGS.id)} [data-manager-open-slides="q-rings"]`).click();
     await page.waitForSelector("[data-manager-slides]", { timeout: 4000 }).catch(() => {});
     await page.keyboard.press("Escape");
     await page.waitForTimeout(200);
@@ -508,13 +512,13 @@ async function onFixture(site) {
       ring: c ? getComputedStyle(c).borderTopColor + getComputedStyle(c).borderTopWidth : "", blocks: document.querySelectorAll("[data-manager-head].molten, [data-manager-head] > .molten").length,
       orbs: document.querySelectorAll("[data-manager-orbs] [data-lanes-orb]").length, own: document.querySelector(`[data-lanes-ring="${c7}"]`)?.getAttribute("data-own") === blue,
       asks: document.querySelectorAll("[data-manager-ask]").length, pills: document.querySelectorAll("[data-manager-pane] [data-manager-pill]").length, full: !!v && v.width >= innerWidth - 1 && v.bottom >= innerHeight - 1,
-      nebula: /face-blue/.test(getComputedStyle(document.querySelector("[data-manager-nebula]") ?? document.body).backgroundImage),
+      nebula: !!document.querySelector("[data-manager-nebula] [data-workspace-ground]"),
     };
-  }, [C7.id, BLUE]);
-  await page.locator(`${pane(PANELS.id)} [data-manager-questions]`).click().catch(() => {});
+  }, [C7.id, FIRST]);
+  /* BAM mark 27: the question is already open in place on its pane. */
   const opened = await page.locator(`${col(C8.id)} [data-manager-question="q-panels"] [data-manager-choose]`).count();
   const after = await page.evaluate(() => JSON.stringify(window.__studioNodes?.() ?? []));
-  check(`${site}: the manager opens full screen on the nebula: two columns in their rings and blocks, six panes, the orbs beside them, the questions, the PC cost`, up && s.cols === 2 && s.panes === 6 && s.ring === `${rgb(BLUE)}7px` && s.blocks === 2 && s.orbs === 7 && s.own && s.asks === 0 && s.pills === 2 && s.full && s.nebula, JSON.stringify(s));
+  check(`${site}: the manager opens full screen on the nebula: two columns in their rings and blocks, six panes, the orbs beside them, the questions, the PC cost`, up && s.cols === 2 && s.panes === 6 && s.ring === `${rgb(FIRST)}7px` && s.blocks === 2 && s.orbs === 7 && s.own && s.asks === 0 && s.pills === 2 && s.full && s.nebula, JSON.stringify(s));
   check(`${site}: a question opens over its column with every Choose`, opened === 3, String(opened));
   check(`${site}: the board doesn't move by a pixel`, before === after && before.length > 10, `${before.length} ${after.length}`);
   await ctx.close();

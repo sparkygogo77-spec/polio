@@ -16,6 +16,15 @@
  *   19.   moons take no pointer; every orb's press area is at least 32 px across;
  *   20.   a pane opens at its full size, its newest question whole; the model chip reads the row's model;
  *   22.   the console's badge beside the plain name ("🎛️ STAGE · Console stage").
+ *   24.   the coordinator reads as in the console: "C8 · 🧽 PIONEER";
+ *   25.   each pane carries its area as a tag; a column can show one area; an orb wears a faint band in its area's colour;
+ *   26.   an emoji sits on a light chip, one step larger than its words;
+ *   27.   a chat's open question shows first, opened in place: the pane stretches down in its column (never over it);
+ *         its terminal line is plain black with no placeholder and no name, one send mark at the far right, and a
+ *         press on it shows the chat's previous messages above;
+ *   28.   no "behind" or "built on" version words on any pane or orb;
+ *   29-31. two and three live coordinators: a column each, oldest first, green, purple, amber (columns and rings);
+ *   32.   the manager stands on the same nebula as the board (the workspace's own ground).
  *
  * No wall-clock limits (the speed-check rule): only counts, places and words.
  *
@@ -43,9 +52,9 @@ const uid = (k) => `local_${String(k).padStart(8, "0")}-0000-4000-8000-000000000
 const row = (k, name, state, extra = {}) => ({ id: uid(k), name, lane: name.toLowerCase().replace(/\s+/g, "-"), state, kind: "lane", lastSeen: ago(k), turns: 1, ...extra });
 const C8 = row(8, "Coordinator 8", "work", { kind: "coordinator", lane: "coordinator", code: "PIONEER", emoji: "🧽", turns: 9, model: "Fable 5.2", effort: "medium",
   messages: [{ at: ago(30), text: "First: TRYIT finished." }, { at: ago(20), text: "Second: STAGE put console 0.25 in the mod." }, { at: ago(5), text: "Third: BAM started at your word." }] });
-const STAGE = row(11, "Console stage", "work", { code: "STAGE", emoji: "🎛️", model: "Opus 5.5", effort: "medium", runBy: C8.id, history: [{ at: ago(90), text: "Started.", public: true }], note: "Building the side panel." });
-const OSC = row(12, "Orbs speed check", "work", { code: "OSC", emoji: "⏱️", model: "Opus 5.5", effort: "medium", runBy: C8.id, history: [{ at: ago(80), text: "Started.", public: true }], note: "Fixing the speed check." });
-const TRYIT = row(13, "Blender as one button", "need", { code: "TRYIT", emoji: "🧊", model: "Opus 5.5", effort: "medium", runBy: C8.id, history: [{ at: ago(200), text: "Started.", public: true }], note: "One Try it press." });
+const STAGE = row(11, "Console stage", "work", { area: "Console", builtOn: 75, code: "STAGE", emoji: "🎛️", model: "Opus 5.5", effort: "medium", runBy: C8.id, history: [{ at: ago(90), text: "Started.", public: true }], note: "Building the side panel." });
+const OSC = row(12, "Orbs speed check", "work", { area: "Tests", builtOn: 74, code: "OSC", emoji: "⏱️", model: "Opus 5.5", effort: "medium", runBy: C8.id, history: [{ at: ago(80), text: "Started.", public: true }], note: "Fixing the speed check." });
+const TRYIT = row(13, "Blender as one button", "need", { area: "Blender", code: "TRYIT", emoji: "🧊", model: "Opus 5.5", effort: "medium", runBy: C8.id, history: [{ at: ago(200), text: "Started.", public: true }], note: "One Try it press." });
 const OLD = row(14, "Old finished one", "done", { code: "OLD", lastSeen: ago(3 * 24 * 60) });
 const FRESH = row(15, "Fresh finished one", "done", { code: "FRESH", lastSeen: ago(120) });
 const OLDASK = row(16, "Old one with a question", "done", { code: "OLDASK", lastSeen: ago(4 * 24 * 60) });
@@ -92,10 +101,25 @@ if (L?.readFeed && M?.labelOf) {
   check("11: once opened, a question leaves New for its chat's group, named by its badge", g1.fresh.map((d) => d.id).join() === "q-own" && g1.byChat[0]?.who === "🧊 TRYIT · Blender as one button" && g1.byChat[0].list.map((d) => d.id).join() === "q-try-2,q-try-1" && M.countWords(g1) === "1 new · 2 seen · 1 older", M.countWords(g1));
 }
 
+if (L?.readFeed && M?.coordLabel) {
+  const C9 = row(9, "Coordinator 9", "work", { kind: "coordinator", lane: "coordinator-9", code: "NINE", emoji: "🛰️" });
+  const C10 = row(10, "Coordinator 10", "work", { kind: "coordinator", lane: "coordinator-10", code: "TEN", emoji: "🧭" });
+  const three = L.readFeed({ ...FEED, coordinators: [{ id: "c", name: "C", chats: [C10, C8, C9, STAGE, OSC, TRYIT] }] });
+  const cols = M.columnsOf(three);
+  check("24: a coordinator reads as in the console: number, emoji, code word", M.coordLabel(cols[0]) === "C8 · 🧽 PIONEER", M.coordLabel(cols[0]));
+  check("29/31: three live coordinators are three columns, oldest first; the newest is still the current one", cols.map((c) => c.label).join() === "C8,C9,C10" && M.currentOf(cols)?.label === "C10" && cols[2].current, cols.map((c) => c.label).join());
+  check("30: their colours by place: green, purple, amber", cols.map((c) => c.colours.outer).join() === "#2fd27a,#a06bff,#f2a51f", cols.map((c) => c.colours.outer).join());
+  check("29: a chat with no runBy stands under the current (newest) one", cols[2].panes.length === 0 && cols[0].panes.length === 3, cols.map((c) => c.panes.length).join());
+  const feed1 = L.readFeed(FEED);
+  check("25: a chat's area is read, its colour known; the areas of a list counted in J's order", feed1.coordinators[0].chats.find((x) => x.id === STAGE.id).area === "Console" && M.areaColour({ area: "Console" }) === "#c084fc" && M.areasIn([{ area: "Tests" }, { area: "Console" }, { area: "Tests" }]).map((a) => `${a.area}:${a.count}`).join() === "Console:1,Tests:2");
+  check("26: a label in parts, the emoji apart", JSON.stringify(M.labelParts({ name: "Console stage", code: "STAGE", emoji: "🎛️" })) === JSON.stringify({ emoji: "🎛️", words: "STAGE · Console stage" }));
+}
+
 const tmp = mkdtempSync(join(tmpdir(), "bam-manager-"));
 if (HL?.pressLanes && HL?.forBuilder) {
   const served = HL.blankKeys(HL.forBuilder(FEED));
   check("1: the helper passes the coordinator's messages on", served.coordinators[0].chats[0].messages?.length === 3);
+  check("25/28: the helper passes a chat's area, never its builtOn", served.coordinators[0].chats[1].area === "Console" && !("builtOn" in served.coordinators[0].chats[1]));
   const presses = join(tmp, "console-presses.json");
   const a = HL.pressLanes(presses, { kind: "say", target: C8.id, text: "  Hello\r\nthere  " });
   const b = HL.pressLanes(presses, { kind: "note", target: "q-try-1", text: "keep it" });
@@ -180,6 +204,10 @@ try {
     const term = await box(page, "[data-manager-terminal]");
     const body = await box(page, "[data-manager-body]");
 
+    /* 32: the board's own nebula behind the manager */
+    const neb = await page.evaluate(() => { const n = document.querySelector("[data-manager-nebula]"), g = n?.querySelector("[data-workspace-ground]"); return { kind: n?.getAttribute("data-manager-nebula"), ground: !!g, clouds: g?.querySelector("[data-ground-clouds]")?.childElementCount ?? 0, own: n ? getComputedStyle(n).backgroundImage : "" }; });
+    check("32: the manager stands on the board's own nebula (the workspace ground, drawn), not a background of its own", neb.kind === "workspace" && neb.ground && neb.clouds >= 1 && neb.own === "none", JSON.stringify(neb));
+
     /* 12, 13 */
     check("12: the column stands off the left wall, a clear gap on its left", !!c8 && c8.x - mgr.x >= 40, JSON.stringify(c8));
     check("13: the ring's box sits in the top right: against the right side and the top, right of the middle, clear of the column", !!orbs && W - orbs.r <= 30 && orbs.y - body.y <= 20 && orbs.x + orbs.w / 2 > 0.65 * W && orbs.x > c8.r + 40, JSON.stringify(orbs));
@@ -213,38 +241,89 @@ try {
     check("11: it opens every open question, grouped: new since you last looked (newest first), then older carried over", groups === "new:q-try-2+q-own+q-try-1 | older:q-carried", groups);
     await page.locator('[data-manager-all-row="q-own"]').click();
     await page.waitForTimeout(300);
-    const qAt = await page.locator("[data-manager-question-at]").textContent().catch(() => "");
+    const qAt = await page.locator("[data-manager-column-body] > [data-manager-question] [data-manager-question-at]").textContent().catch(() => "");
     const termQ = await page.locator("[data-manager-term-question]").getAttribute("data-manager-term-question").catch(() => null);
     const answerBtn = await page.locator('[data-manager-term-send="answer"]').count();
     check("9: a question opened from the list says where it is in that list, and the terminal answers it", /Question 2 of 3/.test(qAt ?? "") && termQ === "q-own" && answerBtn === 1, `${qAt} ${termQ} ${answerBtn}`);
-    await page.locator("[data-manager-back]").first().click();
+    await page.locator("[data-manager-column-body] > article [data-manager-back]").first().click();
     await page.locator(`[data-manager-head="${C8.id}"] [data-manager-questions]`).click();
     await page.waitForTimeout(300);
     const groups2 = await page.evaluate(() => [...document.querySelectorAll("[data-manager-all-group]")].map((g) => g.getAttribute("data-manager-all-group")).join(" | "));
     check("11: once opened it is no longer new: it stands under its chat", /^new \| chat:/.test(groups2), groups2);
-    await page.locator("[data-manager-back]").first().click();
+    await page.locator("[data-manager-column-body] > article [data-manager-back]").first().click();
 
     /* 20, 22: Private is on by default and shows badges only; names and models show with it off. */
     const privName = await page.locator(`${pane(STAGE.id)} [data-manager-name]`).textContent();
     check("22: with Private on (the default) a pane shows its badge only, never the plain name", privName === "🎛️ STAGE", privName);
     await page.locator("[data-manager-private]").click();
     await page.waitForTimeout(300);
-    const panes = await page.evaluate(() => [...document.querySelectorAll("[data-manager-pane]")].map((p) => ({ id: p.getAttribute("data-manager-pane"), open: p.dataset.open, name: p.querySelector("[data-manager-name]")?.textContent, q: p.querySelector("[data-manager-pane-question]")?.textContent, chip: p.querySelector("[data-manager-chip-open]")?.textContent })));
+    const panes = await page.evaluate(() => [...document.querySelectorAll("[data-manager-pane]")].map((p) => ({ id: p.getAttribute("data-manager-pane"), open: p.dataset.open, name: p.querySelector("[data-manager-name]")?.textContent, q: p.querySelector("[data-manager-pane-question] [data-manager-question-words]")?.textContent ?? p.querySelector("[data-manager-pane-question]")?.textContent, chip: p.querySelector("[data-manager-chip-open]")?.textContent })));
     const tp = panes.find((p) => p.id === TRYIT.id), sp = panes.find((p) => p.id === STAGE.id);
     check("20: every pane opens at its full size", panes.length >= 3 && panes.every((p) => p.open === "1"), panes.map((p) => p.open).join());
     check("20: a pane shows its newest question whole, never cut", tp?.q === LONG, tp?.q);
     check("20: the model chip reads the row's model and effort", /Opus 5\.5 · medium/.test(sp?.chip ?? ""), sp?.chip);
     check("22: the console's badge beside the plain name", sp?.name === "🎛️ STAGE · Console stage" && tp?.name === "🧊 TRYIT · Blender as one button", `${sp?.name} | ${tp?.name}`);
     const paneBtn = await page.evaluate((id) => document.querySelectorAll(`[data-manager-pane="${id}"] [data-manager-questions]`).length, TRYIT.id);
+    /* 27: open first, in place, without a press; the column keeps its chats (nothing over it). */
+    const inPlace = await page.evaluate(([id, c8]) => { const p = document.querySelector(`[data-manager-pane="${id}"]`), q = p?.querySelector('[data-manager-pane-question][data-in-place="1"]'), body = document.querySelector(`[data-manager-column="${c8}"] [data-manager-column-body]`);
+      return { at: q?.querySelector("[data-manager-question-at]")?.textContent, chooses: q?.querySelectorAll("[data-manager-choose]").length, over: !!body?.querySelector(":scope > [data-manager-question]"), panes: body?.querySelectorAll("[data-manager-pane]").length, h: Math.round(p?.getBoundingClientRect().height ?? 0) }; }, [TRYIT.id, C8.id]);
+    check("27: a chat's newest question is open first, in place on its pane (the pane stretches down), never over the column", /Question 1 of 2 · TRYIT/.test(inPlace.at ?? "") && inPlace.chooses === 2 && !inPlace.over && inPlace.panes >= 3 && inPlace.h > 250, JSON.stringify(inPlace));
     await page.locator(`${pane(TRYIT.id)} [data-manager-questions]`).click();
     await page.waitForTimeout(300);
-    const qAt2 = await page.locator("[data-manager-question-at]").textContent().catch(() => "");
-    check("11/20: a pane has one question button; it opens that chat's newest question, counted in that chat only", paneBtn === 1 && /Question 1 of 2 · TRYIT/.test(qAt2 ?? ""), `${paneBtn} ${qAt2}`);
+    const folded = await page.locator(`${pane(TRYIT.id)} [data-in-place="1"]`).count();
+    await page.locator(`${pane(TRYIT.id)} [data-manager-questions]`).click();
+    await page.waitForTimeout(300);
+    const qAt2 = await page.locator(`${pane(TRYIT.id)} [data-manager-question-at]`).textContent().catch(() => "");
+    const termQ2 = await page.locator("[data-manager-term-question]").getAttribute("data-manager-term-question").catch(() => null);
+    check("11/27: a pane's one question button folds its question and opens it again in place, counted in that chat only; the terminal answers it", paneBtn === 1 && folded === 0 && /Question 1 of 2 · TRYIT/.test(qAt2 ?? "") && termQ2 === "q-try-2", `${paneBtn} ${folded} ${qAt2} ${termQ2}`);
+    await page.locator(`${pane(TRYIT.id)} [data-manager-next]`).click();
+    await page.waitForTimeout(200);
+    const stepped = await page.locator(`${pane(TRYIT.id)} [data-manager-question-at]`).textContent().catch(() => "");
+    await page.locator(`${pane(TRYIT.id)} [data-manager-prev]`).click();
+    await page.waitForTimeout(200);
+    check("27: Next and Prev step through that chat's questions inside its pane", /Question 2 of 2 · TRYIT/.test(stepped ?? ""), stepped);
+
+    /* 24, 25, 26, 28 */
+    const named = await page.evaluate(([c8, st]) => {
+      const h = document.querySelector(`[data-manager-head="${c8}"] [data-manager-head-name]`), p = document.querySelector(`[data-manager-pane="${st}"]`), e = p.querySelector("[data-manager-name] [data-manager-emoji]"), n = p.querySelector("[data-manager-name]");
+      const bg = e ? getComputedStyle(e).backgroundColor : "", m = bg.match(/rgba?\(([\d.]+), ([\d.]+), ([\d.]+)(?:, ([\d.]+))?\)/);
+      return { head: h?.getAttribute("data-manager-coord-label"), headText: h?.textContent, light: !!m && (+m[1] + +m[2] + +m[3]) / 3 > 200 && (m[4] === undefined || +m[4] > 0.6), bigger: !!e && parseFloat(getComputedStyle(e).fontSize) > parseFloat(getComputedStyle(n).fontSize), area: p.querySelector("[data-manager-area]")?.textContent };
+    }, [C8.id, STAGE.id]);
+    check("24: the head reads as in the console: C8 · 🧽 PIONEER, not Coordinator 8", named.head === "C8 · 🧽 PIONEER" && named.headText === "🧽 PIONEER", JSON.stringify(named));
+    check("26: the emoji sits on a light chip, one step larger than its words", named.light && named.bigger, JSON.stringify(named));
+    check("25: each pane carries its area as a tag", named.area === "Console", named.area);
+    const filters = await page.locator(`${col(C8.id)} [data-manager-area-pick]`).count();
+    await page.locator(`${col(C8.id)} [data-manager-area-pick="Blender"]`).click();
+    await page.waitForTimeout(200);
+    const onlyB = await page.evaluate((c) => [...document.querySelectorAll(`[data-manager-column="${c}"] [data-manager-pane]`)].map((p) => p.getAttribute("data-manager-pane")), C8.id);
+    await page.locator(`${col(C8.id)} [data-manager-area-pick="all"]`).click();
+    await page.waitForTimeout(200);
+    const allBack = await page.locator(`${col(C8.id)} [data-manager-pane]`).count();
+    check("25: the column shows one area at a press, and all again", filters >= 4 && onlyB.join() === TRYIT.id && allBack >= 4, `${filters} ${onlyB.join()} ${allBack}`);
+    const band = await page.evaluate((id) => document.querySelector(`[data-manager-orbs] [data-lanes-orb="${id}"] [data-lanes-area]`)?.getAttribute("stroke"), STAGE.id);
+    check("25: on the ring an orb wears a faint band in its area's colour", band === "#c084fc", band);
+    const version = await page.evaluate(() => [...document.querySelectorAll("[data-manager-pane], [data-manager-orbs] [data-lanes-orb]")].map((e) => `${e.textContent} ${e.getAttribute("aria-label") ?? ""}`).join(" "));
+    check("28: no version words on any pane or orb (no 'behind', no 'built on')", !/behind:? ?\d|built on/i.test(version), (version.match(/behind:? ?\d|built on/i) ?? [""])[0]);
+
+    /* 27: the pane's terminal line */
+    const line = await page.evaluate((id) => { const b = document.querySelector(`[data-manager-pane="${id}"] [data-manager-bar]`), i = b.querySelector("[data-manager-say]"), s = b.querySelectorAll("[data-manager-say-send]"), br = b.getBoundingClientRect(), sr = s[0]?.getBoundingClientRect();
+      return { bg: getComputedStyle(b).backgroundColor, ph: i.getAttribute("placeholder") ?? "", sends: s.length, right: sr ? Math.round(br.right - sr.right) : -1, words: b.textContent.replace(/[›➤\s]/g, "") }; }, STAGE.id);
+    check("27: the pane's line is plain black, no placeholder words, no name, one send mark at the far right", line.bg === "rgb(0, 0, 0)" && line.ph === "" && line.sends === 1 && line.right >= 0 && line.right <= 6 && line.words === "", JSON.stringify(line));
+    const pastBefore = await page.locator(`${pane(STAGE.id)} [data-manager-pane-past]`).count();
+    await page.locator(`${pane(STAGE.id)} [data-manager-say]`).click();
+    await page.waitForTimeout(200);
+    const past = await page.evaluate((id) => { const pp = document.querySelector(`[data-manager-pane="${id}"] [data-manager-pane-past]`), b = document.querySelector(`[data-manager-pane="${id}"] [data-manager-bar]`); return pp ? { n: pp.children.length, above: pp.getBoundingClientRect().bottom <= b.getBoundingClientRect().top + 1 } : null; }, STAGE.id);
+    check("27: pressing the line shows that chat's previous messages above it", pastBefore === 0 && past?.n >= 1 && past.above, JSON.stringify(past));
+    await page.keyboard.type("Go on with 0.26");
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(400);
+    const said = posts.find((x) => x.kind === "say" && x.target === STAGE.id);
+    check("27: Enter on the line saves the words for that chat (read on its next turn)", said?.text === "Go on with 0.26", JSON.stringify(said));
 
     /* 1, 9 */
     check("9: the terminal sits under the ring and takes the rest of the height", !!term && term.y >= orbs.b - 1 && Math.abs(term.x - orbs.x) <= 2 && body.b - term.b <= 16 && term.h >= 200, JSON.stringify(term));
     const lines = await page.evaluate(() => [...document.querySelectorAll("[data-manager-term-line]")].map((l) => `${l.getAttribute("data-manager-term-line")}:${l.textContent}`));
-    check("1: the coordinator's messages in line, oldest above newest, named by its badge", lines.length === 3 && /First/.test(lines[0]) && /Third/.test(lines[2]) && /PIONEER/.test(lines[0]) && (await page.locator("[data-manager-term-name]").textContent()) === "🧽 PIONEER · Coordinator 8", lines.join(" | "));
+    check("1: the coordinator's messages in line, oldest above newest, named by its badge", lines.length === 3 && /First/.test(lines[0]) && /Third/.test(lines[2]) && /PIONEER/.test(lines[0]) && (await page.locator("[data-manager-term-name]").textContent()) === "C8 · 🧽 PIONEER", lines.join(" | "));
     const term1 = page.locator("[data-manager-term-input]");
     await term1.click();
     await page.keyboard.type("A note on this");
@@ -252,7 +331,7 @@ try {
     await page.waitForTimeout(400);
     const note = posts.find((p) => p.path === "/lanes/press" && p.kind === "note");
     check("9: Note saves the words on the open question", note?.target === "q-try-2" && note.text === "A note on this", JSON.stringify(note));
-    await page.locator("[data-manager-back]").first().click();
+    await page.locator(`${pane(TRYIT.id)} [data-manager-back]`).click();
     await page.waitForTimeout(200);
     await term1.click();
     await page.keyboard.type("Hello C8");
@@ -262,7 +341,7 @@ try {
     await page.keyboard.press("Delete");
     await page.keyboard.press("Enter");
     await page.waitForTimeout(500);
-    const say = posts.find((p) => p.path === "/lanes/press" && p.kind === "say");
+    const say = posts.find((p) => p.path === "/lanes/press" && p.kind === "say" && p.target === C8.id);
     const says = await page.locator("[data-manager-term-says]").textContent();
     const mine = await page.evaluate(() => [...document.querySelectorAll('[data-manager-term-line="you"]')].map((l) => l.textContent).join(" | "));
     check("9: real typing: Enter sends to the coordinator, Shift+Enter is a new line, Backspace edits the words", say?.target === C8.id && say.text === "Hello C8\nsecond line, then Backspace and Delete:" && (await term1.inputValue()) === "", JSON.stringify(say));
@@ -308,6 +387,40 @@ try {
     check("9: nothing typed in the terminal reached the board: it hasn't moved by a pixel", before === after && before.length > 10, `${before.length} ${after.length}`);
   }
   await ctx.close();
+
+  /* 29 to 31: two and three live coordinators, at two widths each. */
+  for (const n of [2, 3]) {
+    const extra = [row(9, "Coordinator 9", "work", { kind: "coordinator", lane: "coordinator-9", code: "NINE", emoji: "🛰️", messages: [{ at: ago(1), text: "Nine here." }] }), row(10, "Coordinator 10", "work", { kind: "coordinator", lane: "coordinator-10", code: "TEN", emoji: "🧭", messages: [{ at: ago(1), text: "Ten here." }] })].slice(0, n - 1);
+    feedNow = JSON.parse(JSON.stringify(FEED));
+    feedNow.coordinators[0].chats.push(...extra);
+    const cx = await browser.newContext({ viewport: { width: 1500, height: 950 }, reducedMotion: "reduce" });
+    await standIn(cx, origin);
+    const pg = await cx.newPage();
+    pg.on("pageerror", (e) => errors.push(`${n} coordinators: ${e.message}`));
+    await openBoard(pg, BASE, "solface");
+    if (!(await openManager(pg))) { check(`29: ${n} coordinators: the manager opens`, false); await cx.close(); continue; }
+    await pg.waitForFunction((k) => document.querySelectorAll("[data-manager-column]").length === k, n, { timeout: 15000 }).catch(() => {});
+    for (const w of [1500, 1900]) {
+      await pg.setViewportSize({ width: w, height: 950 });
+      await pg.waitForTimeout(600);
+      const got = await pg.evaluate(() => {
+        const cs = [...document.querySelectorAll("[data-manager-column]")], rail = document.querySelector("[data-manager-rail]").getBoundingClientRect();
+        const rs = cs.map((c) => c.getBoundingClientRect());
+        return { labels: cs.map((c) => c.getAttribute("data-label")).join(), outer: cs.map((c) => c.getAttribute("data-outer")).join(), border: cs.map((c) => getComputedStyle(c).borderTopColor).join("|"),
+          rings: cs.map((c) => document.querySelector(`[data-lanes-ring="${c.getAttribute("data-manager-column")}"]`)?.getAttribute("data-own")).join(),
+          side: rs.every((r, i) => i === 0 || r.left >= rs[i - 1].right) && rs[rs.length - 1].right <= rail.left + 1 && rail.right <= innerWidth + 1 && rs.every((r) => r.width >= 299),
+          term: document.querySelector("[data-manager-term-name]")?.textContent, current: cs.find((c) => c.getAttribute("data-current") === "1")?.getAttribute("data-label"),
+          over: document.documentElement.scrollWidth > innerWidth + 1 };
+      });
+      const labels = ["C8", "C9", "C10"].slice(0, n).join(), outer = ["#2fd27a", "#a06bff", "#f2a51f"].slice(0, n).join();
+      const newest = n === 2 ? "C9 · 🛰️ NINE" : "C10 · 🧭 TEN";
+      check(`29-31: ${n} coordinators at ${w} px: a column each, oldest first, side by side with the rail, nothing over`, got.labels === labels && got.side && !got.over, JSON.stringify(got));
+      check(`30: ${n} coordinators at ${w} px: green, purple${n === 3 ? ", amber" : ""} in that order, columns and rings alike`, got.outer === outer && got.rings === outer, `${got.outer} | ${got.rings}`);
+      check(`29: ${n} coordinators at ${w} px: the terminal talks to the newest (current) one`, got.term === newest && got.current === labels.split(",").pop(), `${got.term} ${got.current}`);
+    }
+    await cx.close();
+  }
+  feedNow = JSON.parse(JSON.stringify(FEED));
 
   /* With motion on: sample the ring a few times as it turns; nothing ever nears the edge, the two working chats never meet. */
   feedNow = JSON.parse(JSON.stringify(FEED));

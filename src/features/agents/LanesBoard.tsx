@@ -36,7 +36,7 @@ import {
   ringLine, ringPoint, ringSegments, ringState, ringTarget, searchArchive, startTilt, stepBody, thinkingShare, tumbleAt, tumbleSpeed, veilFeed, whenOf,
   type Body, type Decision, type LaneChat, type LaneCoordinator, type LanesFeed, type Rgb, type Seen,
 } from "./lanes";
-import { hitRadius, keepInside } from "./manager";
+import { areaColour, hitRadius, keepInside } from "./manager";
 
 /** J may drop the chat panel's field and Send; the rest of the panel stays. */
 const CHAT_BOX_SEND = true;
@@ -353,6 +353,8 @@ export function LanesBoard({ beside }: { beside?: BesideColumns } = {}) {
           {kind === "sun" ? <circle r={R0 * 2.2} fill="url(#lanes-sun-corona)" opacity={0.8} /> : <circle r={(eon ? 50 : 38) * look.orb} fill={`url(#lanes-halo-${x.state})`} opacity={Math.min(1, look.glow)} />}
           {kind === "sun" ? <circle r={R0} fill="url(#lanes-sun-core)" /> : surface(x.id, R0, colour, x.state === "park")}
           <circle r={R0} fill="none" stroke="#ffffff" strokeOpacity={eon ? 0.9 : 0.3} strokeWidth={eon ? 2 : 1} />
+          {/* BAM mark 25: beside the columns, a faint band in the colour of what the chat works on. */}
+          {beside && kind === "orb" && areaColour(x) ? <circle data-lanes-area={x.area} r={R0 + 5} fill="none" stroke={areaColour(x)} strokeOpacity={0.55} strokeWidth={3} style={{ pointerEvents: "none" }} /> : null}
           {kind === "sun" ? null : <text y={6} textAnchor="middle" fill="#061018" style={{ font: "800 15px ui-monospace, Menlo, Consolas, monospace", pointerEvents: "none" }}>{markOf(x.name)}</text>}
           {/* Answered just now: one ring going out from it. */}
           {pu >= 0 && pu < 1 ? <circle r={R0 + 46 * pu} fill="none" stroke="#ffffff" strokeOpacity={(1 - pu) * 0.9} strokeWidth={4 * (1 - pu) + 1} style={{ pointerEvents: "none" }} /> : null}

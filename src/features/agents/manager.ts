@@ -30,6 +30,16 @@ export const RING_PAIRS: Colours[] = [
   { outer: "#f2c230", inner: "#fff09a", block: "lantern", turn: 42, fill: "rgba(112, 82, 8, 0.5)" },
 ];
 export const coloursOf = (n: number): Colours => RING_PAIRS[((Math.round(n) % 6) + 6) % 6]!;
+/**
+ * BAM mark 30 (J, 2026-11-11: "green for first purple for 2nd and amber for 3rd"): the live coordinators' colours by
+ * their place, oldest first (mark 31, GUESS): the first green, the second purple, the third amber, then round again.
+ */
+export const RANK_COLOURS: Colours[] = [
+  { outer: "#2fd27a", inner: "#b8ffd8", block: "verdant", turn: 0, fill: "rgba(10, 92, 52, 0.5)" },
+  { outer: "#a06bff", inner: "#d9c2ff", block: "azure", turn: 48, fill: "rgba(62, 28, 124, 0.5)" },
+  { outer: "#f2a51f", inner: "#ffe2a3", block: "lantern", turn: 0, fill: "rgba(112, 70, 8, 0.5)" },
+];
+export const rankColours = (k: number): Colours => RANK_COLOURS[((k % 3) + 3) % 3]!;
 
 /**
  * The sizes of the ring: the outer line, the inner line, the two radii, and how far in the content starts.
@@ -134,7 +144,36 @@ export function columnsOf(feed: LanesFeed | null, gone: Record<string, boolean> 
     col.questions.push(d);
     if (!about.some((x) => col.panes.some((p) => p.id === x.id))) col.own.push(d);
   }
-  return cols;
+  /* Marks 30 and 31: shown oldest first, coloured by that place (green, purple, amber); the newest stays the current one. */
+  const shown = [...cols].sort((a, b) => a.n - b.n);
+  shown.forEach((c, k) => { c.colours = rankColours(k); });
+  return shown;
+}
+/** The current coordinator's column: the newest live one, where chats with no `runBy` stand and the terminal talks to. */
+export const currentOf = (cols: Column[]): Column | null => cols.find((c) => c.current) ?? cols[cols.length - 1] ?? null;
+/** Mark 24: a coordinator reads as in the console, "C8 · 🧽 PIONEER" (number, emoji, code word); its name when it has no code. */
+export function coordLabel(col: { label: string; name: string; coord: { code?: string; emoji?: string } | null }): string {
+  const code = (col.coord?.code ?? "").trim(), emoji = (col.coord?.emoji ?? "").trim();
+  return code ? `${col.label} · ${[emoji, code].filter(Boolean).join(" ")}` : `${col.label} · ${col.name}`;
+}
+
+/** Mark 25: what a chat works on, from its row's `area`, with a colour for its tag and its faint band on the ring. */
+export const AREAS = ["Builder", "Console", "Blender", "Tests", "Coordinator"] as const;
+export const AREA_COLOUR: Record<string, string> = { builder: "#35c8ff", console: "#c084fc", blender: "#ff9f43", tests: "#3dffae", coordinator: "#ffd166" };
+export const areaOf = (x: { area?: string }) => (x.area ?? "").trim();
+export const areaColour = (x: { area?: string }) => AREA_COLOUR[plain(areaOf(x))] ?? (areaOf(x) ? "#b9b3c9" : "");
+/** The areas in a list of chats, each with its count, in the order J reads them (the known ones first). */
+export function areasIn(chats: { area?: string }[]): { area: string; count: number }[] {
+  const m = new Map<string, number>();
+  for (const x of chats) { const a = areaOf(x); if (a) m.set(a, (m.get(a) ?? 0) + 1); }
+  const rank = (a: string) => { const i = AREAS.findIndex((k) => plain(k) === plain(a)); return i < 0 ? 99 : i; };
+  return [...m].map(([area, count]) => ({ area, count })).sort((a, b) => rank(a.area) - rank(b.area) || a.area.localeCompare(b.area));
+}
+
+/** Mark 26: a label in parts, so the emoji can sit on its own light chip: "🎛️" + "STAGE · Console stage". */
+export function labelParts(x: { name: string; code?: string; emoji?: string; realName?: string }): { emoji: string; words: string } {
+  const emoji = (x.emoji ?? "").trim(), whole = labelOf(x);
+  return emoji && whole.startsWith(emoji) ? { emoji, words: whole.slice(emoji.length).trim() } : { emoji: "", words: whole };
 }
 
 /** The open questions about one chat, in the feed's order. */
