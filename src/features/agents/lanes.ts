@@ -49,6 +49,8 @@ export interface LaneChat {
   /** BAM (J, 2026-11-11): a coordinator's latest messages to J, oldest first (the last five), and when the chat began (its first timeline step, else its first send), which places it on its ring. */
   messages?: HistoryStep[];
   begun?: number;
+  /** BAM mark 25: what it works on (Builder, Console, Blender, Tests, Coordinator). */
+  area?: string;
 }
 export interface HistoryStep { at: string; text: string }
 /** Names and states only: the helper keeps notes off the Builder's page (`helper/server/lanes.ts`). */
@@ -93,7 +95,7 @@ export function readFeed(raw: unknown): LanesFeed | null {
       if (!x || typeof x.id !== "string" || !STATES.has(x.state as string)) continue;
       const history = readHistory(x.history), sentAt = typeof x.sentAt === "number" ? x.sentAt : null;
       chats.push({ id: x.id, name: words(x.name) || x.id, lane: words(x.lane), state: x.state as ChatState, sentAt, lastSeen: words(x.lastSeen), history, messages: readHistory(x.messages).slice(-5), begun: begunOf(history, sentAt, words(x.lastSeen)), helper: x.helper === true, code: words(x.code), emoji: words(x.emoji), note: words(x.note), last: words(x.last),
-        kind: words(x.kind), runBy: words(x.runBy), ...(typeof x.turns === "number" ? { turns: x.turns } : {}), model: words(x.model), effort: words(x.effort), hidden: x.hidden === true, archived: x.archived === true, report: words(x.report) });
+        kind: words(x.kind), runBy: words(x.runBy), ...(typeof x.turns === "number" ? { turns: x.turns } : {}), model: words(x.model), effort: words(x.effort), area: words(x.area), hidden: x.hidden === true, archived: x.archived === true, report: words(x.report) });
     }
     coordinators.push({ id: c.id, name: words(c.name) || c.id, chats, retired: c.retired === true || (chats.length > 0 && chats.every((x) => x.state === "done")), note: words(c.note) });
   }

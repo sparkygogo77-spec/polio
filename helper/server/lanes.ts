@@ -70,7 +70,7 @@ export function publicHistory(raw: unknown): { at: unknown; text: unknown }[] {
   return (raw as unknown[]).flatMap((h) => (h && typeof h === "object" && (h as { public?: unknown }).public === true ? [{ at: (h as { at?: unknown }).at, text: (h as { text?: unknown }).text }] : []));
 }
 /** What a chat shows the Builder. Since piece G its note and latest line too; anything else on it (a model, a pid) stays here. */
-const CHAT_KEYS = ["id", "name", "lane", "code", "emoji", "state", "sentAt", "lastSeen", "helper", "note", "last", "kind", "runBy", "turns", "model", "effort", "hidden", "archived", "archivedAt", "report", "messages"];
+const CHAT_KEYS = ["id", "name", "lane", "code", "emoji", "state", "sentAt", "lastSeen", "helper", "note", "last", "kind", "runBy", "turns", "model", "effort", "hidden", "archived", "archivedAt", "report", "messages", "area"];
 /** The whole timeline (piece G): every line, as its time and words. */
 export function allHistory(raw: unknown): { at: unknown; text: unknown }[] {
   if (!Array.isArray(raw)) return [];
