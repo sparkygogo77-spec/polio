@@ -136,7 +136,7 @@ const KIND_TINT: Record<CostKind, string> = { shell: "#6fb6ff", host: "#e8e2f6",
 function Cost({ cost, heaviest, now, priv, onShares }: { cost: OwnerCost; heaviest: number; now: number; priv: boolean; onShares: (k: CostKind | "all" | null) => void }) {
   const cpu = cpuWords(cost.cpu), up = upWords(cost.startedAt, now);
   return (
-    <span data-manager-cost="" className="inline-flex items-center gap-1.5" onMouseLeave={() => onShares(null)}>
+    <span data-manager-cost="" className="inline-flex min-w-0 max-w-full flex-wrap items-center gap-x-1.5 gap-y-0.5" onMouseLeave={() => onShares(null)}>
       <span data-manager-pill="" tabIndex={0} title="What it runs on this PC: hover for each kind's share" onMouseEnter={() => onShares("all")} onFocus={() => onShares("all")} onBlur={() => onShares(null)}
         className="inline-flex shrink-0 flex-col justify-center" style={{ width: 84, height: 16, borderRadius: 999, background: "#d9dbe2", color: "#101418", textShadow: "none", padding: "0 8px", cursor: "help" }}>
         <span data-manager-mem="" className="text-center font-bold" style={{ fontSize: 9.5, lineHeight: "10px" }}>{priv ? "memory" : memWords(cost.memBytes)}</span>
@@ -200,7 +200,7 @@ function ModelChip({ chat, asked, priv, onAsk }: { chat: LaneChat; asked: { mode
   return (
     <span data-manager-chip={chat.id} data-open={open ? "1" : "0"} style={{ display: "contents" }} onClick={(e) => e.stopPropagation()}>
       <button type="button" data-manager-chip-open="" aria-expanded={open} title="What this chat runs on. Press to ask for another model." onClick={() => setOpen((o) => !o)}
-        className="inline-flex shrink-0 items-center" style={{ height: 18, padding: "0 7px", borderRadius: 999, fontSize: 10.5, fontWeight: 700, color: INK, background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.35)", textShadow: "none" }}>
+        className="inline-flex min-w-0 max-w-full items-center text-left" style={{ minHeight: 18, padding: "1px 7px", borderRadius: 9, fontSize: 10.5, lineHeight: "14px", fontWeight: 700, color: INK, background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.35)", textShadow: "none", whiteSpace: "normal", overflowWrap: "anywhere" }}>
         ▸ {chipWords(now, asked, priv && !open)}
       </button>
       {open ? (

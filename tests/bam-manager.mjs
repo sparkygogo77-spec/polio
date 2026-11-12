@@ -83,6 +83,8 @@ if (L?.readFeed && M?.labelOf) {
   check("19: a press area is never under 16 px across its radius on screen", M.hitRadius(10, 0.5) === 32 && M.hitRadius(40, 1) === 40);
   const lay = M.layoutOf(1500, 950, 1), small = M.layoutOf(700, 900, 1);
   check("12/13: the column off the wall, a rail on the right for the ring and the terminal; stacked when narrow", !lay.stacked && lay.gap >= 40 && lay.rail >= 340 && lay.col <= 640 && lay.gap + lay.col + lay.rail < 1500 - 60 && small.stacked, JSON.stringify(lay));
+  const fits = [960, 1000, 1100, 1300, 1900].map((w) => { const l = M.layoutOf(w, 950, 2); return l.stacked || (l.col >= 300 && l.gap + 2 * l.col + l.rail + 2 * 8 + 16 <= w); });
+  check("12/13: at every width two columns, the gap and the rail fit side by side (the rail, then the gap, give way first) or stack", fits.every(Boolean), fits.join());
   const open = feed.questions.filter(L.isOpen);
   const g0 = M.questionGroups(feed, open, new Set(), NOW);
   check("11: grouped: new since you last looked (newest first), then older carried over", g0.fresh.map((d) => d.id).join() === "q-try-2,q-own,q-try-1" && g0.older.map((d) => d.id).join() === "q-carried" && g0.byChat.length === 0, JSON.stringify(g0).slice(0, 200));
@@ -277,6 +279,28 @@ try {
     await page.keyboard.press("Enter");
     await page.waitForTimeout(500);
     check("9: with a question open, Enter answers it", posts.some((p) => p.path === "/lanes/answer" && p.id === "q-own" && p.answer === "yes"));
+    /* Narrow: a long model chip ("→ … asked") and every pane wrap inside their pane; the columns and the rail never overlap. */
+    await page.locator(`${pane(STAGE.id)} [data-manager-chip-open]`).click();
+    await page.locator(`${pane(STAGE.id)} [data-manager-model="Fable 5.2"]`).click();
+    await page.locator(`${pane(STAGE.id)} [data-manager-effort="xhigh"]`).click();
+    await page.locator(`${pane(STAGE.id)} [data-manager-model-use]`).click();
+    await page.waitForTimeout(300);
+    /* Two live coordinators, as on the merge chat's run: two columns share the width, so each is narrow. */
+    feedNow.coordinators[0].chats.push(row(9, "Coordinator 9", "work", { kind: "coordinator", lane: "coordinator-9", code: "NEXT", emoji: "🛰️", turns: 1 }));
+    const two = await page.waitForFunction(() => document.querySelectorAll("[data-manager-column]").length === 2, null, { timeout: 15000 }).then(() => true).catch(() => false);
+    check("two live coordinators: two columns", two);
+    for (const w of [960, 1000, 1100]) {
+      await page.setViewportSize({ width: w, height: 950 });
+      await page.waitForTimeout(500);
+      const fit = await page.evaluate((id) => {
+        const cs = [...document.querySelectorAll("[data-manager-column]")].map((e) => e.getBoundingClientRect()), rail = document.querySelector("[data-manager-rail]").getBoundingClientRect();
+        const spill = [...document.querySelectorAll("[data-manager-pane]")].flatMap((p) => { const pr = p.getBoundingClientRect(); return [...p.querySelectorAll("b, span, p, input, textarea, button, a")].filter((e) => !e.hasAttribute("data-molten")).filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && (r.left < pr.left - 1 || r.right > pr.right + 1); }).map((e) => (e.textContent || e.tagName).slice(0, 30)); });
+        return { chip: document.querySelector(`[data-manager-pane="${id}"] [data-manager-chip-open]`)?.textContent?.includes("asked"), spill, order: cs.every((r) => r.right <= rail.left + 1) && rail.right <= innerWidth + 1, over: document.documentElement.scrollWidth > innerWidth + 1 };
+      }, STAGE.id);
+      check(`at ${w} px: nothing in a pane runs past its side (a long model chip wraps), and the columns and the rail never overlap`, fit.chip && fit.spill.length === 0 && fit.order && !fit.over, JSON.stringify(fit));
+    }
+    await page.setViewportSize({ width: 1500, height: 950 });
+    await page.waitForTimeout(300);
     await page.locator("[data-manager-to-dock]").click().catch(() => {});
     await page.locator("[data-agents-button]").click().catch(() => {});
     await page.waitForTimeout(300);

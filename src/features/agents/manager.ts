@@ -378,10 +378,17 @@ export const hitRadius = (drawn: number, pxPerUnit: number, minPx = 16) => Math.
  */
 export interface Layout { stacked: boolean; gap: number; rail: number; col: number; orbsH: number }
 export function layoutOf(width: number, height: number, cols: number): Layout {
-  if (width > 0 && width < 760) return { stacked: true, gap: 8, rail: width - 16, col: width - 16, orbsH: Math.round(Math.min(width - 16, 420)) };
-  const gap = Math.max(40, Math.round(width * 0.04));
-  const rail = Math.max(340, Math.min(620, Math.round(width * 0.34)));
-  const col = columnWidth(width - gap - rail - 24 - 8, cols);
+  const stack = (): Layout => ({ stacked: true, gap: 8, rail: width - 16, col: width - 16, orbsH: Math.round(Math.min(width - 16, 420)) });
+  if (width > 0 && width < 760) return stack();
+  const n = Math.max(1, cols), cramped = 8 + 8 * n + 8;
+  let gap = Math.max(40, Math.round(width * 0.04));
+  let rail = Math.max(340, Math.min(620, Math.round(width * 0.34)));
+  /* Where the columns at their narrowest and the rail don't fit, the rail gives way first (to 300), then the gap (to 16): nothing ever overlaps. */
+  const over = () => gap + n * 300 + rail + cramped - width;
+  if (width > 0 && over() > 0) rail = Math.max(300, rail - over());
+  if (width > 0 && over() > 0) gap = Math.max(16, gap - over());
+  if (width > 0 && over() > 0) return stack();
+  const col = columnWidth(width - gap - rail - cramped, n, 0);
   const orbsH = Math.round(Math.max(260, Math.min(height * 0.56, rail * 0.9)));
   return { stacked: false, gap, rail, col, orbsH };
 }
